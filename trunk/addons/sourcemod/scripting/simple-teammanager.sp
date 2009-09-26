@@ -41,7 +41,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "2.0.$Revision$"
+#define PLUGIN_VERSION "2.1.$Rev$"
 #define VOTE_YES "##YES##"
 #define VOTE_NO "##NO##"
 

@@ -41,7 +41,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 #define REQUIRE_EXTENSIONS
 #define AUTOLOAD_EXTENSIONS
 
-#define PLUGIN_VERSION "1.3.$Revision$"
+#define PLUGIN_VERSION "1.1.$Rev$"
 #define SPECTATOR 1
 #define TEAM_RED 2
 #define TEAM_BLUE 3

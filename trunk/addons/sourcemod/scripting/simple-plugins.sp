@@ -34,7 +34,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 *************************************************************************
 */
 
-#define CORE_PLUGIN_VERSION "1.0.$Revision$"
+#define CORE_PLUGIN_VERSION "1.1.$Rev$"
 
 #include <simple-plugins>
 
