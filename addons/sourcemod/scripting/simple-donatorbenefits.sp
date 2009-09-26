@@ -37,7 +37,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 #include <simple-plugins>
 #include <dukehacks>
 
-#define PLUGIN_VERSION "1.0.$Revision$"
+#define PLUGIN_VERSION "1.1.$Rev$"
 
 #define CHAT_SYMBOL '@'
 #define CHAT_MAX_MESSAGE_LENGTH 1024

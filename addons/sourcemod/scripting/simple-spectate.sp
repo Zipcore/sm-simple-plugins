@@ -41,7 +41,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
 
-#define PLUGIN_VERSION "1.0.$Revision$"
+#define PLUGIN_VERSION "1.1.$Rev$"
 
 #define SPECMODE_NONE 				0
 #define SPECMODE_FIRSTPERSON 		4

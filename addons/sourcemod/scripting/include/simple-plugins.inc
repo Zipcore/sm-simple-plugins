@@ -39,7 +39,7 @@ $Copyright: (c) Simple SourceMod Plugins 2008-2009$
 
 #define _simpleplugin_included
 
-#define CORE_INC_VERSION "1.0.$Revision$"
+#define CORE_INC_VERSION "1.1.$Rev$"
 
 #pragma semicolon 1
 #include <sourcemod>
