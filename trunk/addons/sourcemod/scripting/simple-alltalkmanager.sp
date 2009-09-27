@@ -38,7 +38,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <sourcemod>
 #include <sdktools>
 
-#define PLUGIN_VERSION "1.2.$Rev$"
+#define PLUGIN_VERSION "1.3.0"
 
 new Handle:satm_enabled = INVALID_HANDLE;
 new Handle:satm_threshold_enabled = INVALID_HANDLE;
