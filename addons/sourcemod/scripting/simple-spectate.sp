@@ -819,8 +819,6 @@ public AdminMenu_SpecPlayer(Handle:topmenu, TopMenuAction:action, TopMenuObject:
 		/**
 		See if we already have a target
 		*/
-		new String:sDisplayName[128];
-		
 		if (g_aPlayers[param][iTargetIndex])
 		{
 			Format(buffer, maxlength, "Spectate(Disable)");
