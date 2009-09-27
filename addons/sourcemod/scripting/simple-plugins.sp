@@ -1,11 +1,11 @@
 /************************************************************************
 *************************************************************************
-Simple SourceMod Plugins
+Simple Plugins
 Description:
-	Core plugin for Simple SourceMod Plugins project
+	Core plugin for Simple Plugins project
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -29,7 +29,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -55,11 +55,11 @@ Setting our plugin information.
 */
 public Plugin:myinfo =
 {
-	name = "Simple SourceMod Plugins Core Plugin",
-	author = "Simple SourceMod Plugins",
-	description = "Core plugin for Simple SourceMod Plugins",
+	name = "Simple Plugins Core Plugin",
+	author = "Simple Plugins",
+	description = "Core plugin for Simple Plugins",
 	version = CORE_PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 };
 
 public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
@@ -263,10 +263,6 @@ public Native_SM_MovePlayer(Handle:plugin, numParams)
 	*/
 	new iClient = GetNativeCell(1);
 	new iTeam = GetNativeCell(2);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -310,10 +306,6 @@ public Native_SM_SetForcedTeam(Handle:plugin, numParams)
 	*/
 	new iClient = GetNativeCell(1);
 	new iTeam = GetNativeCell(2);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -346,10 +338,6 @@ public Native_SM_GetForcedTeam(Handle:plugin, numParams)
 	Get and check the client
 	*/
 	new iClient = GetNativeCell(1);
-	if (iClient == 0 || IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -381,10 +369,6 @@ public Native_SM_ClearForcedTeam(Handle:plugin, numParams)
 	Get and check the client and team
 	*/
 	new iClient = GetNativeCell(1);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -443,10 +427,6 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 	*/
 	new iClient = GetNativeCell(1);
 	new iPlayer = GetNativeCell(2);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -462,6 +442,10 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 	if (!IsClientConnected(iPlayer))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Player %d is not connected", iPlayer);
+	}
+	if (IsFakeClient(iClient))
+	{
+		return ThrowNativeError(SP_ERROR_INDEX, "Bots are not supported");
 	}
 	
 	/**
@@ -499,10 +483,6 @@ public Native_SM_GetClientBuddy(Handle:plugin, numParams)
 	Get and check the client 
 	*/
 	new iClient = GetNativeCell(1);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -510,6 +490,10 @@ public Native_SM_GetClientBuddy(Handle:plugin, numParams)
 	if (!IsClientConnected(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+	}
+	if (IsFakeClient(iClient))
+	{
+		return ThrowNativeError(SP_ERROR_INDEX, "Bots are not supported");
 	}
 	
 	/**
@@ -526,10 +510,6 @@ public Native_SM_LockBuddy(Handle:plugin, numParams)
 	*/
 	new iClient = GetNativeCell(1);
 	new bool:bSetting = GetNativeCell(2) ? true : false;
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -537,6 +517,10 @@ public Native_SM_LockBuddy(Handle:plugin, numParams)
 	if (!IsClientConnected(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+	}
+	if (IsFakeClient(iClient))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
 	
 	g_aPlayers[iClient][bBuddyLocked] = bSetting;
@@ -550,10 +534,6 @@ public Native_SM_IsBuddyLocked(Handle:plugin, numParams)
 	Get and check the client 
 	*/
 	new iClient = GetNativeCell(1);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -561,6 +541,10 @@ public Native_SM_IsBuddyLocked(Handle:plugin, numParams)
 	if (!IsClientConnected(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+	}
+	if (IsFakeClient(iClient))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
 	
 	return g_aPlayers[iClient][bBuddyLocked];
@@ -573,10 +557,6 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	Get and check the client
 	*/
 	new iClient = GetNativeCell(1);
-	if (IsFakeClient(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
-	}
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%d)", iClient);
@@ -584,6 +564,10 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	if (!IsClientConnected(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Client (%d) is not connected", iClient);
+	}
+	if (IsFakeClient(iClient))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
 	
 	/**
