@@ -1,11 +1,11 @@
 /************************************************************************
 *************************************************************************
-Simple SourceMod Plugins
+Simple Plugins
 Description:
-	Included file for core plugin in the Simple SourceMod Plugins project
+	Included file for core plugin in the Simple Plugins project
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -29,7 +29,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************/
 
