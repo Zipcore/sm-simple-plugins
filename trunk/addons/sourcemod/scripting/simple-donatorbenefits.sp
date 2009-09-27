@@ -5,7 +5,7 @@ Description:
 	Provides donator benefits to players
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -29,7 +29,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -111,10 +111,10 @@ new Float:g_fUberLevel = 0.0;
 public Plugin:myinfo =
 {
 	name = "Simple Donation Benefits",
-	author = "Antithasys",
+	author = "Simple Plugins",
 	description = "Gives donators benefits to players",
 	version = PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 }
 
 public OnPluginStart()

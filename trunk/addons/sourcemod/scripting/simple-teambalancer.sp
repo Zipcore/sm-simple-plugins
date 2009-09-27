@@ -10,7 +10,7 @@ Description:
  		Admins are immune
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -34,7 +34,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -119,10 +119,10 @@ new String:g_sAdminFlag[5];
 public Plugin:myinfo =
 {
 	name = "Simple Team Balancer",
-	author = "Simple SourceMod Plugins",
+	author = "Simple Plugins",
 	description = "Balances teams based upon player count.",
 	version = PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 }
 
 public OnPluginStart()

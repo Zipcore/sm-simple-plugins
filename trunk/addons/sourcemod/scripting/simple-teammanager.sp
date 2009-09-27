@@ -10,7 +10,7 @@ Description:
 		*Works with Simple Team Balancer (if installed)
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -34,7 +34,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -77,10 +77,10 @@ new Float:g_fScrambleDelay, Float:g_fVoteWin;
 public Plugin:myinfo =
 {
 	name = "Simple Team Manager",
-	author = "Simple SourceMod Plugins",
+	author = "Simple Plugins",
 	description = "Manages players and thier team.",
 	version = PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 };
 
 public OnPluginStart()

@@ -5,6 +5,8 @@ Description:
 	Gives admins immunity during certain rounds
 *************************************************************************
 *************************************************************************
+This file is part of Simple Plugins project.
+
 This plugin is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later version.
@@ -26,7 +28,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -139,10 +141,10 @@ new g_iClassMaxHealth[TFClassType] = {0, 125, 125, 200, 175, 150, 300, 175, 125,
 public Plugin:myinfo =
 {
 	name = "Simple Round Immunity",
-	author = "Simple SourceMod Plugins",
+	author = "Simple Plugins",
 	description = "Gives admins immunity during certain rounds",
 	version = PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 }
 
 bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
