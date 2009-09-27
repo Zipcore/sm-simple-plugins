@@ -5,7 +5,7 @@ Description:
  		Spectate a player and follow them through death.
 *************************************************************************
 *************************************************************************
-This file is part of Simple SourceMod Plugins project.
+This file is part of Simple Plugins project.
 
 This plugin is free software: you can redistribute 
 it and/or modify it under the terms of the GNU General Public License as
@@ -29,7 +29,7 @@ $Date$
 $LastChangedBy$
 $LastChangedDate$
 $URL$
-$Copyright: (c) Simple SourceMod Plugins 2008-2009$
+$Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
@@ -65,6 +65,8 @@ enum e_CvarHandles
 	Handle:hFreeze,
 	Handle:hFreezeBomb,
 	Handle:hKick,
+	Handle:hSlap,
+	Handle:hSlay,
 	Handle:hTimeBomb
 };
 
@@ -82,6 +84,8 @@ enum e_CvarSettings
 	bool:bFreeze,
 	bool:bFreezebomb,
 	bool:bKick,
+	bool:bSlap,
+	bool:bSlay,
 	bool:bTimeBomb
 };
 
@@ -112,6 +116,8 @@ enum e_Punishments
 	Punish_Freeze,
 	Punish_FreezeBomb,
 	Punish_Kick,
+	Punish_Slap,
+	Punish_Slay,
 	Punish_TimeBomb
 };
 
@@ -135,15 +141,15 @@ new g_aPluginSettings[e_PluginSettings];
 new g_aMenus[e_Menus];
 new g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
 new String:g_sAdminFlags[16];
-new String:g_sPunishments[e_Punishments][15] = { "None", "Ban", "Beacon", "Blind", "Cheater", "Drug", "Freeze", "FreezeBomb", "Kick", "TimeBomb" };
+new String:g_sPunishments[e_Punishments][15] = { "None", "Ban", "Beacon", "Blind", "Cheater", "Drug", "Freeze", "FreezeBomb", "Kick", "Slap", "Slay", "TimeBomb" };
 
 public Plugin:myinfo =
 {
 	name = "Simple Spectate",
-	author = "Simple SourceMod Plugins",
+	author = "Simple Plugins",
 	description = "Spectate a player and follow them through death.",
 	version = PLUGIN_VERSION,
-	url = "http://projects.mygsn.net"
+	url = "http://www.simple-plugins.com"
 };
 
 /**
@@ -180,6 +186,8 @@ public OnPluginStart()
 	g_aPluginCvar[hFreeze] = CreateConVar("sm_spectate_freeze", "1", "Enable/Disable freeze option");
 	g_aPluginCvar[hFreezeBomb] = CreateConVar("sm_spectate_freezebomb", "1", "Enable/Disable freezebomb option");
 	g_aPluginCvar[hKick] = CreateConVar("sm_spectate_kick", "1", "Enable/Disable kick option");
+	g_aPluginCvar[hSlap] = CreateConVar("sm_spectate_slap", "1", "Enable/Disable slap option");
+	g_aPluginCvar[hSlay] = CreateConVar("sm_spectate_slay", "1", "Enable/Disable slay option");
 	g_aPluginCvar[hTimeBomb] = CreateConVar("sm_spectate_timebomb", "1", "Enable/Disable timebomb option");
 	
 	sm_spectate_adminflag = CreateConVar("sm_spectate_adminflag", "d", "Admin Flag to use for admin hud");
@@ -247,7 +255,7 @@ public OnConfigsExecuted()
 	new e_CvarHandles:iCvar;
 	for ( ; _:iCvar < sizeof(g_aPluginCvarSettings); iCvar++)
 	{
-		g_aPluginSettings[iCvar] = GetConVarBool(g_aPluginCvar[iCvar]);
+		g_aPluginCvarSettings[iCvar] = GetConVarBool(g_aPluginCvar[iCvar]);
 	}
 	
 	/*
@@ -302,7 +310,7 @@ public OnAllPluginsLoaded()
 	/*
 	Deal with some known plugin conflicts
 	*/
-	new Handle:hObserveClient = INVALID_HANDLE;
+	new Handle:hObserveClient = FindConVar("observe_version");
 	if (hObserveClient != INVALID_HANDLE)
 	{
 		new String:sNewFile[PLATFORM_MAX_PATH + 1], String:sOldFile[PLATFORM_MAX_PATH + 1];
@@ -328,9 +336,9 @@ public OnAllPluginsLoaded()
 		/**
 		Unload plugins/observe.smx and move it to plugins/disabled/observe.smx
 		*/
-		LogMessage("Detected the plugin ObserveClient");
-		LogMessage("ObserveClient plugin conflicts with Simple Spectate");
-		LogMessage("Unloading plugin and disabling ObserveClient plugin");
+		LogAction(0, -1, "Detected the plugin ObserveClient");
+		LogAction(0, -1, "ObserveClient plugin conflicts with Simple Spectate");
+		LogAction(0, -1, "Unloading plugin and disabling ObserveClient plugin");
 		ServerCommand("sm plugins unload observe");
 		RenameFile(sNewFile, sOldFile);
 	}
@@ -1014,14 +1022,11 @@ public Menu_Punishments(Handle:menu, MenuAction:action, param1, param2)
 	}
 	else if (action == MenuAction_Cancel) 
 	{
-		if (param2 == MenuCancel_ExitBack)
-		{
-			
-			/**
-			They canceled the current menu, start the hud back up
-			*/
-			StartDisplayingHud(param1);
-		}
+
+		/**
+		They canceled the current menu, start the hud back up
+		*/
+		StartDisplayingHud(param1);
 	} 
 	else if (action == MenuAction_End)
 	{
@@ -1220,11 +1225,6 @@ public Menu_PlayerHud(Handle:menu, MenuAction:action, param1, param2)
 	}
 	else if (action == MenuAction_Cancel)
 	{
-		if (param2 == MenuCancel_Exit)
-		{
-			StopDisplayingHud(param1);
-			StopFollowingPlayer(param1);
-		}
 		if (param2 == MenuCancel_Interrupted)
 		{
 			if (GetClientMenu(param1) == MenuSource_External)
@@ -1514,14 +1514,29 @@ stock PerformPunishment(client, target, e_Punishments:punishment, const String:r
 		{
 			ClientCommand(client, "sm_freezebomb \"%s\"", sTargetName);
 		}
+		case Punish_Slap:
+		{
+			ClientCommand(client, "sm_slap \"%s\" 10", sTargetName);
+		}
+		case Punish_Slay:
+		{
+			ClientCommand(client, "sm_slay \"%s\"", sTargetName);
+		}
 		case Punish_TimeBomb:
 		{
 			ClientCommand(client, "sm_timebomb \"%s\"", sTargetName);
 		}
 	}
 	
-	ShowActivity(client, "%t", "Punished", sTargetName, g_sPunishments[punishment], reason);
-	LogAction(client, target, "[SM SPEC] %N punished %N(%s) with a %s for %s", client, target, sTargetID, g_sPunishments[punishment], reason);
+	if (punishment == Punish_Cheater)
+	{
+		LogAction(client, target, "[SM SPEC] %N marked %N(%s) with a %s flag for %s", client, target, sTargetID, g_sPunishments[punishment], reason);
+	}
+	else
+	{
+		ShowActivity(client, "%t", "Punished", sTargetName, g_sPunishments[punishment], reason);
+		LogAction(client, target, "[SM SPEC] %N punished %N(%s) with a %s for %s", client, target, sTargetID, g_sPunishments[punishment], reason);
+	}
 	
 	/**
 	Null the globals.
@@ -1562,7 +1577,8 @@ stock Handle:BuildPunishmentMenu(iClient)
 {
 	new Handle:hMenu = CreateMenu(Menu_Punishments);
 	SetMenuTitle(hMenu, "Select A Punishment:");
-	SetMenuExitBackButton(hMenu, false);
+	SetMenuExitBackButton(hMenu, true);
+	SetMenuExitButton(hMenu, true);
 		
 	if (g_aPluginCvarSettings[bKick] && (GetUserFlagBits(iClient) & ADMFLAG_KICK|ADMFLAG_ROOT))
 	{
@@ -1636,6 +1652,24 @@ stock Handle:BuildPunishmentMenu(iClient)
 		AddMenuItem(hMenu, g_sPunishments[Punish_FreezeBomb], "Freeze Bomb", ITEMDRAW_DISABLED);
 	}
 	
+	if (g_aPluginCvarSettings[bSlap])
+	{
+		AddMenuItem(hMenu, g_sPunishments[Punish_Slap], "Slap");
+	}
+	else
+	{
+		AddMenuItem(hMenu, g_sPunishments[Punish_Slap], "Slap", ITEMDRAW_DISABLED);
+	}
+	
+	if (g_aPluginCvarSettings[bSlay])
+	{
+		AddMenuItem(hMenu, g_sPunishments[Punish_Slay], "Slay");
+	}
+	else
+	{
+		AddMenuItem(hMenu, g_sPunishments[Punish_Slay], "Slay", ITEMDRAW_DISABLED);
+	}
+	
 	if (g_aPluginCvarSettings[bTimeBomb])
 	{
 		AddMenuItem(hMenu, g_sPunishments[Punish_TimeBomb], "Time Bomb");
@@ -1645,8 +1679,6 @@ stock Handle:BuildPunishmentMenu(iClient)
 		AddMenuItem(hMenu, g_sPunishments[Punish_TimeBomb], "Time Bomb", ITEMDRAW_DISABLED);
 	}
 	
-	SetMenuPagination(hMenu, MENU_NO_PAGINATION);
-	SetMenuExitButton(hMenu, true);
 	return hMenu;
 }
 
