@@ -37,7 +37,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <sourcemod>
 #include <sdktools>
 
-#define SUPPRESS_VERSION "1.1.0"
+#define SUPPRESS_VERSION "1.1.$Rev$"
 
 public Plugin:myinfo = 
 {
