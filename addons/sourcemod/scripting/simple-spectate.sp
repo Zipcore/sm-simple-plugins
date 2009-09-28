@@ -41,7 +41,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
 
-#define PLUGIN_VERSION "1.3.$Rev$"
+#define PLUGIN_VERSION "1.2.1"
 
 #define SPECMODE_NONE 				0
 #define SPECMODE_FIRSTPERSON 		4
@@ -181,7 +181,7 @@ public OnPluginStart()
 	g_aPluginCvar[hBanPerm] = CreateConVar("sm_spectate_banperm", "1", "Enable/Disable permanent ban option");
 	g_aPluginCvar[hBeacon] = CreateConVar("sm_spectate_beacon", "1", "Enable/Disable beacon option");
 	g_aPluginCvar[hBlind] = CreateConVar("sm_spectate_blind", "1", "Enable/Disable blind option");
-	g_aPluginCvar[hCheater] = CreateConVar("sm_spectate_blind", "1", "Enable/Disable cheater option");
+	g_aPluginCvar[hCheater] = CreateConVar("sm_spectate_cheater", "1", "Enable/Disable cheater option");
 	g_aPluginCvar[hDrug] = CreateConVar("sm_spectate_drug", "1", "Enable/Disable drug option");
 	g_aPluginCvar[hFreeze] = CreateConVar("sm_spectate_freeze", "1", "Enable/Disable freeze option");
 	g_aPluginCvar[hFreezeBomb] = CreateConVar("sm_spectate_freezebomb", "1", "Enable/Disable freezebomb option");
@@ -1265,7 +1265,7 @@ public Panel_PlayerHud(Handle:menu, MenuAction:action, param1, param2)
 					return;
 				}
 				
-				if (GetUserFlagBits(param1) & ADMFLAG_GENERIC|ADMFLAG_ROOT)
+				if ((GetUserFlagBits(param1) & ADMFLAG_GENERIC) || (GetUserFlagBits(param1) & ADMFLAG_ROOT))
 				{
 					if (g_aPlayers[g_aPlayers[param1][iTargetIndex]][bIsFlaggedCheater] && (GetUserFlagBits(param1) & ADMFLAG_ROOT))
 					{
@@ -1578,7 +1578,7 @@ stock Handle:BuildPunishmentMenu(iClient)
 	SetMenuExitBackButton(hMenu, true);
 	SetMenuExitButton(hMenu, true);
 		
-	if (g_aPluginCvarSettings[bKick] && (GetUserFlagBits(iClient) & ADMFLAG_KICK|ADMFLAG_ROOT))
+	if (g_aPluginCvarSettings[bKick] && ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT)))
 	{
 		AddMenuItem(hMenu, g_sPunishments[Punish_Kick], "Kick");
 	}
@@ -1587,7 +1587,7 @@ stock Handle:BuildPunishmentMenu(iClient)
 		AddMenuItem(hMenu, g_sPunishments[Punish_Kick], "Kick", ITEMDRAW_DISABLED);
 	}
 	
-	if (g_aPluginCvarSettings[bBan] && (GetUserFlagBits(iClient) & ADMFLAG_BAN|ADMFLAG_ROOT))
+	if (g_aPluginCvarSettings[bBan] && ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT)))
 	{
 		AddMenuItem(hMenu, g_sPunishments[Punish_Ban], "Ban");
 	}
@@ -1839,7 +1839,7 @@ stock Handle:BuildPlayerHudMenu(iClient, iTarget)
 		AddMenuItem(hMenu, "start", "Follow Player");
 	}
 	
-	if (GetUserFlagBits(iClient) & ADMFLAG_GENERIC|ADMFLAG_ROOT)
+	if ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 	{
 		if (g_aPlayers[iTarget][bIsFlaggedCheater] && (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 		{
@@ -1930,7 +1930,7 @@ stock Handle:BuildPlayerHudPanel(iClient, iTarget)
 		DrawPanelItem(hPanel, "Follow Player");
 	}
 	
-	if (GetUserFlagBits(iClient) & ADMFLAG_GENERIC|ADMFLAG_ROOT)
+	if ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 	{
 		if (g_aPlayers[iTarget][bIsFlaggedCheater] && (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 		{
