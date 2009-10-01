@@ -57,10 +57,18 @@ $Copyright: (c) Simple Plugins 2008-2009$
 enum e_SupportedMods
 {
 	GameType_Unknown,
+	GameType_AOC,
 	GameType_CSS,
 	GameType_DOD,
+	GameType_FF,
+	GameType_HIDDEN,
+	GameType_HL2DM,
+	GameType_INS,
+	GameType_L4D,
+	GameType_NEO,
+	GameType_SGTLS,
 	GameType_TF,
-	GameType_INS
+	GameType_ZPS
 };
 
 enum e_Teams
@@ -73,7 +81,20 @@ enum e_Teams
 
 new g_aCurrentTeams[e_Teams];
 new e_SupportedMods:g_CurrentMod;
-new String:g_sGameName[e_SupportedMods][24] = { "Unknown", "Counter Strike", "Day Of Defeat", "Team Fortress 2", "Insurgency" };
+new String:g_sGameName[e_SupportedMods][32] = {	"Unknown",
+												"Age of Chivalry",
+												"Counter Strike",
+												"Day Of Defeat",
+												"Fortress Forever",
+												"Hidden: Source",
+												"Half Life 2: Deathmatch",
+												"Insurgency",
+												"Left 4 Dead",
+												"Neotokyo",
+												"Stargate TLS",
+												"Team Fortress 2",
+												"Zombie Panic: Source"
+											};
 
 public SharedPlugin:_pl_simpleplugin = 
 {
@@ -243,6 +264,10 @@ public e_SupportedMods:GetCurrentMod()
 	new String:sGameType[64];
 	GetGameFolderName(sGameType, sizeof(sGameType));
 	
+	if (StrEqual(sGameType, "aoc", false))
+	{
+		return GameType_AOC;
+	}
 	if (StrEqual(sGameType, "cstrike", false))
 	{
 		return GameType_CSS;
@@ -251,13 +276,41 @@ public e_SupportedMods:GetCurrentMod()
 	{
 		return GameType_DOD;
 	}
+	if (StrEqual(sGameType, "ff", false))
+	{
+		return GameType_FF;
+	}
+	if (StrEqual(sGameType, "hidden", false))
+	{
+		return GameType_HIDDEN;
+	}
+	if (StrEqual(sGameType, "hl2mp", false))
+	{
+		return GameType_FF;
+	}
+	if (StrEqual(sGameType, "insurgency", false) || StrEqual(sGameType, "ins", false))
+	{
+		return GameType_INS;
+	}
+	if (StrEqual(sGameType, "l4d", false))
+	{
+		return GameType_L4D;
+	}
+	if (StrEqual(sGameType, "nts", false))
+	{
+		return GameType_NEO;
+	}
+	if (StrEqual(sGameType, "sgtls", false))
+	{
+		return GameType_SGTLS;
+	}
 	if (StrEqual(sGameType, "tf", false))
 	{
 		return GameType_TF;
 	}
-	if (StrEqual(sGameType, "insurgency", false))
+	if (StrEqual(sGameType, "zps", false))
 	{
-		return GameType_INS;
+		return GameType_ZPS;
 	}
 	return GameType_Unknown;
 }
@@ -266,27 +319,6 @@ public LoadCurrentTeams()
 {
 	switch (g_CurrentMod)
 	{
-		case GameType_CSS:
-		{
-			g_aCurrentTeams[Unknown] = 0;
-			g_aCurrentTeams[Spectator] = 1;
-			g_aCurrentTeams[Team1] = 2;
-			g_aCurrentTeams[Team2] = 3;
-		}
-		case GameType_DOD:
-		{
-			g_aCurrentTeams[Unknown] = 0;
-			g_aCurrentTeams[Spectator] = 1;
-			g_aCurrentTeams[Team1] = 2;
-			g_aCurrentTeams[Team2] = 3;
-		}
-		case GameType_TF:
-		{
-			g_aCurrentTeams[Unknown] = 0;
-			g_aCurrentTeams[Spectator] = 1;
-			g_aCurrentTeams[Team1] = 2;
-			g_aCurrentTeams[Team2] = 3;
-		}
 		case GameType_INS:
 		{
 			g_aCurrentTeams[Unknown] = 0;
@@ -294,7 +326,7 @@ public LoadCurrentTeams()
 			g_aCurrentTeams[Team1] = 1;
 			g_aCurrentTeams[Team2] = 2;
 		}
-		case GameType_Unknown:
+		case default:
 		{
 			g_aCurrentTeams[Unknown] = 0;
 			g_aCurrentTeams[Spectator] = 1;

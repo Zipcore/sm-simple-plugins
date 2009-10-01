@@ -97,7 +97,7 @@ public OnPluginStart()
 	/**
 	Remove the notify flag from all talk cvar since we do it
 	*/
-	SetConVarFlags(satm_alltalk, GetConVarFlags(satm_alltalk)^FCVAR_NOTIFY);
+	SetConVarFlags(satm_alltalk, GetConVarFlags(satm_alltalk)~FCVAR_NOTIFY);
 	
 	/**
 	Get the game type.  We only care if it's TF2

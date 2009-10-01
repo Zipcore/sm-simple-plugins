@@ -41,7 +41,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
 
-#define PLUGIN_VERSION "1.2.1"
+#define PLUGIN_VERSION "1.2.1.$Rev$"
 
 #define SPECMODE_NONE 				0
 #define SPECMODE_FIRSTPERSON 		4
@@ -308,6 +308,31 @@ public OnAllPluginsLoaded()
 	}
 	
 	/*
+	Check for dukehacks
+	*/
+	new String:sExtError[256];
+	new iExtStatus = GetExtensionFileStatus("dukehacks.ext", sExtError, sizeof(sExtError));
+	if (iExtStatus == -2)
+	{
+		LogAction(0, -1, "[SSPEC] Dukehacks extension was not found.");
+		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
+		g_aPluginSettings[bUseDukehacks] = false;
+	}
+	else if (iExtStatus == -1 || iExtStatus == 0)
+	{
+		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded with errors.");
+		LogAction(0, -1, "[SSPEC] Status reported was [%s].", sExtError);
+		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
+		g_aPluginSettings[bUseDukehacks] = false;
+	}
+	else if (iExtStatus == 1)
+	{
+		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded and will be used.");
+		g_aPluginSettings[bUseDukehacks] = true;
+		dhAddClientHook(CHK_TakeDamage, Hacks_TakeDamageHook);
+	}
+	
+	/*
 	Deal with some known plugin conflicts
 	*/
 	new Handle:hObserveClient = FindConVar("observe_version");
@@ -341,31 +366,6 @@ public OnAllPluginsLoaded()
 		LogAction(0, -1, "Unloading plugin and disabling ObserveClient plugin");
 		ServerCommand("sm plugins unload observe");
 		RenameFile(sNewFile, sOldFile);
-	}
-	
-	/*
-	Check for dukehacks
-	*/
-	new String:sExtError[256];
-	new iExtStatus = GetExtensionFileStatus("dukehacks.ext", sExtError, sizeof(sExtError));
-	if (iExtStatus == -2)
-	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension was not found.");
-		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseDukehacks] = false;
-	}
-	else if (iExtStatus == -1 || iExtStatus == 0)
-	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded with errors.");
-		LogAction(0, -1, "[SSPEC] Status reported was [%s].", sExtError);
-		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseDukehacks] = false;
-	}
-	else if (iExtStatus == 1)
-	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded and will be used.");
-		g_aPluginSettings[bUseDukehacks] = true;
-		dhAddClientHook(CHK_TakeDamage, Hacks_TakeDamageHook);
 	}
 }
 
@@ -506,10 +506,36 @@ public Action:HookPlayerChangeTeam(Handle:event, const String:name[], bool:dontB
 	/**
 	If it's a move to spectator start displaying the hud
 	*/
-	else if (iTeam == g_aCurrentTeams[Spectator])
+	else if ((iTeam == g_aCurrentTeams[Spectator]) && (GetUserFlagBits(iClient) & ADMFLAG_GENERIC))
 	{
 		StartDisplayingHud(iClient);
-		return Plugin_Continue;
+		
+		/**
+		If the event was going to be broadcasted, we refire it so it is not broadcasted and stop this one
+		*/
+		if (!dontBroadcast)
+		{
+			new Handle:hEvent = CreateEvent("player_team");
+			SetEventInt(hEvent, "userid", GetEventInt(event, "userid"));
+			SetEventInt(hEvent, "team", GetEventInt(event, "team"));
+			SetEventInt(hEvent, "oldteam", GetEventInt(event, "oldteam"));
+			SetEventBool(hEvent, "disconnect", GetEventBool(event, "disconnect"));
+		
+			if (g_CurrentMod == GameType_DOD || g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_TF)
+			{
+				new String:sClientName[MAX_NAME_LENGTH + 1];
+				GetClientName(client, sClientName, sizeof(sClientName));
+				SetEventBool(hEvent, "autoteam", GetEventBool(event, "autoteam"));
+				SetEventBool(hEvent, "silent", true);
+				SetEventString(hEvent, "name", sClientName);
+				FireEvent(hEvent, true);
+			}
+			else
+			{
+				FireEvent(hEvent, true);
+			}
+			return Plugin_Handled;
+		}
 	}
 	
 	/**
