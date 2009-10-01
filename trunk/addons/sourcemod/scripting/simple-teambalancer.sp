@@ -516,7 +516,7 @@ public HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 					Buddy system is enabled, check to see if client has buddy
 					*/
 					new iBuddyIndex = SM_GetClientBuddy(iClient);
-					if (iBuddyIndex != 0)
+					if (iBuddyIndex != 0 || !IsClientConnected(iBuddyIndex) || !IsClientInGame(iBuddyIndex))
 					{
 				
 						/**
