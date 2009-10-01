@@ -38,7 +38,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <sourcemod>
 #include <colors>
 
-#define PLUGIN_VERSION "0.9.0.$Rev$"
+#define PLUGIN_VERSION "1.0.0"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
@@ -76,7 +76,7 @@ public OnPluginStart()
 	Need to create all of our console variables.
 	*/
 	CreateConVar("sm_chatcolors_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	g_hDebugCvar = CreateConVar("sm_chatcolors_debug", "1", "Enable/Disable debugging information");
+	g_hDebugCvar = CreateConVar("sm_chatcolors_debug", "0", "Enable/Disable debugging information");
 	
 	/**
 	Hook console variables
@@ -88,7 +88,7 @@ public OnPluginStart()
 	*/
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
-	RegAdminCmd("sm_reloadcolorsconfig", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from config file");
+	RegAdminCmd("sm_reloadchatcolors", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from config file");
 	
 	/**
 	Create the arrays
