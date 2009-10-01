@@ -524,7 +524,7 @@ public Action:HookPlayerChangeTeam(Handle:event, const String:name[], bool:dontB
 			if (g_CurrentMod == GameType_DOD || g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_TF)
 			{
 				new String:sClientName[MAX_NAME_LENGTH + 1];
-				GetClientName(client, sClientName, sizeof(sClientName));
+				GetClientName(iClient, sClientName, sizeof(sClientName));
 				SetEventBool(hEvent, "autoteam", GetEventBool(event, "autoteam"));
 				SetEventBool(hEvent, "silent", true);
 				SetEventString(hEvent, "name", sClientName);

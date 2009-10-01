@@ -326,7 +326,7 @@ public LoadCurrentTeams()
 			g_aCurrentTeams[Team1] = 1;
 			g_aCurrentTeams[Team2] = 2;
 		}
-		case default:
+		default:
 		{
 			g_aCurrentTeams[Unknown] = 0;
 			g_aCurrentTeams[Spectator] = 1;
