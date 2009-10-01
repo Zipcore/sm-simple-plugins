@@ -1,0 +1,130 @@
+﻿"Phrases"
+{
+	"UnBalanced"
+	{
+		"en"		"Teams are unbalanced and will be balanced shortly"
+		"fr"		"Les équipes ne sont pas équilibrées et le seront bientôt"
+		"de"		"Die Teams sind ungleich und werden in Kürze ausgeglichen"
+		"hu"		"A csapatok nem kiegyenlitettek! Egyensuly beallitas kovetkezik!"
+	}
+	"Enabled"
+	{
+		"en"		"Simple Team Balancer is ENABLED"
+		"fr"		"Simple Team Balancer est ACTIVE"
+		"de"		"Simple Team Balancer ist AKTIV"
+		"hu"		"Az Egyszeru Csapat Egyensulytarto AKTIV!"
+	}
+	"Disabled"
+	{
+		"en"		"Simple Team Balancer is DISABLED"
+		"fr"		"Simple Team Balancer est DESACTIVE"
+		"de"		"Simple Team Balancer ist INAKTIV"
+		"hu"		"Az Egyszeru Csapat Egyensulytarto INAKTIV!"
+	}
+	"PlayerMessage"
+	{
+		"#format"	"{1:i}"
+		"en"		"You are going to be auto balanced in {1} seconds unless a dead player can be found"
+		"fr"		"Vous passerez dans l'autre équipe dans {1} secondes si aucun joueur mort ne peut être trouvé dans cet intervalle"
+		"de"		"Du wirst in {1} Sekunden zum automatischen Ausgleich herangezogen wenn kein toter Spieler gefunden werden kann"
+		"hu"		"{1} masodpercen belul at leszel helyezve a masik csapatba, hacsak nem lesz addig egy halott jatekos!"
+	}
+	"BalanceMessage"
+	{
+		"#format"	"{1:s}"
+		"en"		"{1} was moved to the other team for game balance"
+		"fr"		"{1} est passé dans l'autre équipe pour équilibrer la partie"
+		"de"		"{1} wurde zum anderen Team verschoben um das Spiel auszugleichen"
+		"hu"		"{1} at lett helyezve az egyensuly megtartasa erdekeben."
+	}
+	"PlayerLevelCmd"
+	{
+		"en"		"Command must be run at the player level"
+		"fr"		"La commande doit être lancée au niveau du joueur"
+		"de"		"Das Kommando muss auf Spieler Ebene ausgeführt werden"
+		"hu"		"Jatekosi szinten kell futtatni ezt a parancsot!"
+	}
+	"CmdDisabled"
+	{
+		"en"		"Command is currently disabled"
+		"fr"		"La commande est actuellement désactivée"
+		"de"		"Das Kommando ist momentan inaktiv"
+		"hu"		"A parancs jelenleg inaktiv"
+	}
+	"RestrictedBuddy"
+	{
+		"en"		"You must be a donator or admin to add a balance buddy"
+		"fr"		"Vous devez être un donateur ou un admin pour choisir un partenaire"
+		"de"		"Du musst ein Spender oder Admin sein um einen Partner wählen zu können"
+		"hu"		"Tamogato vagy admin kell hogy legyel, hogy 'Tarsat' jelolhess meg"
+	}
+	"SelectSelf"
+	{
+		"en"		"You cannot be your own buddy"
+		"fr"		"Vous ne pouvez pas être votre propre partenaire"
+		"de"		"Du kannst nicht dein eigener Partner sein"
+		"hu"		"Nem valaszthatod ki onmagad!"
+	}
+	"BuddyGone"
+	{
+		"en"		"Your selected buddy has disconnected"
+		"fr"		"Le partenaire que vous avez sélectionné s'est déconnecté"
+		"de"		"Dein gewählter Partner hat die Verbindung getrennt"
+		"hu"		"A valasztott 'Tarsad' kilepett"
+	}
+	"BuddyMsg"
+	{
+		"#format"	"{1:s}"
+		"en"		"You and {1} are now buddies"
+		"fr"		"Vous et {1} êtes maintenant partenaires"
+		"de"		"Du und {1} seid jetzt Partner"
+		"hu"		"{1} es Te 'Tarsak' vagytok."
+	}
+	"BuddyLockMsgDisabled"
+	{
+		"en"		"You can now be anyone's buddy"
+		"fr"		"Vous pouvez à présent être le partenaire de n'importe qui"
+		"de"		"Du kannst jetzt jedermanns Partner sein"
+		"hu"		"Barkinek lehetsz a 'Tarsa'."
+	}
+	"BuddyLockMsgEnabled"
+	{
+		"en"		"Buddy selection locked. Only you can change your buddy"
+		"fr"		"Sélection de partenaire bloquée. Vous êtes le seul à pouvoir choisir votre partenaire"
+		"de"		"Wahl des Partners gesperrt. Nur du kannst deinen Partner wechseln"
+		"hu"		"Tars-lista lezarva. Csak Te tudod modositani a Tars-listadat."
+	}
+	"PlayerLockedBuddyMsg"
+	{
+		"#format"	"{1:s}"
+		"en"		"{1} has locked his buddy selection. Try again"
+		"fr"		"{1} a bloqué sa sélection de partenaire. Essayez de nouveau."
+		"de"		"{1} hat seine Wahl des Partners gesperrt. Versuche es erneut"
+		"hu"		"{1} lezarta a Tars-listajat. Probald kesobb!"
+	}
+	"BuddyWelcomeMsg1"
+	{
+		"en"		"Select a balance buddy and stay together during an autobalance!"
+		"fr"		"Choisissez un partenaire et restez ensemble durant l'équilibrage automatique!"
+		"de"		"Wähle einen Partner und bleibt zusammen während eines Ausgleichs"
+		"hu"		"Valasz ki egy 'Tarsat' akivel egyuttmaradhatsz a csapatkiegyenlites alatt!" 
+	}
+	"BuddyWelcomeMsg2"
+	{
+		"en"		"/buddy or !buddy to select a balance buddy"
+		"fr"		"/buddy or !buddy pour choisir un partenaire"
+		"de"		"/buddy oder !buddy um einen Partner zu wählen"
+		"hu"		"Hasznald a /buddy vagy !buddy parancsokat a 'Tars' kijelolesehez"
+	}
+	"BuddyWelcomeMsg3"
+	{
+		"en"		"/lockbuddy or !lockbuddy to lock your selection"
+		"fr"		"/lockbuddy or !lockbuddy pour bloquer votre sélection"
+		"de"		"/lockbuddy oder !lockbuddy um deine Auswahl zu sperren"
+		"hu"		"Hasznald a /lockbuddy vagy a !lockbuddy parancsokat a Tars-listad lezarasahoz"
+	}
+}
+
+
+
+
