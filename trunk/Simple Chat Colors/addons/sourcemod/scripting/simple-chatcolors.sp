@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <colors>
 #include <loghelper>
 
-#define PLUGIN_VERSION "1.0.0"
+#define PLUGIN_VERSION "1.0.1"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
@@ -91,6 +91,7 @@ public OnPluginStart()
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
 	RegAdminCmd("sm_reloadchatcolors", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from config file");
+	RegAdminCmd("sm_printchatcolors", Command_PrintChatColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
 	
 	/**
 	Create the arrays
@@ -188,8 +189,14 @@ public Action:Command_Say(client, args)
 		/**
 		Send the message.
 		*/
-		//SayText2(0, client, sChatMsg);
-		CPrintToChatAllEx(client, sChatMsg);
+		if (StrContains(sChatMsg, "{teamcolor}") != -1)
+		{
+			CPrintToChatAllEx(client, sChatMsg);
+		}
+		else
+		{
+			CPrintToChatAll(sChatMsg);
+		}
 		
 		/**
 		We are done, bug out, and stop the original chat message.
@@ -264,7 +271,14 @@ public Action:Command_SayTeam(client, args)
 		{
 			if (IsClientConnected(i) && IsClientInGame(i) && GetClientTeam(i) == iCurrentTeam)
 			{
-				CPrintToChatEx(i, client, sChatMsg);
+				if (StrContains(sChatMsg, "{teamcolor}") != -1)
+				{
+					CPrintToChatEx(i, client, sChatMsg);
+				}
+				else
+				{
+					CPrintToChat(i, sChatMsg);
+				}
 			}
 		}
 		
@@ -283,6 +297,19 @@ public Action:Command_SayTeam(client, args)
 public Action:Command_Reload(client, args)
 {
 	ReloadConfigFile();	
+	return Plugin_Handled;
+}
+
+public Action:Command_PrintChatColors(client, args)
+{
+	CPrintToChat(client, "{default}default");
+	CPrintToChat(client, "{green}green");
+	CPrintToChat(client, "{yellow}yellow");
+	CPrintToChat(client, "{lightgreen}lightgreen");
+	CPrintToChat(client, "{red}red");
+	CPrintToChat(client, "{blue}blue");
+	CPrintToChatEx(client, client, "{teamcolor}teamcolor");
+	CPrintToChat(client, "{olive}olive");
 	return Plugin_Handled;
 }
 
@@ -464,13 +491,18 @@ stock FormatMessage(iClient, iTeam, bool:bAlive, String:sChatMsg[], const Sting:
 	{
 		Format(sTeam, sizeof(sTeam), "");
 	}
+	
 	if (bAlive)
 	{
 		Format(sDead, sizeof(sDead), "");
 	}
-	else
+	else if (iTeam > 1)
 	{
 		Format(sDead, sizeof(sDead), "*DEAD* ");
+	}
+	else
+	{
+		Format(sDead, sizeof(sDead), "(SPEC) ");
 	}
 	
 	new String:sNameColor[15];
