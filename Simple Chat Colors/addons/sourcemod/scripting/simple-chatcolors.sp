@@ -40,12 +40,11 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <colors>
 #include <loghelper>
 
-#define PLUGIN_VERSION "1.0.1"
+#define PLUGIN_VERSION "1.0.1.$Rev$"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
 #define TRIGGER_SYMBOL2 '/'
-#define CHAT_MAX_MESSAGE_LENGTH 1024
 
 new Handle:g_hDebugCvar = INVALID_HANDLE;
 new Handle:g_aGroupNames = INVALID_HANDLE;
@@ -153,10 +152,8 @@ public Action:Command_Say(client, args)
 		/**
 		The client is, so get the chat message and strip it down.
 		*/
-		decl	String:sArg[CHAT_MAX_MESSAGE_LENGTH],
-			String:sChatMsg[CHAT_MAX_MESSAGE_LENGTH];
-		
-		new	bool:bAlive = IsPlayerAlive(client);
+		decl	String:sArg[1024],
+			String:sChatMsg[1024];
 		
 		GetCmdArgString(sArg, sizeof(sArg));
 		StripQuotes(sArg);
@@ -184,7 +181,7 @@ public Action:Command_Say(client, args)
 		/**
 		Format the message.
 		*/
-		FormatMessage(client, 0, bAlive, sChatMsg, sArg, g_aPlayerColorIndex[client]);
+		FormatMessage(client, GetClientTeam(client), IsPlayerAlive(client), false, g_aPlayerColorIndex[client], sArg, sChatMsg, sizeof(sChatMsg));
 		
 		/**
 		Send the message.
@@ -230,10 +227,9 @@ public Action:Command_SayTeam(client, args)
 		/**
 		The client is, so get the chat message and strip it down.
 		*/
-		decl	String:sArg[CHAT_MAX_MESSAGE_LENGTH],
-			String:sChatMsg[CHAT_MAX_MESSAGE_LENGTH];
+		decl	String:sArg[1024],
+			String:sChatMsg[1024];
 		
-		new	bool:bAlive = IsPlayerAlive(client);
 		new iCurrentTeam = GetClientTeam(client);
 		
 		GetCmdArgString(sArg, sizeof(sArg));
@@ -262,7 +258,7 @@ public Action:Command_SayTeam(client, args)
 		/**
 		Format the message.
 		*/
-		FormatMessage(client, iCurrentTeam, bAlive, sChatMsg, sArg, g_aPlayerColorIndex[client]);
+		FormatMessage(client, iCurrentTeam, IsPlayerAlive(client), true, g_aPlayerColorIndex[client], sArg, sChatMsg, sizeof(sChatMsg));
 		
 		/**
 		Send the message to the same team
@@ -475,42 +471,59 @@ stock CheckAdmin(client)
 	}
 }
 
-stock FormatMessage(iClient, iTeam, bool:bAlive, String:sChatMsg[], const Sting:sMessage[], iArrayIndex)
+stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const Sting:sMessage[], String:sChatMsg[], maxlength)
 {
 	decl	String:sDead[10],
-		String:sTeam[10],
+		String:sTeam[15],
 		String:sClientName[64];
 	
-	GetClientName(iClient, sClientName, sizeof(sClientName));
+	GetClientName(client, sClientName, sizeof(sClientName));
 	
-	if (iTeam != 0)
+	if (teamchat)
 	{
-		Format(sTeam, sizeof(sTeam), "(TEAM) ");
+		if (team > 1)
+		{
+			Format(sTeam, sizeof(sTeam), "(TEAM) ");
+		}
+		else
+		{
+			Format(sTeam, sizeof(sTeam), "(Spectator) ");
+		}
 	}
 	else
 	{
-		Format(sTeam, sizeof(sTeam), "");
+		if (team > 1)
+		{
+			Format(sTeam, sizeof(sTeam), "");
+		}
+		else
+		{
+			Format(sTeam, sizeof(sTeam), "*Spec* ");
+		}
 	}
 	
-	if (bAlive)
+	if (team > 1)
+	{
+		if (alive)
+		{
+			Format(sDead, sizeof(sDead), "");
+		}
+		else
+		{
+			Format(sDead, sizeof(sDead), "*DEAD* ");
+		}
+	}
+	else
 	{
 		Format(sDead, sizeof(sDead), "");
-	}
-	else if (iTeam > 1)
-	{
-		Format(sDead, sizeof(sDead), "*DEAD* ");
-	}
-	else
-	{
-		Format(sDead, sizeof(sDead), "(SPEC) ");
 	}
 	
 	new String:sNameColor[15];
 	new String:sTextColor[15];
-	GetArrayString(g_aGroupNameColor, iArrayIndex, sNameColor, sizeof(sNameColor));
-	GetArrayString(g_aGroupTextColor, iArrayIndex, sTextColor, sizeof(sTextColor));
+	GetArrayString(g_aGroupNameColor, index, sNameColor, sizeof(sNameColor));
+	GetArrayString(g_aGroupTextColor, index, sTextColor, sizeof(sTextColor));
 	
-	Format(sChatMsg, CHAT_MAX_MESSAGE_LENGTH, "{default}%s%s%s%s {default}: %s%s", sDead, sTeam, sNameColor, sClientName, sTextColor, sMessage);
+	Format(sChatMsg, maxlength, "{default}%s%s%s%s {default}: %s%s", sDead, sTeam, sNameColor, sClientName, sTextColor, sMessage);
 }
 
 /**
