@@ -36,7 +36,9 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #pragma semicolon 1
 #include <sourcemod>
+#include <sdktools>
 #include <colors>
+#include <loghelper>
 
 #define PLUGIN_VERSION "1.0.0"
 
@@ -125,6 +127,11 @@ public OnClientDisconnect(client)
 	g_aPlayerColorIndex[client] = -1;
 }
 
+public OnMapStart()
+{
+	GetTeams();
+}
+
 /**
 Commands
 */
@@ -171,10 +178,7 @@ public Action:Command_Say(client, args)
 		/**
 		Log the message for hlstatsx and other things.
 		*/
-		new iUserID = GetClientUserId(client);
-		decl String:sAuthID[64];
-		GetClientAuthString(client, sAuthID, sizeof(sAuthID));
-		LogToGame("\"%N<%i><%s><>\" say \"%s\"", client, iUserID, sAuthID, sArg);
+		LogPlayerEvent(client, "say", sArg);
 		
 		/**
 		Format the message.
@@ -185,7 +189,7 @@ public Action:Command_Say(client, args)
 		Send the message.
 		*/
 		//SayText2(0, client, sChatMsg);
-		CPrintToChatAll(sChatMsg);
+		CPrintToChatAllEx(client, sChatMsg);
 		
 		/**
 		We are done, bug out, and stop the original chat message.
@@ -246,10 +250,7 @@ public Action:Command_SayTeam(client, args)
 		/**
 		Log the message for hlstatsx and other things.
 		*/
-		new iUserID = GetClientUserId(client);
-		decl String:sAuthID[64];
-		GetClientAuthString(client, sAuthID, sizeof(sAuthID));
-		LogToGame("\"%N<%i><%s><>\" say_team \"%s\"", client, iUserID, sAuthID, sArg);
+		LogPlayerEvent(client, "say_team", sArg);
 		
 		/**
 		Format the message.
@@ -263,7 +264,7 @@ public Action:Command_SayTeam(client, args)
 		{
 			if (IsClientConnected(i) && IsClientInGame(i) && GetClientTeam(i) == iCurrentTeam)
 			{
-				CPrintToChat(client, sChatMsg);
+				CPrintToChatEx(i, client, sChatMsg);
 			}
 		}
 		
