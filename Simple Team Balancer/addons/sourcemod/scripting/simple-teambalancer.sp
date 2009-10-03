@@ -42,7 +42,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <simple-plugins>
 #include <sdktools>
 
-#define PLUGIN_VERSION "2.1.$Rev$"
+#define PLUGIN_VERSION "2.1.0.$Rev$"
 
 enum PlayerData
 {
@@ -148,19 +148,26 @@ public OnPluginStart()
 	stb_switchbackforced = CreateConVar("stb_switchbackforced", "300", "Amount of time in seconds to not switch a player twice and force the team if enabled");
 	stb_uberlevel = CreateConVar("stb_uberlevel", "1.0", "Min uber level medic must have to have priority over other living players. Setting to 0 will rarely switch a living medic", _, true, 0.0, true, 1.0);
 	stb_adminflag = CreateConVar("stb_adminflag", "a", "Admin flag to use for immunity.  Must be a in char format.");
+	
+	/**
+	Try to find some built-in cvars
+	*/
 	stb_mp_autoteambalance = FindConVar("mp_autoteambalance");
 	stb_mp_teams_unbalance_limit = FindConVar("mp_teams_unbalance_limit");
 	
 	/**
-	Removing the notify tags from the built in cvars.  We dont want spam.
+	Check if we found them
+	If we did, remove the notify tags and hook the cvar
 	*/
 	if (stb_mp_autoteambalance != INVALID_HANDLE)
 	{
 		SetConVarFlags(stb_mp_autoteambalance, GetConVarFlags(stb_mp_autoteambalance)^FCVAR_NOTIFY);
+		HookConVarChange(stb_mp_autoteambalance, ConVarSettingsChanged);
 	}
 	if (stb_mp_teams_unbalance_limit != INVALID_HANDLE)
 	{
 		SetConVarFlags(stb_mp_teams_unbalance_limit, GetConVarFlags(stb_mp_teams_unbalance_limit)^FCVAR_NOTIFY);
+		HookConVarChange(stb_mp_teams_unbalance_limit, ConVarSettingsChanged);
 	}
 	
 	/**
@@ -181,8 +188,6 @@ public OnPluginStart()
 	HookConVarChange(stb_roundstartdelay, ConVarSettingsChanged);
 	HookConVarChange(stb_switchbackforced, ConVarSettingsChanged);
 	HookConVarChange(stb_uberlevel, ConVarSettingsChanged);
-	HookConVarChange(stb_mp_autoteambalance, ConVarSettingsChanged);
-	HookConVarChange(stb_mp_teams_unbalance_limit, ConVarSettingsChanged);
 	
 	/**
 	Create console commands
@@ -449,14 +454,16 @@ public HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 	Get our event variables
 	*/
 	new iClient = GetClientOfUserId(GetEventInt(event, "userid"));
-	decl String:sWeapon[64];
+	new iCustomKill = GetEventInt(event, "customkill");
+	new String:sWeapon[64];
+	
 	GetEventString(event, "weapon", sWeapon, sizeof(sWeapon));
 	
 	/**
-	Return if death was not caused by a player
+	Return if death was not caused by a player or is a feign death
 	This is the case when the player switches teams
 	*/
-	if (StrEqual(sWeapon, "world", false))
+	if (StrEqual(sWeapon, "world", false) || (g_CurrentMod == GameType_TF && iCustomKill & 32))
 	{
 		return;
 	}
