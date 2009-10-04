@@ -39,20 +39,25 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <sdktools>
 #include <colors>
 #include <loghelper>
+#include <simple-plugins>
 
-#define PLUGIN_VERSION "1.0.1.$Rev$"
+#define PLUGIN_VERSION "1.0.2$"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
 #define TRIGGER_SYMBOL2 '/'
-
-new Handle:g_hDebugCvar = INVALID_HANDLE;
+#define CHAR_PERCENT "%"
+#define CHAR_NULL "\0"
+	
+new Handle:g_Cvar_hDebug = INVALID_HANDLE;
+new Handle:g_Cvar_hTriggerBackup = INVALID_HANDLE;
 new Handle:g_aGroupNames = INVALID_HANDLE;
 new Handle:g_aGroupFlag = INVALID_HANDLE;
 new Handle:g_aGroupNameColor = INVALID_HANDLE;
 new Handle:g_aGroupTextColor = INVALID_HANDLE;
 
 new bool:g_bDebug = false;
+new bool:g_bTriggerBackup = false;
 
 new g_iArraySize;
 
@@ -72,17 +77,26 @@ Sourcemod callbacks
 */
 public OnPluginStart()
 {
-
+	
+	/**
+	Get game type and load the team numbers
+	*/
+	g_CurrentMod = GetCurrentMod();
+	LoadCurrentTeams();
+	LogAction(0, -1, "[SCC] Detected [%s].", g_sGameName[g_CurrentMod]);
+	
 	/**
 	Need to create all of our console variables.
 	*/
 	CreateConVar("sm_chatcolors_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	g_hDebugCvar = CreateConVar("sm_chatcolors_debug", "0", "Enable/Disable debugging information");
+	g_Cvar_hDebug = CreateConVar("sm_chatcolors_debug", "0", "Enable/Disable debugging information");
+	g_Cvar_hTriggerBackup = CreateConVar("sm_chatcolors_triggerbackup", "0", "Enable/Disable the trigger backup");
 	
 	/**
 	Hook console variables
 	*/
-	HookConVarChange(g_hDebugCvar, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hDebug, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hTriggerBackup, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to use
@@ -109,7 +123,7 @@ public OnPluginStart()
 
 public OnConfigsExecuted()
 {
-	g_bDebug = GetConVarBool(g_hDebugCvar);
+	g_bDebug = GetConVarBool(g_Cvar_hDebug);
 	ReloadConfigFile();	
 }
 
@@ -139,72 +153,23 @@ public Action:Command_Say(client, args)
 {
 	
 	/**
-	Make sure we are enabled.
+	Make sure its not the server or a chat trigger
 	*/
 	if (client == 0 || IsChatTrigger())
 	{
 		return Plugin_Continue;
 	}
 	
-	if (g_aPlayerColorIndex[client] != -1)
-	{
-	
-		/**
-		The client is, so get the chat message and strip it down.
-		*/
-		decl	String:sArg[1024],
-			String:sChatMsg[1024];
-		
-		GetCmdArgString(sArg, sizeof(sArg));
-		StripQuotes(sArg);
-		TrimString(sArg);
-		new startidx;
-		if (sArg[strlen(sArg)-1] == '"')
-		{
-			sArg[strlen(sArg)-1] = '\0';
-			startidx = 1;
-		}
-		
-		/**
-		Bug out if they are using the admin chat symbol (admin chat).  If we are in CSS it may not find all the triggers, so we double check.
-		*/
-		if (sArg[startidx] == CHAT_SYMBOL || sArg[startidx] == TRIGGER_SYMBOL1 || sArg[startidx] == TRIGGER_SYMBOL2)
-		{
-			return Plugin_Continue;
-		}
-		
-		/**
-		Log the message for hlstatsx and other things.
-		*/
-		LogPlayerEvent(client, "say", sArg);
-		
-		/**
-		Format the message.
-		*/
-		FormatMessage(client, GetClientTeam(client), IsPlayerAlive(client), false, g_aPlayerColorIndex[client], sArg, sChatMsg, sizeof(sChatMsg));
-		
-		/**
-		Send the message.
-		*/
-		if (StrContains(sChatMsg, "{teamcolor}") != -1)
-		{
-			CPrintToChatAllEx(client, sChatMsg);
-		}
-		else
-		{
-			CPrintToChatAll(sChatMsg);
-		}
-		
-		/**
-		We are done, bug out, and stop the original chat message.
-		*/
-		return Plugin_Stop;
-	}
+	/**
+	Get the message
+	*/
+	decl	String:sMessage[1024];
+	GetCmdArgString(sMessage, sizeof(sMessage));
 	
 	/**
-	We are done, bug out.
+	Process the message
 	*/
-	return Plugin_Continue;
+	return ProcessMessage(client, false, sMessage, sizeof(sMessage));
 }
 
 public Action:Command_SayTeam(client, args)
@@ -219,75 +184,15 @@ public Action:Command_SayTeam(client, args)
 	}
 	
 	/**
-	Check the client to see if they are a admin
+	Get the message
 	*/
-	if (g_aPlayerColorIndex[client] != -1)
-	{
-	
-		/**
-		The client is, so get the chat message and strip it down.
-		*/
-		decl	String:sArg[1024],
-			String:sChatMsg[1024];
-		
-		new iCurrentTeam = GetClientTeam(client);
-		
-		GetCmdArgString(sArg, sizeof(sArg));
-		StripQuotes(sArg);
-		TrimString(sArg);
-		new startidx;
-		if (sArg[strlen(sArg)-1] == '"')
-		{
-			sArg[strlen(sArg)-1] = '\0';
-			startidx = 1;
-		}
-		
-		/**
-		Bug out if they are using the admin chat symbol (admin chat).
-		*/
-		if (sArg[startidx] == CHAT_SYMBOL || sArg[startidx] == TRIGGER_SYMBOL1 || sArg[startidx] == TRIGGER_SYMBOL2)
-		{
-			return Plugin_Continue;
-		}
-		
-		/**
-		Log the message for hlstatsx and other things.
-		*/
-		LogPlayerEvent(client, "say_team", sArg);
-		
-		/**
-		Format the message.
-		*/
-		FormatMessage(client, iCurrentTeam, IsPlayerAlive(client), true, g_aPlayerColorIndex[client], sArg, sChatMsg, sizeof(sChatMsg));
-		
-		/**
-		Send the message to the same team
-		*/
-		for (new i = 1; i <= MaxClients; i++)
-		{
-			if (IsClientConnected(i) && IsClientInGame(i) && GetClientTeam(i) == iCurrentTeam)
-			{
-				if (StrContains(sChatMsg, "{teamcolor}") != -1)
-				{
-					CPrintToChatEx(i, client, sChatMsg);
-				}
-				else
-				{
-					CPrintToChat(i, sChatMsg);
-				}
-			}
-		}
-		
-		/**
-		We are done, bug out, and stop the original chat message.
-		*/
-		return Plugin_Stop;
-	}
+	decl	String:sMessage[1024];
+	GetCmdArgString(sMessage, sizeof(sMessage));
 	
 	/**
-	We are done, bug out.
+	Process the message
 	*/
-	return Plugin_Continue;
+	return ProcessMessage(client, true, sMessage, sizeof(sMessage));
 }
 
 public Action:Command_Reload(client, args)
@@ -371,10 +276,10 @@ stock LoadAdminsAndColorsFromConfig()
 		
 		if (g_bDebug)
 		{
-			LogMessage("Group Name/SteamID: %s", sGroupName);
-			LogMessage("Flag String: %s", sGroupFlag);
-			LogMessage("Color on name: %s", sGroupNameColor);
-			LogMessage("Color of text: %s", sGroupTextColor);
+			LogMessage("Loaded Group Name/SteamID: %s", sGroupName);
+			LogMessage("Loaded Flag String: %s", sGroupFlag);
+			LogMessage("Loaded Color on name: %s", sGroupNameColor);
+			LogMessage("Loaded Color of text: %s", sGroupTextColor);
 		}
 		
 		/**
@@ -425,6 +330,7 @@ stock CheckAdmin(client)
 {
 	new String:sFlags[15];
 	new String:sClientSteamID[64];
+	new bool:bDebug_FoundBySteamID = false;
 	new iGroupFlags;
 	new iFlags;
 	new iIndex = -1;
@@ -437,6 +343,7 @@ stock CheckAdmin(client)
 	if (iIndex != -1)
 	{
 		g_aPlayerColorIndex[client] = iIndex;
+		bDebug_FoundBySteamID = true;
 	}
 	
 	/**
@@ -463,25 +370,164 @@ stock CheckAdmin(client)
 	
 	if (g_bDebug)
 	{
-		PrintToChatAll("SteamID: %s", sClientSteamID);
-		PrintToChatAll("Array Index: %i", iIndex);
-		PrintToChatAll("Flag String: %s", sFlags);
-		PrintToChatAll("Flag Bits of Client: %i", iFlags);
-		PrintToChatAll("Flag Bits of Group: %i", iGroupFlags);
+		if (iIndex == -1)
+		{
+			PrintToChatAll("[SCC] Client %N was NOT found in colors config", client);
+		}
+		else
+		{
+			new String:sGroupName[256];
+			GetArrayString(g_aGroupNames, iIndex, sGroupName, sizeof(sGroupName));
+			PrintToChatAll("[SCC] Client %N was found in colors config", client);
+			if (bDebug_FoundBySteamID)
+			{
+				PrintToChatAll("[SCC] Found steamid: %s in config file", sGroupName);
+			}
+			else
+			{
+				PrintToChatAll("[SCC] Found in group: %s in config file", sGroupName);
+			}
+		}
 	}
 }
 
-stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const Sting:sMessage[], String:sChatMsg[], maxlength)
+stock bool:IsStringBlank(const String:input[])
+{
+	new len = strlen(input);
+	for (new i=0; i<len; i++)
+	{
+		if (!IsCharSpace(input[i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
+{
+	
+	/**
+	Make sure the client has a color assigned
+	*/
+	if (g_aPlayerColorIndex[client] != -1)
+	{
+	
+		/**
+		The client is, so get the chat message and strip it down.
+		*/
+		decl String:sChatMsg[1280];
+		StripQuotes(message);
+		TrimString(message);
+		new startidx;
+		if (message[strlen(message)-1] == '"')
+		{
+			message[strlen(message)-1] = '\0';
+			startidx = 1;
+		}
+		
+		/**
+		Because we are dealing with a chat message, lets take out all the %'s
+		*/
+		ReplaceString(message, maxlength, CHAR_PERCENT, CHAR_NULL);
+		
+		/**
+		Make sure it's not blank
+		*/
+		if (IsStringBlank(message))
+		{
+			return Plugin_Stop;
+		}
+		
+		/**
+		Bug out if they are using the admin chat symbol (admin chat).
+		*/
+		if (message[startidx] == CHAT_SYMBOL)
+		{
+			return Plugin_Continue;
+		}
+		/**
+		If we are using the trigger backup, then bug out on the triggers
+		*/
+		else if (g_bTriggerBackup && (message[startidx] == TRIGGER_SYMBOL1 || message[startidx] == TRIGGER_SYMBOL2))
+		{
+			return Plugin_Continue;
+		}
+		
+		/**
+		Log the message for hlstatsx and other things.
+		*/
+		if (teamchat)
+		{
+			LogPlayerEvent(client, "say_team", message);
+		}
+		else
+		{
+			LogPlayerEvent(client, "say", message);
+		}
+		
+		/**
+		Format the message.
+		*/
+		FormatMessage(	client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerColorIndex[client], message, sChatMsg, sizeof(sChatMsg));
+		
+		/**
+		Send the message.
+		*/
+		new bool:bTeamColorUsed = StrContains(sChatMsg, "{teamcolor}") != -1 ? true : false;
+		new iCurrentTeam = GetClientTeam(client);
+		if (teamchat)
+		{
+			for (new i = 1; i <= MaxClients; i++)
+			{
+				if (IsClientConnected(i) && IsClientInGame(i) && GetClientTeam(i) == iCurrentTeam)
+				{
+					if (bTeamColorUsed)
+					{
+						CPrintToChatEx(i, client, "%s", sChatMsg);
+					}
+					else
+					{
+						CPrintToChat(i, "%s", sChatMsg);
+					}
+				}
+			}
+		}
+		else
+		{
+			if (bTeamColorUsed)
+			{
+				CPrintToChatAllEx(client, "%s", sChatMsg);
+			}
+			else
+			{
+				CPrintToChatAll("%s", sChatMsg);
+			}
+		}
+		
+		/**
+		We are done, bug out, and stop the original chat message.
+		*/
+		return Plugin_Stop;
+	}
+
+	/**
+	Doesn't have a color assigned, bug out.
+	*/
+	return Plugin_Continue;
+}
+
+stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String:message[], String:chatmsg[], maxlength)
 {
 	decl	String:sDead[10],
-		String:sTeam[15],
-		String:sClientName[64];
+			String:sTeam[15],
+			String:sClientName[64];
 	
 	GetClientName(client, sClientName, sizeof(sClientName));
 	
 	if (teamchat)
 	{
-		if (team > 1)
+		if (team != g_aCurrentTeams[Spectator])
 		{
 			Format(sTeam, sizeof(sTeam), "(TEAM) ");
 		}
@@ -492,17 +538,17 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const Sting:
 	}
 	else
 	{
-		if (team > 1)
+		if (team != g_aCurrentTeams[Spectator])
 		{
 			Format(sTeam, sizeof(sTeam), "");
 		}
 		else
 		{
-			Format(sTeam, sizeof(sTeam), "*Spec* ");
+			Format(sTeam, sizeof(sTeam), "*SPEC* ");
 		}
 	}
 	
-	if (team > 1)
+	if (team != g_aCurrentTeams[Spectator])
 	{
 		if (alive)
 		{
@@ -523,7 +569,7 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const Sting:
 	GetArrayString(g_aGroupNameColor, index, sNameColor, sizeof(sNameColor));
 	GetArrayString(g_aGroupTextColor, index, sTextColor, sizeof(sTextColor));
 	
-	Format(sChatMsg, maxlength, "{default}%s%s%s%s {default}: %s%s", sDead, sTeam, sNameColor, sClientName, sTextColor, sMessage);
+	Format(chatmsg, maxlength, "{default}%s%s%s%s {default}:  %s%s", sDead, sTeam, sNameColor, sClientName, sTextColor, message);
 }
 
 /**
@@ -531,12 +577,28 @@ Adjust the settings if a convar was changed
 */
 public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
 {
-	if (StringToInt(newValue) == 1)
+	if (convar == g_Cvar_hDebug)
 	{
-		g_bDebug = true;
+		if (StringToInt(newValue) == 1)
+		{
+			g_bDebug = true;
+		}
+		else
+		{
+			g_bDebug = false;
+		}
 	}
-	else
+	else if (convar == g_Cvar_hTriggerBackup)
 	{
-		g_bDebug = false;
+		if (StringToInt(newValue) == 1)
+		{
+			g_bTriggerBackup = true;
+		}
+		else
+		{
+			g_bTriggerBackup = false;
+		}
 	}
+	
+
 }
