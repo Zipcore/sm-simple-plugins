@@ -454,7 +454,7 @@ public HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 	Get our event variables
 	*/
 	new iClient = GetClientOfUserId(GetEventInt(event, "userid"));
-	new iCustomKill = GetEventInt(event, "customkill");
+	new iDeathFlags = GetEventInt(event, "death_flags");
 	new String:sWeapon[64];
 	
 	GetEventString(event, "weapon", sWeapon, sizeof(sWeapon));
@@ -463,7 +463,7 @@ public HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 	Return if death was not caused by a player or is a feign death
 	This is the case when the player switches teams
 	*/
-	if (StrEqual(sWeapon, "world", false) || (g_CurrentMod == GameType_TF && iCustomKill & 32))
+	if ((g_CurrentMod == GameType_TF && iDeathFlags & 32) || StrEqual(sWeapon, "world", false))
 	{
 		return;
 	}
