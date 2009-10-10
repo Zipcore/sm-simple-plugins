@@ -43,10 +43,10 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION "1.2.1.$Rev$"
 
-#define SPECMODE_NONE 				0
-#define SPECMODE_FIRSTPERSON 		4
-#define SPECMODE_3RDPERSON 		5
-#define SPECMODE_FREELOOK	 		6
+#define SPECMODE_NONE 						0
+#define SPECMODE_FIRSTPERSON 			4
+#define SPECMODE_3RDPERSON 			5
+#define SPECMODE_FREELOOK	 			6
 #define SPECMODE_CSS_FIRSTPERSON 	3
 #define SPECMODE_CSS_3RDPERSON 	4
 #define SPECMODE_CSS_FREELOOK	 	5
@@ -952,11 +952,13 @@ public Menu_SelectPlayer(Handle:menu, MenuAction:action, param1, param2)
 				PrintToChat(param1, "\x03[SM-SPEC]\x01 %t", "Invalid Target");
 				DisplayMenu(BuildPlayerListMenu(), param1, MENU_TIME_FOREVER);
 			}
-			
-			/**
-			Start following the player
-			*/
-			StartFollowingPlayer(param1, iTarget);
+			else
+			{
+				/**
+				Start following the player
+				*/
+				StartFollowingPlayer(param1, iTarget);
+			}
 		}
 		else
 		{
