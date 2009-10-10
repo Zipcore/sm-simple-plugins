@@ -82,19 +82,19 @@ enum e_Teams
 new g_aCurrentTeams[e_Teams];
 new e_SupportedMods:g_CurrentMod;
 new String:g_sGameName[e_SupportedMods][32] = {	"Unknown",
-												"Age of Chivalry",
-												"Counter Strike",
-												"Day Of Defeat",
-												"Fortress Forever",
-												"Hidden: Source",
-												"Half Life 2: Deathmatch",
-												"Insurgency",
-												"Left 4 Dead",
-												"Neotokyo",
-												"Stargate TLS",
-												"Team Fortress 2",
-												"Zombie Panic: Source"
-											};
+																							"Age of Chivalry",
+																							"Counter Strike",
+																							"Day Of Defeat",
+																							"Fortress Forever",
+																							"Hidden: Source",
+																							"Half Life 2: Deathmatch",
+																							"Insurgency",
+																							"Left 4 Dead",
+																							"Neotokyo",
+																							"Stargate TLS",
+																							"Team Fortress 2",
+																							"Zombie Panic: Source"
+																						};
 
 public SharedPlugin:_pl_simpleplugin = 
 {
@@ -122,6 +122,7 @@ public _pl_simpleplugin_SetNTVOptional()
 	MarkNativeAsOptional("SM_ClearBuddy");
 	MarkNativeAsOptional("SM_IsValidAdmin");
 	MarkNativeAsOptional("SM_IsValidTeam");
+	MarkNativeAsOptional("SM_IsValidClient");
 }
 #endif
 
@@ -141,7 +142,7 @@ forward SM_OnPlayerMoved(Handle:plugin, client, team);
  * @param 		client		The client index of the player to be moved
  * @param 		team		The team to move the player to
  * @noreturn
- * @error					Invalid client or team index
+ * @error							Invalid client or team index
  **********************************************************************/
 native SM_MovePlayer(client, team);
 
@@ -151,8 +152,8 @@ native SM_MovePlayer(client, team);
  * @param 		client		The client index of the player to set
  * @param 		team		The team to move the to set
  * @param 		override	Whether or not to override another plugin
- * @return					True if successful, false if not
- * @error					Invalid client or team index
+ * @return						True if successful, false if not
+ * @error							Invalid client or team index
  **********************************************************************/
 native SM_SetForcedTeam(client, team, bool:override = false);
 
@@ -161,10 +162,10 @@ native SM_SetForcedTeam(client, team, bool:override = false);
  *
  * @param 		client		The client index of the player to check
  * @param 		plugin		Optional: The plugin handle of the plugin
-							that set the team
- * @return					The team index of the forced team
-							Zero if no forced team
- * @error					Invalid client index
+										that set the team
+ * @return						The team index of the forced team
+										Zero if no forced team
+ * @error							Invalid client index
  **********************************************************************/
 native SM_GetForcedTeam(client, &Handle:plugin = INVALID_HANDLE);
 
@@ -172,8 +173,8 @@ native SM_GetForcedTeam(client, &Handle:plugin = INVALID_HANDLE);
  * Clears a client's forced team
  *
  * @param 		client		The client index of the player to check
- * @return					True if successful, false if not
- * @error					Invalid client index
+ * @return						True if successful, false if not
+ * @error							Invalid client index
  **********************************************************************/
 native SM_ClearForcedTeam(client);
 
@@ -182,9 +183,9 @@ native SM_ClearForcedTeam(client);
  * This will only return a player if the calling plugin assigned the team
  *
  * @param 		team		The team index the player should be on
- * @return					The client index of the player
-							Zero if no player found
- * @error					Invalid client index
+ * @return						The client index of the player
+										Zero if no player found
+ * @error							Invalid client index
  **********************************************************************/
 native SM_GetForcedPlayer(team);
 
@@ -194,8 +195,8 @@ native SM_GetForcedPlayer(team);
  * @param 		client		The client index of the player to assign
  * @param 		player		The player index of the player to assign
  * @param 		override	Whether or not to override a player lock
- * @return					True if successful, false if not
- * @error					Invalid client or player index
+ * @return						True if successful, false if not
+ * @error							Invalid client or player index
  **********************************************************************/
 native bool:SM_AssignBuddy(client, player, bool:override = false);
 
@@ -203,9 +204,9 @@ native bool:SM_AssignBuddy(client, player, bool:override = false);
  * Rturns the client's buddy
  *
  * @param 		client		The client index of the player to assign
- * @return					The client index of the player's buddy
-							Zero if no buddy
- * @error					Invalid client index
+ * @return						The client index of the player's buddy
+										Zero if no buddy
+ * @error							Invalid client index
  **********************************************************************/
 native SM_GetClientBuddy(client);
 
@@ -214,8 +215,8 @@ native SM_GetClientBuddy(client);
  *
  * @param 		client		The client index of the player to assign
  * @param 		setting		Setting to set, True or False
- * @return					True if successful, false if not
- * @error					Invalid client index
+ * @return						True if successful, false if not
+ * @error							Invalid client index
  **********************************************************************/
 native bool:SM_LockBuddy(client, bool:setting);
 
@@ -223,8 +224,8 @@ native bool:SM_LockBuddy(client, bool:setting);
  * Returns the buddy lock setting for a client
  *
  * @param 		client		The client index of the player to assign
- * @return					True if locked, false if not
- * @error					Invalid client index
+ * @return						True if locked, false if not
+ * @error							Invalid client index
  **********************************************************************/
 native bool:SM_IsBuddyLocked(client);
 
@@ -233,8 +234,8 @@ native bool:SM_IsBuddyLocked(client);
  *
  * @param 		client		The client index of the player to clear
  * @param 		override	Whether or not to override a player lock
- * @return					True if successful, false if not
- * @error					Invalid client index
+ * @return						True if successful, false if not
+ * @error							Invalid client index
  **********************************************************************/
 native bool:SM_ClearBuddy(client, bool:override = false);
 
@@ -243,8 +244,8 @@ native bool:SM_ClearBuddy(client, bool:override = false);
  * ADMFLAG_ROOT will always return true
  *
  * @param 		client		The client index of the player to assign
- * @param 		flags		The char flag(s) to check against
- * @return					True if valid, false if not
+ * @param 		flags			The char flag(s) to check against
+ * @return						True if valid, false if not
  **********************************************************************/
 native bool:SM_IsValidAdmin(client, const String:flags[]);
 
@@ -253,10 +254,18 @@ native bool:SM_IsValidAdmin(client, const String:flags[]);
  * Determine if the team is a valid team
  *
  * @param 		team		The team index to determine if valid for
-							currently installed/supported mod
- * @return					True if valid, false if not
+										currently installed/supported mod
+ * @return						True if valid, false if not
  **********************************************************************/
 native bool:SM_IsValidTeam(team);
+
+/**********************************************************************
+ * Determine if the client is a valid connected and in game client
+ *
+ * @param 		client		The client index
+ * @return						True if valid, false if not
+ **********************************************************************/
+native bool:SM_IsValidClient(client);
 
 
 public e_SupportedMods:GetCurrentMod()
