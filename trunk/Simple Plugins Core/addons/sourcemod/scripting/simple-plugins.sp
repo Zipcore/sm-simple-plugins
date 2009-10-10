@@ -80,6 +80,7 @@ public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
 	CreateNative("SM_ClearBuddy", Native_SM_ClearBuddy);
 	CreateNative("SM_IsValidAdmin", Native_SM_IsValidAdmin);
 	CreateNative("SM_IsValidTeam", Native_SM_IsValidTeam);
+	CreateNative("SM_IsValidClient", Native_SM_IsValidClient);
 	RegPluginLibrary("simpleplugins");
 	return true;
 }
@@ -629,10 +630,6 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Client (%d) is not connected", iClient);
 	}
-	if (!IsClientInGame(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
-	}
 	if (IsFakeClient(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
@@ -715,6 +712,23 @@ public Native_SM_IsValidAdmin(Handle:plugin, numParams)
 		return true;
 	}
 	if (GetUserFlagBits(iClient) & ADMFLAG_ROOT)
+	{
+		return true;
+	}
+	return false;
+}
+
+public Native_SM_IsValidClient(Handle:plugin, numParams)
+{
+	/**
+	Get the client
+	*/
+	new iClient = GetNativeCell(1);
+	
+	/**
+	Check the flags
+	*/
+	if (iClient != 0 && IsClientConnected(iClient) && IsClientInGame(iClient))
 	{
 		return true;
 	}
