@@ -61,6 +61,7 @@ new Handle:stm_voteenabled = INVALID_HANDLE;
 new Handle:stm_votewin = INVALID_HANDLE;
 new Handle:stm_votedelay = INVALID_HANDLE;
 new Handle:stm_mp_bonusroundtime = INVALID_HANDLE;
+new Handle:stm_adverts = INVALID_HANDLE;
 new Handle:g_hAdminMenu = INVALID_HANDLE;
 new Handle:g_hTimerPrepScramble = INVALID_HANDLE;
 new Handle:g_hTimerClearScrambleForce = INVALID_HANDLE;
@@ -71,6 +72,7 @@ new bool:g_bIsEnabled = true;
 new bool:g_bVoteEnabled = true;
 new bool:g_bLogActivity = true;
 new bool:g_bScrambleRoundEnd = false;
+new bool:g_bDisplayAdverts = false;
 new g_iVoteDelay, g_iLastVoteTime, g_iTimeLeft;
 new Float:g_fScrambleDelay, Float:g_fVoteWin;
 
@@ -90,15 +92,16 @@ public OnPluginStart()
 	Need to create all of our console variables.
 	*/
 	CreateConVar("stm_version", PLUGIN_VERSION, "Simple Team Manager Version",FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	stm_enabled = CreateConVar("stm_enabled", "1", "Enable or Disable Simple Team Manager", _, true, 0.0, true, 1.0);
-	stm_logactivity = CreateConVar("stm_logactivity", "0", "Enable or Disable the disaplying of events in the log", _, true, 0.0, true, 1.0);
+	stm_enabled = CreateConVar("stm_enabled", "1", "Enable or Disable Simple Team Manager");
+	stm_logactivity = CreateConVar("stm_logactivity", "0", "Enable or Disable the disaplying of events in the log");
 	stm_adminflag_swapteam = CreateConVar("stm_adminflag_swapteam", "a", "Admin flag to use for the swapteam command.  Must be a in char format.");
 	stm_adminflag_moveplayer = CreateConVar("stm_adminflag_moveplayer", "c", "Admin flag to use for the moveplayer command.  Must be a in char format.");
 	stm_adminflag_scramble = CreateConVar("stm_adminflag_scramble", "c", "Admin flag to use for the scrambleteam command.  Must be a in char format.");
 	stm_scrambledelay = CreateConVar("stm_scrambledelay", "15", "Delay to scramble teams");
-	stm_voteenabled = CreateConVar("stm_voteenabled", "1", "Enable or Disable voting to scramble the teams", _, true, 0.0, true, 1.0);
-	stm_votewin = CreateConVar("stm_votewin", "0.45", "Win percentage vote must win by", _, true, 0.0, true, 1.0);
+	stm_voteenabled = CreateConVar("stm_voteenabled", "1", "Enable or Disable voting to scramble the teams");
+	stm_votewin = CreateConVar("stm_votewin", "0.45", "Win percentage vote must win by");
 	stm_votedelay = CreateConVar("stm_votedelay", "600", "Delay before another vote can be cast");
+	stm_adverts = CreateConVar("stm_adverts", "0", "Enable/Disable the displaying of adverts to connecting players");
 	stm_mp_bonusroundtime = FindConVar("mp_bonusroundtime");
 
 	
@@ -112,6 +115,7 @@ public OnPluginStart()
 	HookConVarChange(stm_voteenabled, ConVarSettingsChanged);
 	HookConVarChange(stm_votewin, ConVarSettingsChanged);
 	HookConVarChange(stm_votedelay, ConVarSettingsChanged);
+	HookConVarChange(stm_adverts, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to create and use.
@@ -195,6 +199,7 @@ public OnConfigsExecuted()
 	*/
 	g_bIsEnabled = GetConVarBool(stm_enabled);
 	g_bLogActivity = GetConVarBool(stm_logactivity);
+	g_bDisplayAdverts = GetConVarBool(stm_adverts);
 	g_fScrambleDelay = GetConVarFloat(stm_scrambledelay);
 	g_iVoteDelay = GetConVarInt(stm_votedelay);
 	g_fVoteWin = GetConVarFloat(stm_votewin);
@@ -774,7 +779,7 @@ public OnClientPostAdminCheck(client)
 	*/
 	decl String:sFlags[5];
 	GetConVarString(stm_adminflag_swapteam, sFlags, sizeof(sFlags));
-	if (SM_IsValidAdmin(client, sFlags))
+	if (g_bDisplayAdverts && SM_IsValidAdmin(client, sFlags))
 	{
 		/**
 		The client does so lets create a timer to run an advertise to tell him about it.
@@ -1007,35 +1012,65 @@ stock PrepTeamScramble(bool:bRestartRound = false)
 
 public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
 {
-	if (convar == stm_enabled) {
-		if (StringToInt(newValue) == 0) {
+	if (convar == stm_enabled)
+	{
+		if (StringToInt(newValue) == 0) 
+		{
 			g_bIsEnabled = false;
 			LogAction(0, -1, "[STM] Simple Team Manager is loaded and disabled.");
-		} else {
+		} 
+		else
+		{
 			g_bIsEnabled = true;
 			LogAction(0, -1, "[STM] Simple Team Manager is loaded and enabled.");
 		}
 	} 
-	else if (convar == stm_logactivity) {
-		if (StringToInt(newValue) == 0) {
+	else if (convar == stm_logactivity)
+	{
+		if (StringToInt(newValue) == 0) 
+		{
 			g_bLogActivity = false;
 			LogAction(0, -1, "[STM] Log Activity DISABLED.");
-		} else {
+		}
+		else 
+		{
 			g_bLogActivity = true;
 			LogAction(0, -1, "[STM] Log Activity ENABLED.");
 		}
 	}
-	else if (convar == stm_scrambledelay)
-		g_fScrambleDelay = StringToFloat(newValue);
-	else if (convar == stm_votewin)
-		g_fVoteWin = StringToFloat(newValue);
-	else if (convar == stm_votedelay)
-		g_iVoteDelay = StringToInt(newValue);
-	else if (convar == stm_voteenabled) {
+	else if (convar == stm_adverts)
+	{
 		if (StringToInt(newValue) == 0)
-			g_bVoteEnabled = false;
+		{
+			g_bDisplayAdverts = false;
+		}
 		else
+		{
+			g_bDisplayAdverts = true;
+		}
+	}
+	else if (convar == stm_scrambledelay)
+	{
+		g_fScrambleDelay = StringToFloat(newValue);
+	}
+	else if (convar == stm_votewin)
+	{
+		g_fVoteWin = StringToFloat(newValue);
+	}
+	else if (convar == stm_votedelay)
+	{
+		g_iVoteDelay = StringToInt(newValue);
+	}
+	else if (convar == stm_voteenabled) 
+	{
+		if (StringToInt(newValue) == 0)
+		{
+			g_bVoteEnabled = false;
+		}
+		else
+		{
 			g_bVoteEnabled = true;
+		}
 	}
 }
 
