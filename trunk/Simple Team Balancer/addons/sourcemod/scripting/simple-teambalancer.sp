@@ -71,6 +71,7 @@ new Handle:stb_switchbackforced = INVALID_HANDLE;
 new Handle:stb_adminflag = INVALID_HANDLE;
 new Handle:stb_buddyrestriction = INVALID_HANDLE;
 new Handle:stb_convarcontrol = INVALID_HANDLE;
+new Handle:stb_adverts = INVALID_HANDLE;
 
 /**
  Built-in cvars handles 
@@ -106,6 +107,7 @@ new bool:g_bRoundStart = false;
 new bool:g_bRoundEnd = false;
 new bool:g_bSuddenDeath = false;
 new bool:g_bIsArenaMode = false;
+new bool:g_bDisplayAdverts = false;
 
 /**
  Global strings/integers/floats 
@@ -132,14 +134,14 @@ public OnPluginStart()
 	Create console variables
 	*/
 	CreateConVar("stb_version", PLUGIN_VERSION, "Simple Team Balancer", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	stb_enabled = CreateConVar("stb_enabled", "1", "Enable or Disable Simple Team Balancer", _, true, 0.0, true, 1.0);
-	stb_priorityenabled = CreateConVar("stb_priorityenabled", "1", "Enable or Disable the prioritization of living players", _, true, 0.0, true, 1.0);
-	stb_buddyrestriction = CreateConVar("stb_buddyrestriction", "0", "Enable or Disable Admin Only buddy lists", _, true, 0.0, true, 1.0);
-	stb_logactivity = CreateConVar("stb_logactivity", "0", "Enable or Disable the disaplying of events in the log", _, true, 0.0, true, 1.0);
-	stb_logactivity2 = CreateConVar("stb_logactivity2", "0", "Enable or Disable the disaplying of detailed events in the log (WILL SPAM LOG)", _, true, 0.0, true, 1.0);
-	stb_deadonly = CreateConVar("stb_deadonly", "0", "Enable or Disable the switching of only dead players", _, true, 0.0, true, 1.0);
-	stb_convarcontrol = CreateConVar("stb_convarcontrol", "1", "Enable or Disable the control of builtin console variables", _, true, 0.0, true, 1.0);
-	stb_buddyenabled = CreateConVar("stb_buddyenabled", "1", "Enable or Disable the buddy system", _, true, 0.0, true, 1.0);	
+	stb_enabled = CreateConVar("stb_enabled", "1", "Enable/Disable Simple Team Balancer", _, true, 0.0, true, 1.0);
+	stb_priorityenabled = CreateConVar("stb_priorityenabled", "1", "Enable/Disable the prioritization of living players", _, true, 0.0, true, 1.0);
+	stb_buddyrestriction = CreateConVar("stb_buddyrestriction", "0", "Enable/Disable Admin Only buddy lists", _, true, 0.0, true, 1.0);
+	stb_logactivity = CreateConVar("stb_logactivity", "0", "Enable/Disable the disaplying of events in the log", _, true, 0.0, true, 1.0);
+	stb_logactivity2 = CreateConVar("stb_logactivity2", "0", "Enable/Disable the disaplying of detailed events in the log (WILL SPAM LOG)", _, true, 0.0, true, 1.0);
+	stb_deadonly = CreateConVar("stb_deadonly", "0", "Enable/Disable the switching of only dead players", _, true, 0.0, true, 1.0);
+	stb_convarcontrol = CreateConVar("stb_convarcontrol", "1", "Enable/Disable the control of builtin console variables", _, true, 0.0, true, 1.0);
+	stb_buddyenabled = CreateConVar("stb_buddyenabled", "1", "Enable/Disable the buddy system", _, true, 0.0, true, 1.0);	
 	stb_unbalancelimit = CreateConVar("stb_unbalancelimit", "2", "Amount of players teams are ALLOWED to be unbalanced by", _, true, 1.0, true, 32.0);
 	stb_balancedelay = CreateConVar("stb_balancedelay", "10", "Delay in seconds to start an autobalance");
 	stb_livingplayerswitchdelay = CreateConVar("stb_livingplayerswitchdelay", "20", "Delay in seconds to switch living players once selected");
@@ -147,7 +149,8 @@ public OnPluginStart()
 	stb_roundstartdelay = CreateConVar("stb_roundstartdelay", "15", "Delay in seconds to start balancing teams after the start of a round");
 	stb_switchbackforced = CreateConVar("stb_switchbackforced", "300", "Amount of time in seconds to not switch a player twice and force the team if enabled");
 	stb_uberlevel = CreateConVar("stb_uberlevel", "1.0", "Min uber level medic must have to have priority over other living players. Setting to 0 will rarely switch a living medic", _, true, 0.0, true, 1.0);
-	stb_adminflag = CreateConVar("stb_adminflag", "a", "Admin flag to use for immunity.  Must be a in char format.");
+	stb_adminflag = CreateConVar("stb_adminflag", "a", "Admin flag to use for immunity.  Must be a in char format");
+	stb_adverts = CreateConVar("stb_adverts", "0", "Enable/Disable the displaying of adverts to connecting players");
 	
 	/**
 	Try to find some built-in cvars
@@ -188,6 +191,7 @@ public OnPluginStart()
 	HookConVarChange(stb_roundstartdelay, ConVarSettingsChanged);
 	HookConVarChange(stb_switchbackforced, ConVarSettingsChanged);
 	HookConVarChange(stb_uberlevel, ConVarSettingsChanged);
+	HookConVarChange(stb_adverts, ConVarSettingsChanged);
 	
 	/**
 	Create console commands
@@ -262,6 +266,7 @@ public OnConfigsExecuted()
 	g_bPriorityPlayers = GetConVarBool(stb_priorityenabled);
 	g_bBuddyRestriction = GetConVarBool(stb_buddyrestriction);
 	g_bConVarControl = GetConVarBool(stb_convarcontrol);
+	g_bDisplayAdverts = GetConVarBool(stb_adverts);
 	g_fUberLevel = GetConVarFloat(stb_uberlevel);
 	g_iUnbalanceLimit = GetConVarInt(stb_unbalancelimit);
 	g_iBalanceDelay = GetConVarInt(stb_balancedelay);
@@ -342,17 +347,14 @@ public OnClientPostAdminCheck(client)
 {
 	
 	/**
-	Make sure its a valid connected client and buddy system is enabled 
+	Make sure we are supposed to send the advert 
 	*/
-	if (client == 0 || !g_bIsEnabled || !IsClientConnected(client) || !g_bBuddyEnabled)
-	{
-		return;
-	}
-	
-	/**
-	Make sure if its set for admins only they have the flags 
-	*/
-	if (g_bBuddyRestriction && !SM_IsValidAdmin(client, g_sAdminFlag))
+	if (client == 0 
+	|| !g_bIsEnabled
+	|| !IsClientConnected(client) 
+	|| !g_bDisplayAdverts
+	|| !g_bBuddyEnabled
+	|| (g_bBuddyRestriction && !SM_IsValidAdmin(client, g_sAdminFlag)))
 	{
 		return;
 	}
@@ -523,7 +525,7 @@ public HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 					Buddy system is enabled, check to see if client has buddy
 					*/
 					new iBuddyIndex = SM_GetClientBuddy(iClient);
-					if (iBuddyIndex != 0 || !IsClientConnected(iBuddyIndex) || !IsClientInGame(iBuddyIndex))
+					if (iBuddyIndex != 0 && IsClientConnected(iBuddyIndex) && IsClientInGame(iBuddyIndex))
 					{
 				
 						/**
@@ -1720,6 +1722,17 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 		else
 		{
 			g_bBuddyRestriction = true;
+		}
+	}
+	else if (convar == stb_adverts)
+	{
+		if (StringToInt(newValue) == 0)
+		{
+			g_bDisplayAdverts = false;
+		}
+		else
+		{
+			g_bDisplayAdverts = true;
 		}
 	}
 	else if (convar == stb_unbalancelimit)
