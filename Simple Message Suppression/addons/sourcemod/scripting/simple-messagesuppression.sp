@@ -7,10 +7,10 @@ Description:
 *************************************************************************
 This file is part of Simple Plugins project.
 
-This plugin is free software: you can redistribute 
+This plugin is free software: you can redistribute
 it and/or modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation, either version 3 of the License, or
-later version. 
+later version.
 
 This plugin is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define SUPPRESS_VERSION "1.1.$Rev$"
 
-public Plugin:myinfo = 
+public Plugin:myinfo =
 {
 	name = "Simple Message Suppression",
 	author = "FlyingMongoose, psychonic",
@@ -152,7 +152,7 @@ public Action:ev_PlayerConnect(Handle:event, const String:name[], bool:dontBroad
 			decl String:strAddress[50];
 			GetEventString(event, "address", strAddress, sizeof(strAddress));
 			
-			if (iClient != 0)
+			if (iClient != 0 || !StrEqual(strNetworkId, "BOT"))
 			{
 				if (GetConVarInt(cvarAdminShowMessages) == 1)
 				{
@@ -196,7 +196,7 @@ public Action:ev_PlayerDisconnect(Handle:event, const String:name[], bool:dontBr
 			decl String:strNetworkId[50];
 			GetEventString(event, "networkid", strNetworkId, sizeof(strNetworkId));
 			
-			if (iClient != 0)
+			if (iClient != 0 || !StrEqual(strNetworkId, "BOT"))
 			{
 				if (GetConVarInt(cvarAdminShowMessages) == 1)
 				{
