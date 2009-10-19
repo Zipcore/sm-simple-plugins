@@ -418,10 +418,6 @@ public Native_SM_ClearForcedTeam(Handle:plugin, numParams)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
 	}
-	if (!IsClientInGame(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
-	}
 	
 	g_aPlayers[iClient][hForcedTeamPlugin] = INVALID_HANDLE;
 	g_aPlayers[iClient][iForcedTeam] = 0;
@@ -574,10 +570,6 @@ public Native_SM_LockBuddy(Handle:plugin, numParams)
 	if (!IsClientConnected(iClient))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
-	}
-	if (!IsClientInGame(iClient))
-	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
 	}
 	if (IsFakeClient(iClient))
 	{
