@@ -292,6 +292,7 @@ public Native_SM_MovePlayer(Handle:plugin, numParams)
 	*/
 	new iClient = GetNativeCell(1);
 	new iTeam = GetNativeCell(2);
+	new bool:bRespawn = GetNativeCell(3) ? true : false;
 	if (iClient < 1 || iClient > MaxClients)
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
@@ -310,7 +311,7 @@ public Native_SM_MovePlayer(Handle:plugin, numParams)
 	}
 	
 	MovePlayer(iClient, iTeam);
-	if (!IsClientObserver(iClient))
+	if (!IsClientObserver(iClient) && bRespawn)
 	{
 		RespawnPlayer(iClient);
 	}
