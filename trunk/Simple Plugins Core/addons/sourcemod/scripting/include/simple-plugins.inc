@@ -141,10 +141,11 @@ forward SM_OnPlayerMoved(Handle:plugin, client, team);
  *
  * @param 		client		The client index of the player to be moved
  * @param 		team		The team to move the player to
+ * @param 		respawn	Repsawn the player
  * @noreturn
  * @error							Invalid client or team index
  **********************************************************************/
-native SM_MovePlayer(client, team);
+native SM_MovePlayer(client, team, bool:respawn = true);
 
 /**********************************************************************
  * Move a player to the supplied team
