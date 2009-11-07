@@ -501,7 +501,7 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 		{
 			Format(sDead, sizeof(sDead), "");
 		}
-		else
+		else if (g_CurrentMod != GameType_L4D)
 		{
 			Format(sDead, sizeof(sDead), "*DEAD* ");
 		}
@@ -521,7 +521,7 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 	GetArrayString(g_aSettings[hTagText], index, sTagText, sizeof(sTagText));
 	GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));
 	
-	Format(chatmsg, maxlength, "{default}%s%s%s%s%s%s {default}:  %s%s", sDead, sTeam, sTagText, sTagColor, sNameColor, sClientName, sTextColor, message);
+	Format(chatmsg, maxlength, "{default}%s%s%s%s%s%s {default}:  %s%s", sDead, sTeam, sTagColor, sTagText, sNameColor, sClientName, sTextColor, message);
 }
 
 /**
