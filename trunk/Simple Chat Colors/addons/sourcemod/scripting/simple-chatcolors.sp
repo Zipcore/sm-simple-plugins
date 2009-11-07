@@ -34,34 +34,42 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 
-#pragma semicolon 1
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.0.2$"
+#define PLUGIN_VERSION "1.0.2.$Rev$"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
 #define TRIGGER_SYMBOL2 '/'
 #define CHAR_PERCENT "%"
 #define CHAR_NULL "\0"
-	
+
+enum e_Settings
+{
+	Handle:hGroupName,
+	Handle:hGroupFlag,
+	Handle:hNameColor,
+	Handle:hTextColor,
+	Handle:hTagText,
+	Handle:hTagColor,
+	Handle:hOverrides
+};
+
 new Handle:g_Cvar_hDebug = INVALID_HANDLE;
 new Handle:g_Cvar_hTriggerBackup = INVALID_HANDLE;
-new Handle:g_aGroupNames = INVALID_HANDLE;
-new Handle:g_aGroupFlag = INVALID_HANDLE;
-new Handle:g_aGroupNameColor = INVALID_HANDLE;
-new Handle:g_aGroupTextColor = INVALID_HANDLE;
 
 new bool:g_bDebug = false;
 new bool:g_bTriggerBackup = false;
+new bool:g_bOverrideSection = false;
 
 new g_iArraySize;
 
-new g_aPlayerColorIndex[MAXPLAYERS + 1] = { -1, ... };
+new g_aSettings[e_Settings];
+new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
 
 public Plugin:myinfo =
 {
@@ -109,16 +117,16 @@ public OnPluginStart()
 	/**
 	Create the arrays
 	*/
-	g_aGroupNames = CreateArray(256, 1);
-	g_aGroupFlag = CreateArray(15, 1);
-	g_aGroupNameColor = CreateArray(15, 1);
-	g_aGroupTextColor = CreateArray(15, 1);
+	for (new i = 0; i < sizeof(g_aSettings); i++)
+	{
+		g_aSettings[e_Settings:i] = CreateArray(128, 1);
+	}
 	
 	/**
 	Load the admins and colors from the config
 	*/
-	LoadAdminsAndColorsFromConfig();
-	g_iArraySize = GetArraySize(g_aGroupNames);
+	ProcessConfigFile();
+	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
 }
 
 public OnConfigsExecuted()
@@ -131,19 +139,48 @@ public OnClientPostAdminCheck(client)
 {
 	
 	/**
-	Check the client to see if they are a admin
+	Check the client to see if they have a color
 	*/
-	CheckAdmin(client);
+	CheckPlayer(client);
 }
 
 public OnClientDisconnect(client)
 {
-	g_aPlayerColorIndex[client] = -1;
+	g_aPlayerIndex[client] = -1;
 }
 
 public OnMapStart()
 {
 	GetTeams();
+}
+
+/**
+Adjust the settings if a convar was changed
+*/
+public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
+{
+	if (convar == g_Cvar_hDebug)
+	{
+		if (StringToInt(newValue) == 1)
+		{
+			g_bDebug = true;
+		}
+		else
+		{
+			g_bDebug = false;
+		}
+	}
+	else if (convar == g_Cvar_hTriggerBackup)
+	{
+		if (StringToInt(newValue) == 1)
+		{
+			g_bTriggerBackup = true;
+		}
+		else
+		{
+			g_bTriggerBackup = false;
+		}
+	}
 }
 
 /**
@@ -214,119 +251,11 @@ public Action:Command_PrintChatColors(client, args)
 	return Plugin_Handled;
 }
 
+
 /**
 Stock Functions
 */
-stock LoadAdminsAndColorsFromConfig()
-{
-	
-	/**
-	Make sure the config file is here and load it up
-	*/
-	new String:sConfigFile[256];
-	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), "configs/simple-chatcolors.cfg");
-	if (!FileExists(sConfigFile)) 
-	{
-        
-		/**
-		Config file doesn't exists, stop the plugin
-		*/
-		LogError("[SCC] Simple Chat Colors is not running! Could not find file %s", sConfigFile);
-		SetFailState("Could not find file %s", sConfigFile);
-    }
-	
-	/**
-	Create the arrays and variables
-	*/
-	new String:sGroupName[256];
-	new String:sGroupFlag[15];
-	new String:sGroupNameColor[15];
-	new String:sGroupTextColor[15];
-	
-	
-	/**
-	Load config file as a KeyValues file
-	*/
-	new Handle:kvChatColors = CreateKeyValues("admin_colors");
-	FileToKeyValues(kvChatColors, sConfigFile);
-	
-	if (!KvGotoFirstSubKey(kvChatColors))
-	{
-		return;
-	}
-	
-	/**
-	Load up all the groups in the file
-	*/
-	do
-	{
-		
-		/**
-		Get the section name; should be the "group" name
-		*/
-		KvGetSectionName(kvChatColors, sGroupName, sizeof(sGroupName));
-		
-		
-		/**
-		Get the flags and colors
-		*/
-		KvGetString(kvChatColors, "flag", sGroupFlag, sizeof(sGroupFlag));
-		KvGetString(kvChatColors, "namecolor", sGroupNameColor, sizeof(sGroupNameColor));
-		KvGetString(kvChatColors, "textcolor", sGroupTextColor, sizeof(sGroupTextColor));
-		
-		if (g_bDebug)
-		{
-			LogMessage("Loaded Group Name/SteamID: %s", sGroupName);
-			LogMessage("Loaded Flag String: %s", sGroupFlag);
-			LogMessage("Loaded Color on name: %s", sGroupNameColor);
-			LogMessage("Loaded Color of text: %s", sGroupTextColor);
-		}
-		
-		/**
-		Push the values to the arrays
-		*/
-		PushArrayString(g_aGroupNames, sGroupName);
-		PushArrayString(g_aGroupFlag, sGroupFlag);
-		PushArrayString(g_aGroupNameColor, sGroupNameColor);
-		PushArrayString(g_aGroupTextColor, sGroupTextColor);
-	} while (KvGotoNextKey(kvChatColors));
-	
-	/**
-	Close our handle
-	*/
-	CloseHandle(kvChatColors);
-}
-
-stock ReloadConfigFile()
-{
-	
-	/**
-	Clear the array
-	*/
-	ClearArray(g_aGroupNames);
-	ClearArray(g_aGroupFlag);
-	ClearArray(g_aGroupNameColor);
-	ClearArray(g_aGroupTextColor);
-	
-	/**
-	Load the admins, groups, and colors from the config
-	*/
-	LoadAdminsAndColorsFromConfig();
-	g_iArraySize = GetArraySize(g_aGroupNames);
-	
-	/**
-	Recheck all the online players for assigned colors
-	*/
-	for (new index = 1; index <= MaxClients; index++)
-	{
-		if (IsClientConnected(index) && IsClientInGame(index))
-		{
-			CheckAdmin(index);
-		}
-	}
-}
-
-stock CheckAdmin(client)
+stock CheckPlayer(client)
 {
 	new String:sFlags[15];
 	new String:sClientSteamID[64];
@@ -339,53 +268,70 @@ stock CheckAdmin(client)
 	Look for a steamid first
 	*/
 	GetClientAuthString(client, sClientSteamID, sizeof(sClientSteamID));
-	iIndex = FindStringInArray(g_aGroupNames, sClientSteamID);	
+	iIndex = FindStringInArray(g_aSettings[hGroupName], sClientSteamID);	
 	if (iIndex != -1)
 	{
-		g_aPlayerColorIndex[client] = iIndex;
+		g_aPlayerIndex[client] = iIndex;
 		bDebug_FoundBySteamID = true;
 	}
 	
 	/**
-	Didn't find one, check flags
+	Didn't find one, check for flags
 	*/
 	else
 	{
+		
 		/**
 		Search for flag in groups
 		*/
-		
 		iFlags = GetUserFlagBits(client);
-		for (iIndex = 0; iIndex < g_iArraySize; iIndex++)
+		for (new i = 0; i < g_iArraySize; i++)
 		{
-			GetArrayString(g_aGroupFlag, iIndex, sFlags, sizeof(sFlags));
+			GetArrayString(g_aSettings[hGroupFlag], i, sFlags, sizeof(sFlags));
 			iGroupFlags = ReadFlagString(sFlags);
 			if (iFlags & iGroupFlags)
 			{
-				g_aPlayerColorIndex[client] = iIndex;
+				g_aPlayerIndex[client] = i;
+				iIndex = i;
 				break;
+			}
+		}
+		
+		/**
+		Check to see if flag was found
+		*/
+		if (iIndex == -1)
+		{
+			
+			/**
+			No flag, look for an "everyone" group
+			*/
+			iIndex = FindStringInArray(g_aSettings[hGroupName], "everyone");
+			if (iIndex != -1)
+			{
+				g_aPlayerIndex[client] = iIndex;
 			}
 		}
 	}
 	
 	if (g_bDebug)
 	{
-		if (iIndex == -1)
+		if (g_aPlayerIndex[client] == -1)
 		{
-			PrintToChatAll("[SCC] Client %N was NOT found in colors config", client);
+			PrintToConsole(client, "[SCC] Client %N was NOT found in colors config", client);
 		}
 		else
 		{
 			new String:sGroupName[256];
-			GetArrayString(g_aGroupNames, iIndex, sGroupName, sizeof(sGroupName));
-			PrintToChatAll("[SCC] Client %N was found in colors config", client);
+			GetArrayString(g_aSettings[hGroupName], g_aPlayerIndex[client], sGroupName, sizeof(sGroupName));
+			PrintToConsole(client, "[SCC] Client %N was found in colors config", client);
 			if (bDebug_FoundBySteamID)
 			{
-				PrintToChatAll("[SCC] Found steamid: %s in config file", sGroupName);
+				PrintToConsole(client, "[SCC] Found steamid: %s in config file", sGroupName);
 			}
 			else
 			{
-				PrintToChatAll("[SCC] Found in group: %s in config file", sGroupName);
+				PrintToConsole(client, "[SCC] Found in group: %s in config file", sGroupName);
 			}
 		}
 	}
@@ -410,7 +356,7 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	/**
 	Make sure the client has a color assigned
 	*/
-	if (g_aPlayerColorIndex[client] != -1)
+	if (g_aPlayerIndex[client] != -1)
 	{
 	
 		/**
@@ -419,12 +365,6 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		decl String:sChatMsg[1280];
 		StripQuotes(message);
 		TrimString(message);
-		new startidx;
-		if (message[strlen(message)-1] == '"')
-		{
-			message[strlen(message)-1] = '\0';
-			startidx = 1;
-		}
 		
 		/**
 		Because we are dealing with a chat message, lets take out all the %'s
@@ -442,14 +382,21 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		/**
 		Bug out if they are using the admin chat symbol (admin chat).
 		*/
-		if (message[startidx] == CHAT_SYMBOL)
+		if (message[0] == CHAT_SYMBOL)
 		{
 			return Plugin_Continue;
 		}
 		/**
 		If we are using the trigger backup, then bug out on the triggers
 		*/
-		else if (g_bTriggerBackup && (message[startidx] == TRIGGER_SYMBOL1 || message[startidx] == TRIGGER_SYMBOL2))
+		else if (g_bTriggerBackup && (message[0] == TRIGGER_SYMBOL1 || message[0] == TRIGGER_SYMBOL2))
+		{
+			return Plugin_Continue;
+		}
+		/**
+		Make sure it's not a override string
+		*/
+		else if (FindStringInArray(g_aSettings[hOverrides], message) != -1)
 		{
 			return Plugin_Continue;
 		}
@@ -469,7 +416,7 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		/**
 		Format the message.
 		*/
-		FormatMessage(	client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerColorIndex[client], message, sChatMsg, sizeof(sChatMsg));
+		FormatMessage(	client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerIndex[client], message, sChatMsg, sizeof(sChatMsg));
 		
 		/**
 		Send the message.
@@ -566,39 +513,184 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 	
 	new String:sNameColor[15];
 	new String:sTextColor[15];
-	GetArrayString(g_aGroupNameColor, index, sNameColor, sizeof(sNameColor));
-	GetArrayString(g_aGroupTextColor, index, sTextColor, sizeof(sTextColor));
+	GetArrayString(g_aSettings[hNameColor], index, sNameColor, sizeof(sNameColor));
+	GetArrayString(g_aSettings[hTextColor], index, sTextColor, sizeof(sTextColor));
 	
-	Format(chatmsg, maxlength, "{default}%s%s%s%s {default}:  %s%s", sDead, sTeam, sNameColor, sClientName, sTextColor, message);
+	new String:sTagText[24];
+	new String:sTagColor[15];
+	GetArrayString(g_aSettings[hTagText], index, sTagText, sizeof(sTagText));
+	GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));
+	
+	Format(chatmsg, maxlength, "{default}%s%s%s%s%s%s {default}:  %s%s", sDead, sTeam, sTagText, sTagColor, sNameColor, sClientName, sTextColor, message);
 }
 
 /**
-Adjust the settings if a convar was changed
+Parse the config file
 */
-public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
+stock ProcessConfigFile()
 {
-	if (convar == g_Cvar_hDebug)
+	new String:sConfigFile[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), "configs/simple-chatcolors.cfg");
+	if (!FileExists(sConfigFile)) 
 	{
-		if (StringToInt(newValue) == 1)
-		{
-			g_bDebug = true;
-		}
-		else
-		{
-			g_bDebug = false;
-		}
+		/**
+		Config file doesn't exists, stop the plugin
+		*/
+		LogError("[SCC] Simple Chat Colors is not running! Could not find file %s", sConfigFile);
+		SetFailState("Could not find file %s", sConfigFile);
 	}
-	else if (convar == g_Cvar_hTriggerBackup)
+	else if (!ParseConfigFile(sConfigFile))
 	{
-		if (StringToInt(newValue) == 1)
-		{
-			g_bTriggerBackup = true;
-		}
-		else
-		{
-			g_bTriggerBackup = false;
-		}
+		/**
+		Config file doesn't exists, stop the plugin
+		*/
+		LogError("[SCC] Simple Chat Colors is not running! Failed to parse %s", sConfigFile);
+		SetFailState("Could not find file %s", sConfigFile);
+	}
+}
+
+stock ReloadConfigFile()
+{
+	
+	/**
+	Clear the arrays
+	*/
+	for (new i = 0; i < sizeof(g_aSettings); i++)
+	{
+		ClearArray(g_aSettings[e_Settings:i]);
 	}
 	
-
+	/**
+	Load the admins, groups, and colors from the config
+	*/
+	ProcessConfigFile();
+	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
+	
+	/**
+	Recheck all the online players for assigned colors
+	*/
+	for (new index = 1; index <= MaxClients; index++)
+	{
+		if (IsClientConnected(index) && IsClientInGame(index))
+		{
+			CheckPlayer(index);
+		}
+	}
 }
+
+
+bool:ParseConfigFile(const String:file[]) 
+{
+	
+	/**
+	Clear the arrays
+	*/
+	for (new i = 0; i < sizeof(g_aSettings); i++)
+	{
+		ClearArray(g_aSettings[e_Settings:i]);
+	}
+
+	new Handle:hParser = SMC_CreateParser();
+	SMC_SetReaders(hParser, Config_NewSection, Config_KeyValue, Config_EndSection);
+	SMC_SetParseEnd(hParser, Config_End);
+
+	new line = 0;
+	new col = 0;
+	new String:error[128];
+	new SMCError:result = SMC_ParseFile(hParser, file, line, col);
+	CloseHandle(hParser);
+
+	if (result != SMCError_Okay) 
+	{
+		SMC_GetErrorString(result, error, sizeof(error));
+		LogError("%s on line %d, col %d of %s", error, line, col, file);
+	}
+	return (result == SMCError_Okay);
+}
+
+public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:quotes) 
+{
+	if (StrEqual(section, "admin_colors"))
+	{
+		return SMCParse_Continue;
+	}
+	else if (StrEqual(section, "Overrides"))
+	{
+		g_bOverrideSection = true;
+		if (g_bDebug)
+		{
+			PrintToChatAll("In override");
+		}
+	}
+	else
+	{
+		g_bOverrideSection = false;
+		if (g_bDebug)
+		{
+			PrintToChatAll("In section: %s", section);
+		}
+	}
+	PushArrayString(g_aSettings[hGroupName], section);
+	return SMCParse_Continue;
+}
+
+public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
+{
+	if (g_bOverrideSection)
+	{
+		PushArrayString(g_aSettings[hOverrides], key);
+		if (g_bDebug)
+		{
+			PrintToChatAll("Storing override: %s", key);
+		}
+	}
+	else
+	{
+		if(StrEqual(key, "flag", false))
+		{
+			PushArrayString(g_aSettings[hGroupFlag], value);
+		}
+		else if(StrEqual(key, "tag", false))
+		{
+			PushArrayString(g_aSettings[hTagText], value);
+		}
+		else if(StrEqual(key, "tagcolor", false))
+		{
+			PushArrayString(g_aSettings[hTagColor], value);
+		}
+		else if(StrEqual(key, "namecolor", false))
+		{
+			PushArrayString(g_aSettings[hNameColor], value);
+		}
+		else if(StrEqual(key, "textcolor", false))
+		{
+			PushArrayString(g_aSettings[hTextColor], value);
+		}
+		if (g_bDebug)
+		{
+			PrintToChatAll("Storing %s: %s", key,value);
+		}
+	}
+	return SMCParse_Continue;
+}
+public SMCResult:Config_EndSection(Handle:parser) 
+{
+	if (g_bOverrideSection)
+	{
+		g_bOverrideSection = false;
+	}
+	if (g_bDebug)
+	{
+		PrintToChatAll("Leaving section");
+	}
+	return SMCParse_Continue;
+}
+
+public Config_End(Handle:parser, bool:halted, bool:failed) 
+{
+	if (failed)
+	{
+		SetFailState("Plugin configuration error");
+	}
+}
+
