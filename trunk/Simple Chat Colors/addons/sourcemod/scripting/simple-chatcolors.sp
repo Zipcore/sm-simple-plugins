@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.0.2.$Rev$"
+#define PLUGIN_VERSION "1.1.0"
 
 #define CHAT_SYMBOL '@'
 #define TRIGGER_SYMBOL1 '!'
