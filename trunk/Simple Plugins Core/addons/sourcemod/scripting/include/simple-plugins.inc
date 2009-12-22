@@ -65,6 +65,7 @@ enum e_SupportedMods
 	GameType_HL2DM,
 	GameType_INS,
 	GameType_L4D,
+	GameType_L4D2,
 	GameType_NEO,
 	GameType_SGTLS,
 	GameType_TF,
@@ -90,6 +91,7 @@ new String:g_sGameName[e_SupportedMods][32] = {	"Unknown",
 																							"Half Life 2: Deathmatch",
 																							"Insurgency",
 																							"Left 4 Dead",
+																							"Left 4 Dead 2",
 																							"Neotokyo",
 																							"Stargate TLS",
 																							"Team Fortress 2",
@@ -302,9 +304,13 @@ public e_SupportedMods:GetCurrentMod()
 	{
 		return GameType_INS;
 	}
-	if (StrEqual(sGameType, "l4d", false))
+	if (StrEqual(sGameType, "left4dead", false))
 	{
 		return GameType_L4D;
+	}
+	if (StrEqual(sGameType, "left4dead2", false))
+	{
+		return GameType_L4D2;
 	}
 	if (StrEqual(sGameType, "nts", false))
 	{
