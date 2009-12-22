@@ -68,7 +68,7 @@ new bool:g_bOverrideSection = false;
 
 new g_iArraySize;
 
-new g_aSettings[e_Settings];
+new Handle:g_aSettings[e_Settings];
 new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
 
 public Plugin:myinfo =
@@ -117,9 +117,9 @@ public OnPluginStart()
 	/**
 	Create the arrays
 	*/
-	for (new i = 0; i < sizeof(g_aSettings); i++)
+	for (new e_Settings:i; i < e_Settings:sizeof(g_aSettings); i++)
 	{
-		g_aSettings[e_Settings:i] = CreateArray(128, 1);
+		g_aSettings[i] = CreateArray(128, 1);
 	}
 	
 	/**
@@ -242,7 +242,6 @@ public Action:Command_PrintChatColors(client, args)
 {
 	CPrintToChat(client, "{default}default");
 	CPrintToChat(client, "{green}green");
-	CPrintToChat(client, "{yellow}yellow");
 	CPrintToChat(client, "{lightgreen}lightgreen");
 	CPrintToChat(client, "{red}red");
 	CPrintToChat(client, "{blue}blue");
@@ -474,7 +473,15 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 	
 	if (teamchat)
 	{
-		if (team != g_aCurrentTeams[Spectator])
+		if ((g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_L4D2) && team == g_aCurrentTeams[Team1])
+		{
+			Format(sTeam, sizeof(sTeam), "(Survivor) ");
+		}
+		else if ((g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_L4D2) && team == g_aCurrentTeams[Team2])
+		{
+			Format(sTeam, sizeof(sTeam), "(Infected) ");
+		}
+		else if (team != g_aCurrentTeams[Spectator])
 		{
 			Format(sTeam, sizeof(sTeam), "(TEAM) ");
 		}
@@ -494,14 +501,13 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 			Format(sTeam, sizeof(sTeam), "*SPEC* ");
 		}
 	}
-	
 	if (team != g_aCurrentTeams[Spectator])
 	{
 		if (alive)
 		{
 			Format(sDead, sizeof(sDead), "");
 		}
-		else if (g_CurrentMod != GameType_L4D)
+		else if (g_CurrentMod != GameType_L4D || g_CurrentMod != GameType_L4D2)
 		{
 			Format(sDead, sizeof(sDead), "*DEAD* ");
 		}
@@ -555,9 +561,9 @@ stock ReloadConfigFile()
 	/**
 	Clear the arrays
 	*/
-	for (new i = 0; i < sizeof(g_aSettings); i++)
+	for (new e_Settings:i; i < e_Settings:sizeof(g_aSettings); i++)
 	{
-		ClearArray(g_aSettings[e_Settings:i]);
+		ClearArray(g_aSettings[i]);
 	}
 	
 	/**
@@ -577,7 +583,6 @@ stock ReloadConfigFile()
 		}
 	}
 }
-
 
 bool:ParseConfigFile(const String:file[]) 
 {
@@ -673,6 +678,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 	}
 	return SMCParse_Continue;
 }
+
 public SMCResult:Config_EndSection(Handle:parser) 
 {
 	if (g_bOverrideSection)
