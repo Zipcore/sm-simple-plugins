@@ -40,11 +40,12 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.1.$Rev$"
 
-#define CHAT_SYMBOL '@'
-#define TRIGGER_SYMBOL1 '!'
-#define TRIGGER_SYMBOL2 '/'
+#define CHAT_SYMBOL_ADMIN '@'
+#define CHAT_SYMBOL_CLAN '#'
+#define CHAT_TRIGGER_PUBLIC '!'
+#define CHAT_TRIGGER_PRIVATE '/'
 #define CHAR_PERCENT "%"
 #define CHAR_NULL "\0"
 
@@ -61,6 +62,8 @@ enum e_Settings
 
 new Handle:g_Cvar_hDebug = INVALID_HANDLE;
 new Handle:g_Cvar_hTriggerBackup = INVALID_HANDLE;
+new Handle:g_Cvar_hClanChatEnabled = INVALID_HANDLE;
+new Handle:g_Cvar_hClanFlag = INVALID_HANDLE;
 
 new bool:g_bDebug = false;
 new bool:g_bTriggerBackup = false;
@@ -70,6 +73,7 @@ new g_iArraySize;
 
 new Handle:g_aSettings[e_Settings];
 new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
+new bool:g_aPlayerClanMember[MAXPLAYERS + 1] = { false, ... };
 
 public Plugin:myinfo =
 {
@@ -99,12 +103,16 @@ public OnPluginStart()
 	CreateConVar("sm_chatcolors_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	g_Cvar_hDebug = CreateConVar("sm_chatcolors_debug", "0", "Enable/Disable debugging information");
 	g_Cvar_hTriggerBackup = CreateConVar("sm_chatcolors_triggerbackup", "0", "Enable/Disable the trigger backup");
+	g_Cvar_hClanChatEnabled = CreateConVar("sm_chatcolors_clanchat_enabled", "1", "Enable/Disable clan chat");
+	g_Cvar_hClanFlag = CreateConVar("sm_chatcolors_clanflag", "a", "Specify the admin flag given to clan members");
 	
 	/**
 	Hook console variables
 	*/
 	HookConVarChange(g_Cvar_hDebug, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hTriggerBackup, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hClanChatEnabled, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hClanFlag, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to use
@@ -200,7 +208,7 @@ public Action:Command_Say(client, args)
 	/**
 	Get the message
 	*/
-	decl	String:sMessage[1024];
+	decl	String:sMessage[256];
 	GetCmdArgString(sMessage, sizeof(sMessage));
 	
 	/**
@@ -223,7 +231,7 @@ public Action:Command_SayTeam(client, args)
 	/**
 	Get the message
 	*/
-	decl	String:sMessage[1024];
+	decl	String:sMessage[256];
 	GetCmdArgString(sMessage, sizeof(sMessage));
 	
 	/**
@@ -361,7 +369,6 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		/**
 		The client is, so get the chat message and strip it down.
 		*/
-		decl String:sChatMsg[1280];
 		StripQuotes(message);
 		TrimString(message);
 		
@@ -379,19 +386,21 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		}
 		
 		/**
-		Bug out if they are using the admin chat symbol (admin chat).
+		Bug out if they are using the admin chat symbol (admin chat)
 		*/
-		if (message[0] == CHAT_SYMBOL)
+		if (message[0] == CHAT_SYMBOL_ADMIN)
 		{
 			return Plugin_Continue;
 		}
+		
 		/**
 		If we are using the trigger backup, then bug out on the triggers
 		*/
-		else if (g_bTriggerBackup && (message[0] == TRIGGER_SYMBOL1 || message[0] == TRIGGER_SYMBOL2))
+		else if (g_bTriggerBackup && (message[0] == CHAT_TRIGGER_PUBLIC || message[0] == CHAT_TRIGGER_PRIVATE))
 		{
 			return Plugin_Continue;
 		}
+		
 		/**
 		Make sure it's not a override string
 		*/
@@ -413,16 +422,55 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		}
 		
 		/**
+		See if they are using clan chat
+		*/
+		new bool:bClanChat = false;
+		if (message[0] == CHAT_SYMBOL_CLAN)
+		{
+			
+			/**
+			They are, set the bool
+			*/
+			bClanChat = true;
+			
+			/**
+			Strip the clan chat symbol
+			*/
+			decl String:sBuffer[512];
+			strcopy(sBuffer, maxlength, message[1]);
+			strcopy(message, maxlength, sBuffer);
+		}
+		
+		/**
 		Format the message.
 		*/
-		FormatMessage(	client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerIndex[client], message, sChatMsg, sizeof(sChatMsg));
+		decl String:sChatMsg[512];
+		if (bClanChat)
+		{
+			FormatClanMessage(client, message, sChatMsg, sizeof(sChatMsg));
+		}
+		else
+		{
+			FormatChatMessage(client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerIndex[client], message, sChatMsg, sizeof(sChatMsg));
+		}
 		
 		/**
 		Send the message.
 		*/
 		new bool:bTeamColorUsed = StrContains(sChatMsg, "{teamcolor}") != -1 ? true : false;
 		new iCurrentTeam = GetClientTeam(client);
-		if (teamchat)
+		
+		if (bClanChat)
+		{
+			for (new i = 1; i <= MaxClients; i++)
+			{
+				if (IsClientConnected(i) && IsClientInGame(i) && g_aPlayerClanMember[i])
+				{
+					CPrintToChat(i, "%s", sChatMsg);
+				}
+			}
+		}
+		else if (teamchat)
 		{
 			for (new i = 1; i <= MaxClients; i++)
 			{
@@ -463,7 +511,7 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	return Plugin_Continue;
 }
 
-stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String:message[], String:chatmsg[], maxlength)
+stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const String:message[], String:chatmsg[], maxlength)
 {
 	decl	String:sDead[10],
 			String:sTeam[15],
@@ -528,6 +576,11 @@ stock FormatMessage(client, team, bool:alive, bool:teamchat, index, const String
 	GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));
 	
 	Format(chatmsg, maxlength, "{default}%s%s%s%s%s%s {default}:  %s%s", sDead, sTeam, sTagColor, sTagText, sNameColor, sClientName, sTextColor, message);
+}
+
+stock FormatClanMessage(client, const String:message[], String:chatmsg[], maxlength)
+{
+	Format(chatmsg, maxlength, "{green}(CLAN) %N {default}:  %s", client, message);
 }
 
 /**
