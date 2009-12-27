@@ -39,4 +39,8 @@
 		"#format"	"{1:s}{2:s}{3:s}"
 		"en"		"{1} was punished with a {2} for {3}"
 	}
+	"No Longer Spectating"
+	{
+		"en"		"You are no longer spectating"
+	}
 }
