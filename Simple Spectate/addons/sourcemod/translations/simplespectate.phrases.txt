@@ -2,7 +2,7 @@
 {
 	"Stopped spectating"
 	{
-		"#format"	"{1:s}"
+		"#format"	"{1:N}"
 		"en"		"Stopped tracking player: {1}"
 	}
 	"Yourself"
@@ -15,7 +15,7 @@
 	}
 	"Spectating"
 	{
-		"#format"	"{1:s}"
+		"#format"	"{1:N}"
 		"en"		"Now spectating {1}. Type !stopspec or /stopspec to stop spectating this player"
 	}
 	"Invalid Target"
@@ -36,7 +36,7 @@
 	}
 	"Punished"
 	{
-		"#format"	"{1:s}{2:s}{3:s}"
+		"#format"	"{1:N}{2:s}{3:s}"
 		"en"		"{1} was punished with a {2} for {3}"
 	}
 	"No Longer Spectating"

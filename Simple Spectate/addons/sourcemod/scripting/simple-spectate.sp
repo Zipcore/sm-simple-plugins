@@ -37,9 +37,22 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <simple-plugins>
 #undef REQUIRE_EXTENSIONS
 #undef AUTOLOAD_EXTENSIONS
-#tryinclude <dukehacks>
+#tryinclude <sdkhooks>
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+BELOW IS CODE FOR SOURCEBANS 1.4.x BAN SUBMISSIONS
+I FULLY EXPECT TO DO AWAY WITH ALL THIS WHEN SOURCEBANS 2.0 IS OUT
+RIGHT NOW IT JUST MAKES THIS PLUGIN BLOATED, BUT IT WORKS FOR NOW.
+*/
+
+#include "submitban.sp"
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 #define PLUGIN_VERSION "1.2.1.$Rev$"
 
@@ -95,7 +108,7 @@ enum e_PluginSettings
 	bool:bUseSourceBans,
 	bool:bUseMySQLBans,
 	bool:bCanHUD,
-	bool:bUseDukehacks
+	bool:bUseSDKHooks
 };
 
 enum e_Menus
@@ -246,6 +259,18 @@ public OnPluginStart()
 	LoadTranslations ("common.phrases");
 	LoadTranslations ("simplespectate.phrases");
 	
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/*
+	BELOW IS CODE FOR SOURCEBANS 1.4.x BAN SUBMISSIONS
+	I FULLY EXPECT TO DO AWAY WITH ALL THIS WHEN SOURCEBANS 2.0 IS OUT
+	RIGHT NOW IT JUST MAKES THIS PLUGIN BLOATED, BUT IT WORKS FOR NOW.
+	*/
+
+	SubmitBan_StartUp();
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	
 	/**
 	Create the config file
 	*/
@@ -310,28 +335,27 @@ public OnAllPluginsLoaded()
 	}
 	
 	/*
-	Check for dukehacks
+	Check for SDK Hooks
 	*/
 	new String:sExtError[256];
-	new iExtStatus = GetExtensionFileStatus("dukehacks.ext", sExtError, sizeof(sExtError));
+	new iExtStatus = GetExtensionFileStatus("sdkhooks.ext", sExtError, sizeof(sExtError));
 	if (iExtStatus == -2)
 	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension was not found.");
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension was not found.");
 		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseDukehacks] = false;
+		g_aPluginSettings[bUseSDKHooks] = false;
 	}
 	else if (iExtStatus == -1 || iExtStatus == 0)
 	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded with errors.");
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded with errors.");
 		LogAction(0, -1, "[SSPEC] Status reported was [%s].", sExtError);
 		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseDukehacks] = false;
+		g_aPluginSettings[bUseSDKHooks] = false;
 	}
 	else if (iExtStatus == 1)
 	{
-		LogAction(0, -1, "[SSPEC] Dukehacks extension is loaded and will be used.");
-		g_aPluginSettings[bUseDukehacks] = true;
-		dhAddClientHook(CHK_TakeDamage, Hacks_TakeDamageHook);
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded and will be used.");
+		g_aPluginSettings[bUseSDKHooks] = true;
 	}
 	
 	/*
@@ -413,6 +437,14 @@ public OnClientDisconnect(client)
 	}
 }
 
+public OnClientPutInServer(client)
+{
+	if (g_aPluginSettings[bUseSDKHooks])
+	{
+		SDKHook(client, SDKHook_OnTakeDamage, Hacks_TakeDamageHook);
+	}
+}
+
 /**
 Thirdparty callbacks
 */
@@ -430,7 +462,7 @@ public SM_OnPlayerMoved(Handle:plugin, client, team)
 	//Nothing
 }
 
-public Action:Hacks_TakeDamageHook(client, attacker, inflictor, Float:damage, &Float:multiplier, damagetype)
+public Action:Hacks_TakeDamageHook(client, &attacker, &inflictor, &Float:damage, &damagetype)
 {
 	
 	/**
@@ -450,7 +482,7 @@ public Action:Hacks_TakeDamageHook(client, attacker, inflictor, Float:damage, &F
 			*/
 			if (damagetype & DMG_FALL)
 			{
-				multiplier *= 1000.0;
+				damage *= 1000.0;
 				return Plugin_Changed;
 			}
 		}
@@ -477,7 +509,7 @@ public Action:Hacks_TakeDamageHook(client, attacker, inflictor, Float:damage, &F
 				/**
 				Stop the damage
 				*/
-				multiplier *= 0.0;
+				damage *= 0.0;
 				return Plugin_Changed;
 			}
 		}
@@ -508,21 +540,21 @@ public Action:HookPlayerChangeTeam(Handle:event, const String:name[], bool:dontB
 	/**
 	If it's a move to spectator start displaying the hud
 	*/
-	else if ((iTeam == g_aCurrentTeams[Spectator]) && (GetUserFlagBits(iClient) & ADMFLAG_GENERIC))
+	else if (iTeam == g_aCurrentTeams[Spectator])
 	{
 		StartDisplayingHud(iClient);
 		
-		/**
-		If the event was going to be broadcasted, we refire it so it is not broadcasted and stop this one
-		*/
-		if (!dontBroadcast)
+		if (GetUserFlagBits(iClient) & ADMFLAG_GENERIC && !dontBroadcast)
 		{
+			/**
+			If user is admin and the event was going to be broadcasted, we refire it so it is not broadcasted and stop this one
+			*/
 			new Handle:hEvent = CreateEvent("player_team");
 			SetEventInt(hEvent, "userid", GetEventInt(event, "userid"));
 			SetEventInt(hEvent, "team", GetEventInt(event, "team"));
 			SetEventInt(hEvent, "oldteam", GetEventInt(event, "oldteam"));
 			SetEventBool(hEvent, "disconnect", GetEventBool(event, "disconnect"));
-		
+			
 			if (g_CurrentMod == GameType_DOD || g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_TF)
 			{
 				new String:sClientName[MAX_NAME_LENGTH + 1];
@@ -530,7 +562,7 @@ public Action:HookPlayerChangeTeam(Handle:event, const String:name[], bool:dontB
 				SetEventBool(hEvent, "autoteam", GetEventBool(event, "autoteam"));
 				SetEventBool(hEvent, "silent", true);
 				SetEventString(hEvent, "name", sClientName);
-				FireEvent(hEvent, true);
+				FireEvent(hEvent, true);  
 			}
 			else
 			{
@@ -745,39 +777,14 @@ public Action:Timer_UpdateHud(Handle:timer, any:client)
 	*/
 	if (g_CurrentMod == GameType_CSS)
 	{
-		switch (iSpecMode)
+		if (iSpecMode == SPECMODE_CSS_FREELOOK)
 		{
-			case SPECMODE_CSS_FIRSTPERSON:
-			{
-				//Do Nothing
-			}
-			case SPECMODE_CSS_3RDPERSON:
-			{
-				//Do Nothing
-			}
-			case SPECMODE_CSS_FREELOOK:
-			{
-				return Plugin_Continue;
-			}
+			return Plugin_Continue;
 		}
 	}
-	else
+	else if (iSpecMode == SPECMODE_FREELOOK)
 	{
-		switch (iSpecMode)
-		{
-			case SPECMODE_FIRSTPERSON:
-			{
-				//Do Nothing
-			}
-			case SPECMODE_3RDPERSON:
-			{
-				//Do Nothing
-			}
-			case SPECMODE_FREELOOK:
-			{
-				return Plugin_Continue;
-			}
-		}
+		return Plugin_Continue;
 	}
 	
 	
@@ -1189,7 +1196,26 @@ public Panel_PublicCheater(Handle:menu, MenuAction:action, param1, param2)
 	{
 		if (param2 == 1)
 		{
-			//Waiting for SB 2.0 and sb_submission to be published
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			/*
+			BELOW IS CODE FOR SOURCEBANS 1.4.x BAN SUBMISSIONS
+			I FULLY EXPECT TO DO AWAY WITH ALL THIS WHEN SOURCEBANS 2.0 IS OUT
+			RIGHT NOW IT JUST MAKES THIS PLUGIN BLOATED, BUT IT WORKS FOR NOW.
+			*/
+			if (g_aPlayerSBInfo[g_aPlayers[param1][iTargetIndex]][iBansSubmitted])
+			{
+				PrintToChat(param1, "\x03[SM-SPEC]\x01 Player already has been submitted");
+				StartDisplayingHud(param1);
+			}
+			else
+			{
+				g_aPlayerSBInfo[param1][iSubmissionTarget] = g_aPlayers[param1][iTargetIndex];
+				AssignTargetInfo(param1, g_aPlayerSBInfo[param1][iSubmissionTarget]);
+				DisplayMenu(g_hReasonMenu, param1, MENU_TIME_FOREVER);
+			}
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		}
 		else
 		{
@@ -1222,6 +1248,42 @@ public Menu_PlayerHud(Handle:menu, MenuAction:action, param1, param2)
 		{
 			StopDisplayingHud(param1);
 			DisplayMenu(g_aMenus[hSelectPlayer], param1, MENU_TIME_FOREVER);
+		}
+		else if (StrEqual(sSelection, "steam", false))
+		{
+			if (g_aPlayers[param1][iTargetIndex])
+			{
+				
+				/**
+				Show the steam profile
+				*/
+				ShowSteamCommunityPage(param1, g_aPlayers[param1][iTargetIndex]);
+			}
+			else
+			{
+			
+				/**
+				Get the current target
+				*/
+				new iTarget = GetEntPropEnt(param1, Prop_Send, "m_hObserverTarget");
+			
+				/**
+				Check to make sure the target is valid
+				*/
+				if (iTarget <= 0 || iTarget > MaxClients)
+				{
+					PrintToChat(param1, "\x03[SM-SPEC]\x01 %t", "Invalid Target");
+					DisplayMenu(BuildPlayerListMenu(), param1, MENU_TIME_FOREVER);
+				}
+				else
+				{
+				
+					/**
+					Show the steam profile
+					*/
+					ShowSteamCommunityPage(param1, iTarget);
+				}
+			}
 		}
 		else if (StrEqual(sSelection, "removecheater", false))
 		{
@@ -1294,6 +1356,42 @@ public Panel_PlayerHud(Handle:menu, MenuAction:action, param1, param2)
 			}
 			case 2:
 			{
+				if (g_aPlayers[param1][iTargetIndex])
+				{
+				
+					/**
+					Show the steam profile
+					*/
+					ShowSteamCommunityPage(param1, g_aPlayers[param1][iTargetIndex]);
+				}
+				else
+				{
+				
+					/**
+					Get the current target
+					*/
+					new iTarget = GetEntPropEnt(param1, Prop_Send, "m_hObserverTarget");
+					
+					/**
+					Check to make sure the target is valid
+					*/
+					if (iTarget <= 0 || iTarget > MaxClients)
+					{
+						PrintToChat(param1, "\x03[SM-SPEC]\x01 %t", "Invalid Target");
+						DisplayMenu(BuildPlayerListMenu(), param1, MENU_TIME_FOREVER);
+					}
+					else
+					{
+					
+						/**
+						Show the steam profile
+						*/
+						ShowSteamCommunityPage(param1, iTarget);
+					}
+				}
+			}
+			case 3:
+			{
 				if (!g_aPlayers[param1][iTargetIndex])
 				{
 					StopDisplayingHud(param1);
@@ -1319,12 +1417,13 @@ public Panel_PlayerHud(Handle:menu, MenuAction:action, param1, param2)
 				else
 				{
 					//Report Cheater
+					StopDisplayingHud(param1);
 					new Handle:hPanel = BuildPublicCheaterPanel();
 					SendPanelToClient(hPanel, param1, Panel_PublicCheater, MENU_TIME_FOREVER);
 					CloseHandle(hPanel);
 				}
 			}
-			case 3:
+			case 4:
 			{
 				StopDisplayingHud(param1);
 			}
@@ -1389,7 +1488,7 @@ stock StartFollowingPlayer(client, target)
 		/**
 		Client is not a spectator, lets move them to spec.
 		*/
-		SM_MovePlayer(client, g_aCurrentTeams[Spectator]);
+		SM_MovePlayer(client, g_aCurrentTeams[Spectator], false);
 	}
 	
 	/**
@@ -1405,10 +1504,8 @@ stock StartFollowingPlayer(client, target)
 	Set the global and start to spectate the target.
 	Making sure it's long enough to deal with moving the client to spec if we had to.
 	*/
-	new String:sTargetName[MAX_NAME_LENGTH + 1];
-	GetClientName(target, sTargetName, sizeof(sTargetName));
 	g_aPlayers[client][iTargetIndex] = target;
-	PrintToChat(client, "\x03[SM-SPEC]\x01 %t", "Spectating", sTargetName);
+	PrintToChat(client, "\x03[SM-SPEC]\x01 %t", "Spectating", target);
 	g_aPlayers[client][hTargetTimer] = CreateTimer(0.5, Timer_ResetTarget, client, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 	if (!g_aPlayers[client][bIsDisplayingHud] && GetClientTeam(client) == g_aCurrentTeams[Spectator])
 	{
@@ -1430,17 +1527,16 @@ stock StopFollowingPlayer(client)
 	/**
 	Tell the client we can't spec his target anymore... if they are in game.
 	*/
-	if (IsClientInGame(client) && g_aPlayers[client][iTargetIndex] != 0)
+	new iTarget = g_aPlayers[client][iTargetIndex];
+	if (IsClientInGame(client) && iTarget != 0)
 	{
-		new String:sTargetName[MAX_NAME_LENGTH + 1];
-		GetClientName(g_aPlayers[client][iTargetIndex], sTargetName, sizeof(sTargetName));
-		if (!IsClientConnected(g_aPlayers[client][iTargetIndex]) || !IsClientInGame(g_aPlayers[client][iTargetIndex]))
+		if (!IsClientConnected(iTarget) || !IsClientInGame(iTarget))
 		{
 			PrintToChat(client, "\x03[SM-SPEC]\x01 %t", "Target Left");
 		}
 		else
 		{
-			PrintToChat(client, "\x03[SM-SPEC]\x01 %t", "Stopped spectating", sTargetName);
+			PrintToChat(client, "\x03[SM-SPEC]\x01 %t", "Stopped spectating", iTarget);
 		}
 	}
 	
@@ -1495,8 +1591,7 @@ stock ResetClient(client)
 
 stock PerformPunishment(client, target, e_Punishments:punishment, const String:reason[], time = 300)
 {
-	new	String:sTargetName[MAX_NAME_LENGTH + 1],
-		String:sTargetID[64];
+	new	String:sTargetID[64];
 		
 	/**
 	The target could have left the game by the time we get here
@@ -1508,7 +1603,6 @@ stock PerformPunishment(client, target, e_Punishments:punishment, const String:r
 		return;
 	}
 	
-	GetClientName(target, sTargetName, sizeof(sTargetName));
 	GetClientAuthString(target, sTargetID, sizeof(sTargetID));
 	
 	switch (punishment)
@@ -1538,35 +1632,35 @@ stock PerformPunishment(client, target, e_Punishments:punishment, const String:r
 		}
 		case Punish_Beacon:
 		{
-			ClientCommand(client, "sm_beacon \"%s\"", sTargetName);
+			ClientCommand(client, "sm_beacon #%d", GetClientUserId(target));
 		}
 		case Punish_Blind:
 		{
-			ClientCommand(client, "sm_blind \"%s\"", sTargetName);
+			ClientCommand(client, "sm_blind #%d", GetClientUserId(target));
 		}
 		case Punish_Drug:
 		{
-			ClientCommand(client, "sm_drug \"%s\"", sTargetName);
+			ClientCommand(client, "sm_drug #%d", GetClientUserId(target));
 		}
 		case Punish_Freeze:
 		{
-			ClientCommand(client, "sm_freeze \"%s\"", sTargetName);
+			ClientCommand(client, "sm_freeze #%d", GetClientUserId(target));
 		}
 		case Punish_FreezeBomb:
 		{
-			ClientCommand(client, "sm_freezebomb \"%s\"", sTargetName);
+			ClientCommand(client, "sm_freezebomb #%d", GetClientUserId(target));
 		}
 		case Punish_Slap:
 		{
-			ClientCommand(client, "sm_slap \"%s\" 10", sTargetName);
+			ClientCommand(client, "sm_slap #%d 10", GetClientUserId(target));
 		}
 		case Punish_Slay:
 		{
-			ClientCommand(client, "sm_slay \"%s\"", sTargetName);
+			ClientCommand(client, "sm_slay #%d", GetClientUserId(target));
 		}
 		case Punish_TimeBomb:
 		{
-			ClientCommand(client, "sm_timebomb \"%s\"", sTargetName);
+			ClientCommand(client, "sm_timebomb #%d", GetClientUserId(target));
 		}
 	}
 	
@@ -1576,7 +1670,7 @@ stock PerformPunishment(client, target, e_Punishments:punishment, const String:r
 	}
 	else
 	{
-		ShowActivity(client, "%t", "Punished", sTargetName, g_sPunishments[punishment], reason);
+		ShowActivity(client, "%t", "Punished", target, g_sPunishments[punishment], reason);
 		LogAction(client, target, "[SM SPEC] %N punished %N(%s) with a %s for %s", client, target, sTargetID, g_sPunishments[punishment], reason);
 	}
 	
@@ -1585,6 +1679,44 @@ stock PerformPunishment(client, target, e_Punishments:punishment, const String:r
 	*/
 	g_aPlayers[client][TargetPunishment] = Punish_None;
 	g_aPlayers[client][iBanTime] = -1;
+}
+
+/*
+Show the players steam page
+*/
+stock ShowSteamCommunityPage(client, target)
+{
+	//if doesn't support motd, exit
+	decl String:authid[20];
+	decl String:friendid[18];
+	decl String:url[53];
+	decl String:targetname[MAX_NAME_LENGTH+1];
+	
+	GetClientName(target, targetname, sizeof(targetname));
+	
+	GetClientAuthString(target, authid, sizeof(authid));
+	AuthIDToFriendID(authid, friendid, sizeof(friendid)); 
+	Format(url, sizeof(url), "http://steamcommunity.com/profiles/%s", friendid);
+	ShowMOTDPanel(client, targetname, url, MOTDPANEL_TYPE_URL);
+}
+
+/*
+Convert Steam ID to Friend ID by berni
+*/
+stock AuthIDToFriendID(String:AuthID[], String:FriendID[], size)
+{
+    ReplaceString(AuthID, strlen(AuthID), "STEAM_", "");
+    if (StrEqual(AuthID, "ID_LAN"))
+	{
+        FriendID[0] = '\0';
+        return;
+    }
+    decl String:toks[3][16];
+    ExplodeString(AuthID, ":", toks, sizeof(toks), sizeof(toks[]));
+    new iServer = StringToInt(toks[1]);
+    new iAuthID = StringToInt(toks[2]);
+    new iFriendID = (iAuthID*2) + 60265728 + iServer;
+    Format(FriendID, size, "765611979%d", iFriendID);
 }
 
 /**
@@ -1631,7 +1763,7 @@ stock Handle:BuildPunishmentMenu(iClient)
 		AddMenuItem(hMenu, g_sPunishments[Punish_Kick], "Kick", ITEMDRAW_DISABLED);
 	}
 	
-	if (g_aPluginCvarSettings[bBan] && ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT)))
+	if (g_aPluginCvarSettings[bBan] && ((GetUserFlagBits(iClient) & ADMFLAG_BAN) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT)))
 	{
 		AddMenuItem(hMenu, g_sPunishments[Punish_Ban], "Ban");
 	}
@@ -1640,7 +1772,7 @@ stock Handle:BuildPunishmentMenu(iClient)
 		AddMenuItem(hMenu, g_sPunishments[Punish_Ban], "Ban", ITEMDRAW_DISABLED);
 	}
 	
-	if (g_aPluginSettings[bUseDukehacks] && g_aPluginCvarSettings[bCheater] && (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
+	if (g_aPluginSettings[bUseSDKHooks] && g_aPluginCvarSettings[bCheater] && (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 	{
 		AddMenuItem(hMenu, g_sPunishments[Punish_Cheater], "Flag As Cheater");
 	}
@@ -1811,7 +1943,14 @@ stock Handle:BuildPublicCheaterPanel()
 	
 	DrawPanelText(hPanel, "Are you sure you want to");
 	DrawPanelText(hPanel, "submit this player as a cheater?");
-	DrawPanelItem(hPanel, "Yes (Not Implemented Yet)", ITEMDRAW_DISABLED);
+	if (g_aPluginSettings[bUseSourceBans])
+	{
+		DrawPanelItem(hPanel, "Yes");
+	}
+	else
+	{
+		DrawPanelItem(hPanel, "Yes (Requires Sourcebans)", ITEMDRAW_DISABLED);
+	}
 	DrawPanelItem(hPanel, "No");
 	return hPanel;
 }
@@ -1825,8 +1964,7 @@ stock Handle:BuildPlayerHudMenu(iClient, iTarget)
 	/**
 	 Create all the string variables we will need
 	*/
-	new	String:sTargetName[MAX_NAME_LENGTH + 1],
-		String:sTargetID[64],
+	new	String:sTargetID[64],
 		String:sTargetIP[16];
 		
 	new	String:sDisplayName[MAX_NAME_LENGTH + 1],
@@ -1841,7 +1979,6 @@ stock Handle:BuildPlayerHudMenu(iClient, iTarget)
 	/**
 	 Get the targets information
 	*/
-	GetClientName(iTarget, sTargetName, sizeof(sTargetName));
 	GetClientIP(iTarget, sTargetIP, sizeof(sTargetIP));
 	GetClientAuthString(iTarget, sTargetID, sizeof(sTargetID));
 	iTargetFrags = GetClientFrags(iTarget);
@@ -1850,7 +1987,7 @@ stock Handle:BuildPlayerHudMenu(iClient, iTarget)
 	/**
 	 Format the strings for the menu
 	*/
-	Format(sDisplayName, sizeof(sDisplayName), "Player: %s", sTargetName);
+	Format(sDisplayName, sizeof(sDisplayName), "Player: %N", iTarget);
 	Format(sDisplayID, sizeof(sDisplayID), "Steam ID: %s", sTargetID);
 	Format(sDisplayIP, sizeof(sDisplayIP), "IP Address: %s", sTargetIP);
 	Format(sDisplayFrags, sizeof(sDisplayFrags), "Kills: %i", iTargetFrags);
@@ -1882,6 +2019,8 @@ stock Handle:BuildPlayerHudMenu(iClient, iTarget)
 	{
 		AddMenuItem(hMenu, "start", "Follow Player");
 	}
+	
+	AddMenuItem(hMenu, "steam", "Steam Profile");
 	
 	if ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 	{
@@ -1917,23 +2056,21 @@ stock Handle:BuildPlayerHudPanel(iClient, iTarget)
 	/**
 	 Create all the string variables we will need
 	*/
-	new	String:sTargetName[MAX_NAME_LENGTH + 1],
-		String:sTargetID[64],
-		String:sTargetIP[16];
+	new	String:sTargetID[64],
+			String:sTargetIP[16];
 		
 	new	String:sDisplayName[MAX_NAME_LENGTH + 1],
-		String:sDisplayID[64],
-		String:sDisplayIP[64],
-		String:sDisplayFrags[16],
-		String:sDisplayDeaths[16];
+			String:sDisplayID[64],
+			String:sDisplayIP[64],
+			String:sDisplayFrags[16],
+			String:sDisplayDeaths[16];
 
 	new	iTargetFrags,
-		iTargetDeaths;
+			iTargetDeaths;
 	
 	/**
 	 Get the targets information
 	*/
-	GetClientName(iTarget, sTargetName, sizeof(sTargetName));
 	GetClientIP(iTarget, sTargetIP, sizeof(sTargetIP));
 	GetClientAuthString(iTarget, sTargetID, sizeof(sTargetID));
 	iTargetFrags = GetClientFrags(iTarget);
@@ -1942,7 +2079,7 @@ stock Handle:BuildPlayerHudPanel(iClient, iTarget)
 	/**
 	 Format the strings for the menu
 	*/
-	Format(sDisplayName, sizeof(sDisplayName), "Player: %s", sTargetName);
+	Format(sDisplayName, sizeof(sDisplayName), "Player: %N", iTarget);
 	Format(sDisplayID, sizeof(sDisplayID), "Steam ID: %s", sTargetID);
 	Format(sDisplayIP, sizeof(sDisplayIP), "IP Address: %s", sTargetIP);
 	Format(sDisplayFrags, sizeof(sDisplayFrags), "Kills: %i", iTargetFrags);
@@ -1973,6 +2110,8 @@ stock Handle:BuildPlayerHudPanel(iClient, iTarget)
 	{
 		DrawPanelItem(hPanel, "Follow Player");
 	}
+	
+	DrawPanelItem(hPanel, "Steam Profile");
 	
 	if ((GetUserFlagBits(iClient) & ADMFLAG_GENERIC) || (GetUserFlagBits(iClient) & ADMFLAG_ROOT))
 	{
