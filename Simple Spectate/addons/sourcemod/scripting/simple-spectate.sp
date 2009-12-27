@@ -229,9 +229,11 @@ public OnPluginStart()
 	g_aPluginSettings[bCanHUD] = StrEqual(sHudGames,"tf",false) 
 	|| StrEqual(sHudGames,"hl2mp",false) 
 	|| StrEqual(sHudGames,"sourceforts",false) 
+	|| StrEqual(sHudGames,"ageofchivalry",false) 
 	|| StrEqual(sHudGames,"obsidian",false) 
-	|| StrEqual(sHudGames,"left4dead",false) 
-	|| StrEqual(sHudGames,"l4d",false);
+	|| StrEqual(sHudGames,"zombie_master",false) 
+	|| StrEqual(sHudGames,"bg2",false)
+	|| StrEqual(sHudGames,"insurgency",false);
 	
 	if (g_aPluginSettings[bCanHUD])
 	{
@@ -887,6 +889,13 @@ public Menu_PlayerList(Handle:menu, MenuAction:action, param1, param2)
 {
 	if (action == MenuAction_Select) 
 	{
+		if (GetClientTeam(param1) != g_aCurrentTeams[Spectator])
+		{
+			CloseHandle(menu);
+			PrintToChat(param1, "\x03[SM-SPEC]\x01 %t", "No Longer Spectating");
+			return;
+		}
+		
 		/**
 		Get the selected player
 		*/
@@ -1339,6 +1348,13 @@ Stock functions
 */
 stock StartFollowingPlayer(client, target)
 {
+	/**
+	Not sure how this can happen on !l4d, but error logs prove it can.
+	*/
+	if (client <= 0)
+	{
+		return;
+	}
 	
 	/**
 	If we have an open timer, close it.
