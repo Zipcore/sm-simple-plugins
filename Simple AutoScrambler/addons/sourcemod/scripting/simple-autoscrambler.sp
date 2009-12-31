@@ -37,6 +37,21 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <simple-plugins>
 
 #define PLUGIN_VERSION "1.1.$Rev$"
+#define ADMIN_IMMUNE	(1<<0)
+#define MEDIC_IMMUNE	(1<<1)
+#define ENGINEER_IMMUNE	(1<<2)
+#define BUDDY_IMMUNE	(1<<3)
+#define TEAMWORK_IMMUNE	(1<<4)
+
+/**
+Round States
+PREROUND 	=	Players cannot hurt eachother, or their frags aren't counted
+NORMAL		= 	Players are scoring points normally
+BONUS		=	A team has won, and we're waiting for next round... Team is slaughtering the defenseless other team
+*/
+#define PREROUND 0
+#define NORMAL 1
+#define BONUS 2
 
 /**
 Different scramble modes:
@@ -59,19 +74,38 @@ Different top player modes:
 enum PlayerData
 {
 	Handle:hForcedTimer,
-	bool:bProtected;
+	bool:bProtected,
+	iFrags,
+	iDeaths;
 };
+
+enum ScrambleMode
+{
+	random,
+	topSwap,
+	middleSwap,
+	scores,
+	frags,
+	killRatios;
+}
+
+enum RoundData
+{
+	iRoundState,
+	iStartTime,
+	iScrambleTriggers,
+}
 
 /**
 Cvars used for admins
-*/
+
 new Handle:	sas_admin_immunity_enabled 		=	INVALID_HANDLE,
 	Handle:	sas_admin_flag_scramblenow 		= 	INVALID_HANDLE,
 	Handle:	sas_admin_flag_immunity 		= 	INVALID_HANDLE;
 
 /**
 Cvars used for autoscramble
-*/
+
 new Handle:	sas_autoscramble_enabled 		= 	INVALID_HANDLE,
 	Handle:	sas_autoscramble_minplayers 	= 	INVALID_HANDLE,
 	Handle:	sas_autoscramble_mode 			= 	INVALID_HANDLE,
@@ -81,7 +115,7 @@ new Handle:	sas_autoscramble_enabled 		= 	INVALID_HANDLE,
 
 /**
 Cvars used for voting
-*/
+
 new Handle:	sas_vote_enabled				= 	INVALID_HANDLE,
 	Handle:	sas_vote_upcount 				= 	INVALID_HANDLE,
 	Handle:	sas_vote_winpercent 			= 	INVALID_HANDLE,
@@ -90,11 +124,12 @@ new Handle:	sas_vote_enabled				= 	INVALID_HANDLE,
 
 /**
 Additional cvars
-*/
+
 new Handle:	sas_enabled 					= 	INVALID_HANDLE,
 	Handle:	sas_timer_scrambledelay 		= 	INVALID_HANDLE,
 	Handle:	TFGameModeArena 				= 	INVALID_HANDLE;
 	
+*/
 /**
 Timers
 */
@@ -111,7 +146,8 @@ new 		g_aPlayers[MAXPLAYERS + 1][PlayerData];
 new bool:	g_bIsEnabled,
 	bool:	g_bIsAutoScrambleEnabled,
 	bool:	g_bIsVoteEnabled,
-	bool:	g_bIsAdminImmunityEnabled;
+	bool:	g_bIsAdminImmunityEnabled,
+	bool:	g_bScrambling;
 new Float:	g_fTimer_ScrambleDelay,
 	Float:	g_fVote_UpCount,
 	Float:	g_fVote_WinPercent;
@@ -121,7 +157,8 @@ new 		g_iAutoScramble_Minplayers,
 			g_iAutoScramble_SteamRoll,
 			g_iAutoScramble_Frags,
 			g_iVote_Mode,
-			g_iVote_MinPlayers;
+			g_iVote_MinPlayers,
+			g_iImmunity;
 new String:	g_sScrambleNowFlag[5],
 	String:	g_sAdminImmunityFlag[5];
 	
@@ -130,6 +167,8 @@ Other globals
 */
 new 		g_iMaxEntities,
 			g_iOwnerOffset;
+
+#include "simple-autoscrambler/tf2.sp"
 
 public Plugin:myinfo =
 {
@@ -152,6 +191,7 @@ public OnPluginStart()
 	/**
 	Hook the game events
 	*/
+	HookEvent("player_death", HookPlayerDeath, EventHookMode_Pre);
 	LogAction(0, -1, "[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	switch (g_CurrentMod)
 	{
@@ -319,6 +359,21 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	
 }
 
+public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (g_bScrambling)
+		return Plugin_Handled;
+	switch (g_CurrentMod)
+	{
+		case TF2:
+		{
+			if (GetEventInt(event, "death_flags") & 32) 
+				return Plugin_Handled;
+		}
+	}
+	
+}
+
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 {
 	
@@ -330,6 +385,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		return Plugin_Handled;
 	}
 	
+	g_bScrambling = true;
 	
 	switch (mode)
 	{
@@ -348,6 +404,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	/**
 	We are done, bug out.
 	*/
+	g_bScrambling = false;
 	return Plugin_Handled;
 }
 
@@ -409,51 +466,4 @@ stock LoadUpVariables()
 	g_fVote_WinPercent = GetConVarFloat(sas_vote_winpercent);
 	g_iMaxEntities = GetMaxEntities();
 	g_iOwnerOffset = FindSendPropInfo("CBaseObject", "m_hBuilder");
-}
-
-stock TF2_DestroyBuildings(client)
-{
-	
-	/**
-	We have to start a loop to check the owner of all the valid entities
-	*/
-	for (new i = MaxClients + 1; i <= g_iMaxEntities; i++)
-	{
-		if (!IsValidEntity(i))
-		{
-			
-			/**
-			Not valid, continue to next one
-			*/
-			continue;
-		}
-		
-		/**
-		Get the name of the current entity
-		*/
-		decl String:sNetClass[32];
-		GetEntityNetClass(i, sNetClass, sizeof(sNetClass));
-		
-		/**
-		See if its something that an engineer would build
-		*/
-		if (strcmp(sNetClass, "CObjectSentrygun") == 0 
-		|| strcmp(sNetClass, "CObjectTeleporter") == 0 
-		|| strcmp(sNetClass, "CObjectDispenser") == 0)
-		{
-		
-			/**
-			It is, so lets check the owner
-			*/
-			if (GetEntDataEnt2(i, g_iOwnerOffset) == client)
-			{
-				
-				/**
-				It's the clients building, so we blow it up.
-				*/
-				SetVariantInt(9999);
-				AcceptEntityInput(i, "RemoveHealth");
-			}
-		}
-	}
 }
