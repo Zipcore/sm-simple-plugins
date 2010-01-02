@@ -71,6 +71,7 @@ new bool:g_bOverrideSection = false;
 
 new g_iArraySize;
 
+new String:g_sClanFlags[16];
 new Handle:g_aSettings[e_Settings];
 new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
 new bool:g_aPlayerClanMember[MAXPLAYERS + 1] = { false, ... };
@@ -139,6 +140,7 @@ public OnPluginStart()
 
 public OnConfigsExecuted()
 {
+	GetConVarString(g_Cvar_hClanFlag, g_sClanFlags, sizeof(g_sClanFlags));
 	g_bDebug = GetConVarBool(g_Cvar_hDebug);
 	ReloadConfigFile();	
 }
@@ -321,6 +323,23 @@ stock CheckPlayer(client)
 		}
 	}
 	
+	/**
+	Check for clan tag
+	*/
+	new ibFlags = ReadFlagString(g_sClanFlags);
+	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
+	{
+		g_aPlayerClanMember[client] = true;
+	}
+	else if (GetUserFlagBits(client) & ADMFLAG_ROOT)
+	{
+		g_aPlayerClanMember[client] = true;
+	}
+	else
+	{
+		g_aPlayerClanMember[client] = false;
+	}
+	
 	if (g_bDebug)
 	{
 		if (g_aPlayerIndex[client] == -1)
@@ -340,6 +359,15 @@ stock CheckPlayer(client)
 			{
 				PrintToConsole(client, "[SCC] Found in group: %s in config file", sGroupName);
 			}
+		}
+		
+		if (g_aPlayerClanMember[client])
+		{
+			PrintToConsole(client, "[SCC] Client %N has the clan flag(s) %s", client, g_sClanFlags);
+		}
+		else
+		{
+			PrintToConsole(client, "[SCC] Client %N does NOT have the clan flag(s) %s", client, g_sClanFlags);
 		}
 	}
 }
@@ -549,16 +577,10 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 			Format(sTeam, sizeof(sTeam), "*SPEC* ");
 		}
 	}
-	if (team != g_aCurrentTeams[Spectator])
+	
+	if ((g_CurrentMod != GameType_L4D || g_CurrentMod != GameType_L4D2) && team != g_aCurrentTeams[Spectator] && !alive)
 	{
-		if (alive)
-		{
-			Format(sDead, sizeof(sDead), "");
-		}
-		else if (g_CurrentMod != GameType_L4D || g_CurrentMod != GameType_L4D2)
-		{
-			Format(sDead, sizeof(sDead), "*DEAD* ");
-		}
+		Format(sDead, sizeof(sDead), "*DEAD* ");
 	}
 	else
 	{
