@@ -198,6 +198,23 @@ public OnPluginStart()
 		{
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_Post);
+			new String:sExtError[256];
+			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
+			if (iExtStatus == -2)
+			{
+				LogAction(0, -1, "[SAS] TF2 extension was not found.");
+				SetFailState("[SAS] Plugin failed to load.");
+			}
+			else if (iExtStatus == -1 || iExtStatus == 0)
+			{
+				LogAction(0, -1, "[SAS] TF2 extension is loaded with errors.");
+				LogAction(0, -1, "[SAS] Status reported was [%s].", sExtError);
+				SetFailState("[SAS] Plugin failed to load.");
+			}
+			else if (iExtStatus == 1)
+			{
+				LogAction(0, -1, "[SAS] TF2 extension is loaded and will be used.");
+			}
 		}
 		case GameType_DOD:
 		{
@@ -279,7 +296,29 @@ public OnPluginStart()
 
 public OnAllPluginsLoaded()
 {
-	//something
+	/*
+	Check for SDK Tools
+	*/
+	new String:sExtError[256];
+	new iExtStatus = GetExtensionFileStatus("sdkhooks.ext", sExtError, sizeof(sExtError));
+	if (iExtStatus == -2)
+	{
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension was not found.");
+		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
+		g_aPluginSettings[bUseSDKHooks] = false;
+	}
+	else if (iExtStatus == -1 || iExtStatus == 0)
+	{
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded with errors.");
+		LogAction(0, -1, "[SSPEC] Status reported was [%s].", sExtError);
+		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
+		g_aPluginSettings[bUseSDKHooks] = false;
+	}
+	else if (iExtStatus == 1)
+	{
+		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded and will be used.");
+		g_aPluginSettings[bUseSDKHooks] = true;
+	}
 }
 
 public OnLibraryRemoved(const String:name[])
