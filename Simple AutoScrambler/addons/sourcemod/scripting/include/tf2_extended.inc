@@ -3,6 +3,8 @@
 #endif
 #define _tf2_extended_included
 
+#tryinclude <tf2_stocks>
+
 stock TF2_GetPlayerDominations(client)
 {
 	new offset = FindSendPropInfo("CTFPlayerResource", "m_iActiveDominations"),
@@ -23,14 +25,23 @@ stock TF2_GetTeamDominations(team)
 	return dominations;
 }
 
-stock bool:TF2_IsClientOnlyMedic(client)
+/**
+* checks if a client is only class
+* @param client		=	client index
+* @param class		= 	player class
+* Valid Classes:
+* TFClass_Medic; TFClass_Engineer; TFClass_Sniper; TFClass_Spy; TFClass_Heavy
+* TFClass_Scout; TFClass_Demoman; TFClass_Soldier; TFClass_Pyro
+*/
+
+stock bool:TF2_IsClientOnlyClass(client, TFClassType:class)
 {
-	if (TFClassType:TF2_GetPlayerClass(client) != TFClass_Medic)
+	if (TFClassType:TF2_GetPlayerClass(client) != class)
 		return false;
 	new clientTeam = GetClientTeam(client);
 	for (new i = 1; i <= MaxClients; i++)
 	{
-		if (i != client && IsClientInGame(i) && GetClientTeam(i) == clientTeam && TFClassType:TF2_GetPlayerClass(i) == TFClass_Medic)
+		if (i != client && IsClientInGame(i) && GetClientTeam(i) == clientTeam && TFClassType:TF2_GetPlayerClass(i) == class)
 			return false;
 	}
 	return true;
