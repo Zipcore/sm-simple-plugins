@@ -3,9 +3,6 @@
 #endif
 #define _tf2_extended_included
 
-#include <tf2>
-#include <sdktools>
-
 stock TF2_GetPlayerDominations(client)
 {
 	new offset = FindSendPropInfo("CTFPlayerResource", "m_iActiveDominations"),
