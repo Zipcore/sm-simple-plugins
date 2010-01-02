@@ -34,8 +34,9 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 #if defined _simple_core_tf2_included
-#endinput
+	#endinput
 #endif
+
 #define _simple_core_tf2_included
 
 #define TF2_PLAYER_SLOWED       (1 << 0)    // 1
@@ -563,6 +564,44 @@ stock TF2_GetClassPlayers(team, cls)
 	}
 	return numPlayers;
 } 
+
+stock bool:TF2_HasAmmo(client, weaponslot, bool:firing = false)
+{
+	new oAmmoOffset = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+	new oClip1Offset = FindSendPropInfo("CTFWeaponBase", "m_iClip1");
+	new oClip2Offset = FindSendPropInfo("CTFWeaponBase", "m_iClip2");
+	
+	new iReserveAmmo = GetEntData(client, oAmmoOffset + ((weaponslot + 1) * 4));
+	new iClip1Ammo = GetEntData(GetPlayerWeaponSlot(client, weaponslot), oClip1Offset);
+	new iClip2Ammo = GetEntData(GetPlayerWeaponSlot(client, weaponslot), oClip2Offset);
+	new iTotalAmmo;
+	if (firing)
+	{
+		iClip1Ammo -= 1;
+	}
+	switch (TF2_GetPlayerClass(client))
+	{
+		case TFClass_Pyro:
+		{
+			iTotalAmmo = iReserveAmmo - 1;
+		}
+		case TFClass_Heavy:
+		{
+			iTotalAmmo = iReserveAmmo - 1;
+		}
+		case TFClass_Spy:
+		{
+			iTotalAmmo = iClip1Ammo + iClip2Ammo;
+		}
+		default:
+		{
+			iTotalAmmo = iClip1Ammo + iReserveAmmo;
+		}
+	}
+	
+	PrintToChatAll("Clip1 %i, Clip2 %i, Reserve %i, Total %i", iClip1Ammo, iClip2Ammo, iReserveAmmo, iTotalAmmo);
+	return (iTotalAmmo > 0) ? true : false;
+}
 
 stock TFGameType:GetGameType()
 {
