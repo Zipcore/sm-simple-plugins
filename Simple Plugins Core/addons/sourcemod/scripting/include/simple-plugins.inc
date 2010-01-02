@@ -43,6 +43,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #pragma semicolon 1
 #include <sourcemod>
+#include <simple-core-sm>
 #undef REQUIRE_PLUGIN
 #include <adminmenu>
 #define REQUIRE_PLUGIN
@@ -53,6 +54,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #tryinclude <tf2_stocks>
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
+#tryinclude <simple-core-tf2>
 
 enum e_SupportedMods
 {

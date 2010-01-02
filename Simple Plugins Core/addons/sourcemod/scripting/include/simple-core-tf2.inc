@@ -565,6 +565,17 @@ stock TF2_GetClassPlayers(team, cls)
 	return numPlayers;
 } 
 
+stock bool:TF2_InSetup()
+{
+	iTimerEnt = FindEntityByClassname(-1, "team_round_timer");
+	if (iTimerEnt != -1)
+	{
+		if (!GetEntProp(iTimerEnt, Prop_Send, "m_nState"))
+			return true;
+	}
+	return false;
+}
+
 stock bool:TF2_HasAmmo(client, weaponslot, bool:firing = false)
 {
 	new oAmmoOffset = FindSendPropInfo("CTFPlayer", "m_iAmmo");
