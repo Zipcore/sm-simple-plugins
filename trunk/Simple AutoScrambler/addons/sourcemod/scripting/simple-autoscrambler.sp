@@ -35,6 +35,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 */
 
 #include <simple-plugins>
+#include <tf2_extended>
 
 #define PLUGIN_VERSION "1.1.$Rev$"
 #define ADMIN_IMMUNE	(1<<0)
@@ -167,8 +168,6 @@ Other globals
 */
 new 		g_iMaxEntities,
 			g_iOwnerOffset;
-
-#include "simple-autoscrambler/tf2.sp"
 
 public Plugin:myinfo =
 {
