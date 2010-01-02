@@ -1,3 +1,11 @@
+#if defined _tf2_extended_included
+ #endinput
+#endif
+#define _tf2_extended_included
+
+#include <tf2>
+#include <sdktools>
+
 stock TF2_GetPlayerDominations(client)
 {
 	new offset = FindSendPropInfo("CTFPlayerResource", "m_iActiveDominations"),
@@ -60,10 +68,16 @@ stock bool:TF2_IsClientUbered(client)
 	return false;
 }
 
-stock bool:TF2_DoesClientHaveBuilding(client)
+/**
+valid buildings:
+obj_sentrygun
+obj_dispenser
+obj_teleporter
+*/
+stock bool:TF2_DoesClientHaveBuilding(client, const String:building)
 {
 	new iEnt = -1;
-	while ((iEnt = FindEntityByClassname(iEnt, "obj_*")) != -1)
+	while ((iEnt = FindEntityByClassname(iEnt, building)) != -1)
 	{
 		if (GetEntDataEnt2(iEnt, FindSendPropInfo("CBaseObject", "m_hBuilder")) == client)
 			return true;
