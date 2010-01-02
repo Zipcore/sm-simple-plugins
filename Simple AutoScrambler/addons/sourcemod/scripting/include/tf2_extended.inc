@@ -1,9 +1,9 @@
+//TODO: Merge this file with the core's new tf2 .inc file
+
 #if defined _tf2_extended_included
  #endinput
 #endif
 #define _tf2_extended_included
-
-#tryinclude <tf2_stocks>
 
 stock TF2_GetPlayerDominations(client)
 {
@@ -93,16 +93,7 @@ stock bool:TF2_DoesClientHaveBuilding(client, const String:building)
 	return false;
 }
 
-stock bool:TF2_InSetup()
-{
-	iTimerEnt = FindEntityByClassname(-1, "team_round_timer");
-	if (iTimerEnt != -1)
-	{
-		if (!GetEntProp(iTimerEnt, Prop_Send, "m_nState"))
-			return true;
-	}
-	return false;
-}
+
 
 stock TF2_GetClientScore(client)
 {	

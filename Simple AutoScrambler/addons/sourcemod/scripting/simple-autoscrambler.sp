@@ -35,44 +35,49 @@ $Copyright: (c) Simple Plugins 2008-2009$
 */
 
 #include <simple-plugins>
-#include <tf2_extended>
 
-#define PLUGIN_VERSION "1.1.$Rev$"
-#define ADMIN_IMMUNE	(1<<0)
-#define MEDIC_IMMUNE	(1<<1)
+#include "simple-plugins/sas_config_access.sp"
+
+#define PLUGIN_VERSION "0.1.$Rev$"
+
+/**
+#define ADMIN_IMMUNE			(1<<0)
+#define MEDIC_IMMUNE			(1<<1)
 #define ENGINEER_IMMUNE	(1<<2)
-#define BUDDY_IMMUNE	(1<<3)
+#define BUDDY_IMMUNE			(1<<3)
 #define TEAMWORK_IMMUNE	(1<<4)
+*/
 
 /**
 Round States
 PREROUND 	=	Players cannot hurt eachother, or their frags aren't counted
 NORMAL		= 	Players are scoring points normally
 BONUS		=	A team has won, and we're waiting for next round... Team is slaughtering the defenseless other team
-*/
 #define PREROUND 0
 #define NORMAL 1
 #define BONUS 2
+*/
+
+enum e_RoundState
+{
+	Round_Pre,
+	Round_Normal,
+	Round_Bonus
+};
 
 /**
 Different scramble modes:
-
 1	=	Full Scramble, dont restart round.
 2	=	Admins Immune, dont restart round.
 3	=	Full Scramble, restart round and reset scores.
 4	=	Admins Immune, restart round and reset scores.
 
-*/
-
-/**
 Different top player modes:
-
 1	=	Divide Top 4 players on the two teams.
 2	=	Protect the Top 2 players on each team.
-
 */
 
-enum PlayerData
+enum e_PlayerData
 {
 	Handle:hForcedTimer,
 	bool:bProtected,
@@ -80,94 +85,38 @@ enum PlayerData
 	iDeaths;
 };
 
-enum ScrambleMode
+enum e_ScrambleMode
 {
-	random,
-	topSwap,
-	middleSwap,
-	scores,
-	frags,
-	killRatios;
-}
+	Mode_Random,
+	Mode_TopSwap,
+	Mode_MiddleSwap,
+	Mode_Scores,
+	Mode_Frags,
+	Mode_KillRatios
+};
 
-enum RoundData
+enum e_RoundData
 {
-	iRoundState,
-	iStartTime,
-	iScrambleTriggers,
-}
+	e_RoundState:Round_State,
+	Round_StartTime,
+	Round_ScrambleTriggers
+};
 
-/**
-Cvars used for admins
-
-new Handle:	sas_admin_immunity_enabled 		=	INVALID_HANDLE,
-	Handle:	sas_admin_flag_scramblenow 		= 	INVALID_HANDLE,
-	Handle:	sas_admin_flag_immunity 		= 	INVALID_HANDLE;
-
-/**
-Cvars used for autoscramble
-
-new Handle:	sas_autoscramble_enabled 		= 	INVALID_HANDLE,
-	Handle:	sas_autoscramble_minplayers 	= 	INVALID_HANDLE,
-	Handle:	sas_autoscramble_mode 			= 	INVALID_HANDLE,
-	Handle:	sas_autoscramble_winstreak 		= 	INVALID_HANDLE,
-	Handle:	sas_autoscramble_steamroll		=	INVALID_HANDLE,
-	Handle:	sas_autoscramble_frags 			= 	INVALID_HANDLE;
-
-/**
-Cvars used for voting
-
-new Handle:	sas_vote_enabled				= 	INVALID_HANDLE,
-	Handle:	sas_vote_upcount 				= 	INVALID_HANDLE,
-	Handle:	sas_vote_winpercent 			= 	INVALID_HANDLE,
-	Handle:	sas_vote_mode 					= 	INVALID_HANDLE,
-	Handle:	sas_vote_minplayers 			= 	INVALID_HANDLE;
-
-/**
-Additional cvars
-
-new Handle:	sas_enabled 					= 	INVALID_HANDLE,
-	Handle:	sas_timer_scrambledelay 		= 	INVALID_HANDLE,
-	Handle:	TFGameModeArena 				= 	INVALID_HANDLE;
-	
-*/
 /**
 Timers
 */
-new Handle:	g_hScrambleTimer				= 	INVALID_HANDLE;
+new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
 
 /**
- Player arrays 
+Arrays 
  */
-new 		g_aPlayers[MAXPLAYERS + 1][PlayerData];
+new g_aPlayers[MAXPLAYERS + 1][PlayerData];
+new g_aRoundInfo[e_RoundData];
 
 /**
- Cvar variables
+ Other globals
  */
-new bool:	g_bIsEnabled,
-	bool:	g_bIsAutoScrambleEnabled,
-	bool:	g_bIsVoteEnabled,
-	bool:	g_bIsAdminImmunityEnabled,
-	bool:	g_bScrambling;
-new Float:	g_fTimer_ScrambleDelay,
-	Float:	g_fVote_UpCount,
-	Float:	g_fVote_WinPercent;
-new 		g_iAutoScramble_Minplayers,
-			g_iAutoScramble_Mode,
-			g_iAutoScramble_WinStreak,
-			g_iAutoScramble_SteamRoll,
-			g_iAutoScramble_Frags,
-			g_iVote_Mode,
-			g_iVote_MinPlayers,
-			g_iImmunity;
-new String:	g_sScrambleNowFlag[5],
-	String:	g_sAdminImmunityFlag[5];
-	
-/**
-Other globals
-*/
-new 		g_iMaxEntities,
-			g_iOwnerOffset;
+new bool:g_bScrambling = false;
 
 public Plugin:myinfo =
 {
@@ -186,6 +135,11 @@ public OnPluginStart()
 	*/
 	g_CurrentMod = GetCurrentMod();
 	LoadCurrentTeams();
+	
+	/**
+	Process the config file
+	*/
+	ProcessConfigFile();
 	
 	/**
 	Hook the game events
@@ -215,6 +169,7 @@ public OnPluginStart()
 			{
 				LogAction(0, -1, "[SAS] TF2 extension is loaded and will be used.");
 			}
+			g_iOwnerOffset = FindSendPropInfo("CBaseObject", "m_hBuilder");
 		}
 		case GameType_DOD:
 		{
@@ -231,94 +186,31 @@ public OnPluginStart()
 	/**
 	Create console variables
 	*/
-	CreateConVar("sas_version", PLUGIN_VERSION, "Simple AutoScrambler Version",FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	sas_enabled = CreateConVar("sas_enabled", "1", "Enable/Disable Simple AutoScrambler");
-	sas_timer_scrambledelay = CreateConVar("sas_timer_scrambledelay", "5.0", "Delay used after a scramble has been started", _, true, 1.0, true, 30.0);
+	CreateConVar("sas_version", PLUGIN_VERSION, "Simple AutoScrambler Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	
 	/**
-	Cvars used for admins
+	Register the commands
 	*/
-	sas_admin_immunity_enabled = CreateConVar("sas_admin_immunity_enabled", "1", "Enable/Disable admin immunity for scrambles");
-	sas_admin_flag_scramblenow = CreateConVar("sas_admin_flag_scramblenow", "z", "Admin flag to use for scramblenow function/command");
-	sas_admin_flag_immunity = CreateConVar("sas_admin_flag_immunity", "z", "Admin flag to use for scramble immunity");
+	RegConsoleCmd("sm_scramblenow", Command_Scramble, "sm_scramblenow <mode>: Scrambles the teams");
+	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
+	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Set a setting");
+	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
 	
-	/**
-	Cvars used for autoscramble
-	*/
-	sas_autoscramble_enabled = CreateConVar("sas_autoscramble_enabled", "1", "Enable/Disable the autoscramble function");
-	sas_autoscramble_minplayers = CreateConVar("sas_autoscramble_minplayers", "16", "Min players needed to start an autoscramble");
-	sas_autoscramble_mode = CreateConVar("sas_autoscramble_mode", "1", "Scramble mode used when autoscrambling");
-	sas_autoscramble_winstreak = CreateConVar("sas_autoscramble_winstreak", "5", "Max amount of wins in a row a team can achieve before an autoscramble starts");
-	sas_autoscramble_steamroll = CreateConVar("sas_autoscramble_steamroll", "120", "Shortest amount of time a team can win by before an autoscramble starts (seconds)");
-	sas_autoscramble_frags = CreateConVar("sas_autoscramble_frags", "1", "Min players needed to start a vote and scramble");
-	
-	/**
-	Cvars used for voting
-	*/	
-	sas_vote_enabled = CreateConVar("sas_vote_enabled", "1", "Enable/Disable voting for scramble");
-	sas_vote_upcount = CreateConVar("sas_vote_upcount", "5", "Amount of people wanting a scramble before a vote starts.  If less than 1 it will be considered a percentage. (ie 0.5 = 50% | 1 = 1 Player | 5 = 5 Players)");
-	sas_vote_winpercent = CreateConVar("sas_vote_winpercent", "0.6", "Percentage of votes needed to scramble", _, true, 0.0, true, 1.0);
-	sas_vote_mode = CreateConVar("sas_vote_mode", "1", "Scramble mode used when a vote results in a scramble");
-	sas_vote_minplayers = CreateConVar("sas_vote_minplayers", "16", "Min players needed to start a vote and scramble");
-	
-	/**
-	Hook the console variables if they change
-	*/
-	HookConVarChange(sas_enabled, ConVarSettingsChanged);
-	HookConVarChange(sas_timer_scrambledelay, ConVarSettingsChanged);
-	HookConVarChange(sas_admin_immunity_enabled, ConVarSettingsChanged);
-	HookConVarChange(sas_admin_flag_scramblenow, ConVarSettingsChanged);
-	HookConVarChange(sas_admin_flag_immunity, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_enabled, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_minplayers, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_mode, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_winstreak, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_steamroll, ConVarSettingsChanged);
-	HookConVarChange(sas_autoscramble_frags, ConVarSettingsChanged);
-	HookConVarChange(sas_vote_enabled, ConVarSettingsChanged);
-	HookConVarChange(sas_vote_upcount, ConVarSettingsChanged);
-	HookConVarChange(sas_vote_winpercent, ConVarSettingsChanged);
-	HookConVarChange(sas_vote_mode, ConVarSettingsChanged);
-	HookConVarChange(sas_vote_minplayers, ConVarSettingsChanged);
-	
-	/**
-	Register the command
-	*/
-	RegConsoleCmd("sm_scramblenow", Command_ScrambleNow, "sm_scramblenow (mode): Scrambles the teams");
+	new String:sBuffer, String:sVoteCommand[64];
+	GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
+	Format(sVoteCommand, sizeof(sVoteCommand), "sm_%s", sBuffer);
+	RegConsoleCmd(sVoteCommand, Command_ScrambleNow, "Command used to start a vote to scramble the teams");
 	
 	/**
 	Load translations and .cfg file
 	*/
 	LoadTranslations ("simpleautoscrambler.phrases");
-	AutoExecConfig(true, "plugin.simpleautoscrambler");
 	LogAction(0, -1, "[SAS] Simple AutoScrambler is loaded.");
 }
 
 public OnAllPluginsLoaded()
 {
-	/*
-	Check for SDK Tools
-	*/
-	new String:sExtError[256];
-	new iExtStatus = GetExtensionFileStatus("sdkhooks.ext", sExtError, sizeof(sExtError));
-	if (iExtStatus == -2)
-	{
-		LogAction(0, -1, "[SSPEC] SDK Hooks extension was not found.");
-		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseSDKHooks] = false;
-	}
-	else if (iExtStatus == -1 || iExtStatus == 0)
-	{
-		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded with errors.");
-		LogAction(0, -1, "[SSPEC] Status reported was [%s].", sExtError);
-		LogAction(0, -1, "[SSPEC] Plugin continued to load, but that feature will not be used.");
-		g_aPluginSettings[bUseSDKHooks] = false;
-	}
-	else if (iExtStatus == 1)
-	{
-		LogAction(0, -1, "[SSPEC] SDK Hooks extension is loaded and will be used.");
-		g_aPluginSettings[bUseSDKHooks] = true;
-	}
+	//something
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -330,26 +222,21 @@ public OnConfigsExecuted()
 {
 	
 	/**
-	Load up all the variable defaults
-	*/
-	LoadUpVariables();
-	
-	/**
 	Log our activity
 	*/
-	if (g_bIsEnabled)
+	if (GetSettingValue("enabled"))
 		LogAction(0, -1, "Simple AutoScrambler is ENABLED");
 	else
 		LogAction(0, -1, "Simple AutoScrambler is DISABLED");
 }
 
-public Action:Command_ScrambleNow(client, args)
+public Action:Command_Scramble(client, args)
 {
 
 	/**
 	Make sure we are enabled
 	*/
-	if (!g_bIsEnabled)
+	if (GetSettingValue("enabled"))
 	{
 		return Plugin_Handled;
 	}
@@ -357,7 +244,7 @@ public Action:Command_ScrambleNow(client, args)
 	/**
 	Make sure the client is authorized to run this command.
 	*/
-	if (!SM_IsValidAdmin(client, g_sScrambleNowFlag))
+	if (!IsAuthorized(client, "flag_scramble"))
 	{
 		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
 		return Plugin_Handled;
@@ -372,14 +259,99 @@ public Action:Command_ScrambleNow(client, args)
 	}
 	
 	/**
-	Make sure it's ok to scramble at this time
+	Log some activity
+	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
 	*/
-	LogAction(0, -1, "[SAS] The scramblenow command was used");
+	LogAction(0, -1, "[SAS] The scramble command was used");
 	
 	/**
-	Scramble the teams
+	TODO: Check for command arguments and show the menu if we dont have any or they are not right
 	*/
-	StartAScramble();
+	
+	/**
+	We are done, bug out.
+	*/
+	return Plugin_Handled;
+}
+
+public Action:Command_ResetScores(client, args)
+{
+	
+	/**
+	Make sure the client is authorized to run this command.
+	*/
+	if (!IsAuthorized(client, "flag_reset_scores"))
+	{
+		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	
+	/**
+	Log some activity
+	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
+	*/
+	LogAction(0, -1, "[SAS] The scores were reset");
+	
+	/**
+	TODO: Actually reset the scores
+	*/
+	
+	/**
+	We are done, bug out.
+	*/
+	return Plugin_Handled;
+}
+
+public Action:Command_SetSetting(client, args)
+{
+	
+	/**
+	Make sure the client is authorized to run this command.
+	*/
+	if (!IsAuthorized(client, "flag_settings"))
+	{
+		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	
+	/**
+	Log some activity
+	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
+	*/
+	LogAction(0, -1, "[SAS] A setting was set");
+	
+	/**
+	TODO: Actually set the setting in the trie
+	*/
+	
+	/**
+	We are done, bug out.
+	*/
+	return Plugin_Handled;
+}
+
+public Action:Command_Reload(client, args)
+{
+	
+	/**
+	Make sure the client is authorized to run this command.
+	*/
+	if (!IsAuthorized(client, "flag_settings"))
+	{
+		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	
+	/**
+	Log some activity
+	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
+	*/
+	LogAction(0, -1, "[SAS] The config file was reloaded");
+	
+	/**
+	Process the config file
+	*/
+	ProcessConfigFile();
 	
 	/**
 	We are done, bug out.
@@ -389,12 +361,32 @@ public Action:Command_ScrambleNow(client, args)
 
 public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			if (TF2_InSetup)
+			{
+				g_aRoundInfo[Round_State] = Round_Pre;
+				//TODO: Start a timer to change the round state to normal
+			}
+			else
+			{
+				g_aRoundInfo[Round_State] = Round_Normal;
+			}
+		}
+	}
 }
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			g_aRoundInfo[Round_State] = Round_Bonus;
+		}
+	}
 }
 
 public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
@@ -446,11 +438,6 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	return Plugin_Handled;
 }
 
-public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
-{
-
-}
-
 stock StartAScramble(mode)
 {
 	
@@ -482,26 +469,4 @@ stock StartAScramble(mode)
 stock bool:OkToScramble()
 {
 
-}
-
-stock LoadUpVariables()
-{
-	g_bIsEnabled = GetConVarBool(sas_enabled);
-	g_bIsAutoScrambleEnabled = GetConVarBool(sas_autoscramble_enabled);
-	g_bIsVoteEnabled = GetConVarBool(sas_vote_enabled);
-	g_bIsAdminImmunityEnabled = GetConVarBool(sas_admin_immunity_enabled);
-	g_iAutoScramble_Minplayers = GetConVarInt(sas_autoscramble_minplayers);
-	g_iAutoScramble_Mode = GetConVarInt(sas_autoscramble_mode);
-	g_iAutoScramble_WinStreak = GetConVarInt(sas_autoscramble_winstreak);
-	g_iAutoScramble_SteamRoll = GetConVarInt(sas_autoscramble_steamroll);
-	g_iAutoScramble_Frags = GetConVarInt(sas_autoscramble_frags);
-	g_iVote_Mode = GetConVarInt(sas_vote_mode);
-	g_iVote_MinPlayers = GetConVarInt(sas_vote_minplayers);
-	GetConVarString(sas_admin_flag_scramblenow, g_sScrambleNowFlag, sizeof(g_sScrambleNowFlag));
-	GetConVarString(sas_admin_flag_immunity, g_sAdminImmunityFlag, sizeof(g_sAdminImmunityFlag));
-	g_fTimer_ScrambleDelay = GetConVarFloat(sas_timer_scrambledelay);
-	g_fVote_UpCount = GetConVarFloat(sas_vote_upcount);
-	g_fVote_WinPercent = GetConVarFloat(sas_vote_winpercent);
-	g_iMaxEntities = GetMaxEntities();
-	g_iOwnerOffset = FindSendPropInfo("CBaseObject", "m_hBuilder");
 }
