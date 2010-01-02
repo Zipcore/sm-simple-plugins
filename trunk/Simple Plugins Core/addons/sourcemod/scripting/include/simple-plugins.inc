@@ -304,11 +304,11 @@ public e_SupportedMods:GetCurrentMod()
 	{
 		return GameType_INS;
 	}
-	if (StrEqual(sGameType, "left4dead", false))
+	if (StrEqual(sGameType, "left4dead", false) || StrEqual(sGameType, "l4d", false))
 	{
 		return GameType_L4D;
 	}
-	if (StrEqual(sGameType, "left4dead2", false))
+	if (StrEqual(sGameType, "left4dead2", false) || StrEqual(sGameType, "l4d2", false))
 	{
 		return GameType_L4D2;
 	}
