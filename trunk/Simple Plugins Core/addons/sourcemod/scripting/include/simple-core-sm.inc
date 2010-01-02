@@ -34,55 +34,15 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 #if defined _simple_core_sm_included
-#endinput
+	#endinput
 #endif
-#define _simple_core_sm_included
 
-#pragma semicolon 1
-#include <sourcemod>
+#define _simple_core_sm_included
 
 #define IN  (0x0001 | 0x0010)
 #define OUT (0x0002 | 0x0008)
 
 new g_FilteredEntity = -1;
-
-stock bool:HasAmmo(client, weaponslot, bool:firing = false)
-{
-	new oAmmoOffset = FindSendPropInfo("CTFPlayer", "m_iAmmo");
-	new oClip1Offset = FindSendPropInfo("CTFWeaponBase", "m_iClip1");
-	new oClip2Offset = FindSendPropInfo("CTFWeaponBase", "m_iClip2");
-	
-	new iReserveAmmo = GetEntData(client, oAmmoOffset + ((weaponslot + 1) * 4));
-	new iClip1Ammo = GetEntData(GetPlayerWeaponSlot(client, weaponslot), oClip1Offset);
-	new iClip2Ammo = GetEntData(GetPlayerWeaponSlot(client, weaponslot), oClip2Offset);
-	new iTotalAmmo;
-	if (firing)
-	{
-		iClip1Ammo -= 1;
-	}
-	switch (TF2_GetPlayerClass(client))
-	{
-		case TFClass_Pyro:
-		{
-			iTotalAmmo = iReserveAmmo - 1;
-		}
-		case TFClass_Heavy:
-		{
-			iTotalAmmo = iReserveAmmo - 1;
-		}
-		case TFClass_Spy:
-		{
-			iTotalAmmo = iClip1Ammo + iClip2Ammo;
-		}
-		default:
-		{
-			iTotalAmmo = iClip1Ammo + iReserveAmmo;
-		}
-	}
-	
-	PrintToChatAll("Clip1 %i, Clip2 %i, Reserve %i, Total %i", iClip1Ammo, iClip2Ammo, iReserveAmmo, iTotalAmmo);
-	return (iTotalAmmo > 0) ? true : false;
-}
 
 stock bool:RemovePunctuation(String:input[], String:buffer[], maxlength)
 {
