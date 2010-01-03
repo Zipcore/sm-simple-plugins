@@ -110,7 +110,7 @@ new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
 /**
 Arrays 
  */
-new g_aPlayers[MAXPLAYERS + 1][PlayerData];
+new g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
 new g_aRoundInfo[e_RoundData];
 
 /**

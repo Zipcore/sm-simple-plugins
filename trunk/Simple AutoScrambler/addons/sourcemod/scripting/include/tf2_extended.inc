@@ -4,6 +4,7 @@
  #endinput
 #endif
 #define _tf2_extended_included
+#tryinclude <tf2_stocks>
 
 stock TF2_GetPlayerDominations(client)
 {
@@ -144,5 +145,15 @@ stock TF2_DestroyBuildings(client)
 				AcceptEntityInput(i, "RemoveHealth");
 			}
 		}
+	}
+}
+
+stock TF2_SetTeamScore(team, score)
+{
+	new iEnt = FindEntityByClassname(-1, "tf_gamerules");
+	if (iEnt != -1)
+	{
+		SetVariantInt(score-GetTeamScore(team));
+		AcceptEntityInput(iEnt, team==2?"AddRedTeamScore":"AddBlueTeamScore");
 	}
 }
