@@ -28,26 +28,42 @@ stock SortRatios(float:array[][], numClients)
 
 stock bool:IsValidTarget(client)
 {
-	if ((PROTECT_BUDDIES && SM_IsBuddyLocked(client)) || (PROTECT_ADMINS && SM_IsValidAdmin(client, const String:flags[])))
-		return false;
+	// if admins are set to be immune, check the client's access
+	if (GetSettingValue("admins"))
+	{
+		if (IsAuthorized(client, "flag_immunity"))
+			return false;
+	}
+	
+	// check for buddy immunity
+	if (GetSettingValue("buddies"))
+	{
+		new iBuddy = SM_GetClientBuddy(client);
+		if (iBuddy && GetClientTeam(client) == GetClientTeam(iBuddy))
+			return false;
+	}
+	
+	// check to see if a client should be protected due to being a leader
 	if (IsClientTopPlayer(client)
 		return false;
-	if (g_RoundState == normal && g_currentMod == TF2) // only do specific immunity checks during a mid-round scramble
+		
+	// only do specific immunity checks during a mid-round scramble
+	if (g_RoundState == normal && g_CurrentMod == GameType_TF)
 	{
 		if (TF2_IsClientUbered(client))
 			return false;
-		if (PROTECT_ENGINEERS)
+		if (GetSettingValue("tf2_engineers"))
 		{
-			if (PROTECT_BUILDINGS && TF2_DoesClientHaveBuilding(client "obj_*");
+			if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*");
 				return false;
-			if (PROTECT_ONLY_ENGINEER && TF2_IsClientOnlyClass(client, TFClass_Engineer))
+			if (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer))
 				return false;
 		}
-		if (PROTECT_MEDICS)
+		if (GetSettingValue("tf2_medics"))
 		{
 			if (TF2_IsClientUberCharged(client))
 				return false;
-			if (PROTECT_ONLY_MEDIC && TF2_IsClientOnlyClass(client, TFClass_Medic))
+			if (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic))
 				return false;
 		}	
 	}
@@ -74,6 +90,9 @@ public SortIntsDesc(x[], y[], array[][], Handle:data)
 
 stock IsClientTopPlayer(client)
 {
+	new iProtection = GetSettingValue("top_protection");
+	if (!iProtection)
+		return false;
 	new teamSize = GetTeamClientCount(client), 
 		scores[][2],
 		count;
@@ -87,7 +106,6 @@ stock IsClientTopPlayer(client)
 	{
 		if (i == client)
 			return true;
-	}
-	return false;
+	}	return false;
 }
 	
