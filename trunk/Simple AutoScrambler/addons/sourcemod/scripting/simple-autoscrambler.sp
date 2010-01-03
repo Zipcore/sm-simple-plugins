@@ -36,8 +36,6 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <simple-plugins>
 
-#include "simple-plugins/sas_config_access.sp"
-
 #define PLUGIN_VERSION "0.1.$Rev$"
 
 /**
@@ -105,7 +103,7 @@ enum e_RoundData
 /**
 Timers
 */
-new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
+
 
 /**
 Arrays 
@@ -116,7 +114,10 @@ new g_aRoundInfo[e_RoundData];
 /**
  Other globals
  */
-new bool:g_bScrambling = false;
+
+ 
+#include "simple-plugins/sas_config_access.sp"
+#include "simple-plugins/sas_scramble_functions.sp"
 
 public Plugin:myinfo =
 {
@@ -191,12 +192,12 @@ public OnPluginStart()
 	/**
 	Register the commands
 	*/
-	RegConsoleCmd("sm_scramblenow", Command_Scramble, "sm_scramblenow <mode>: Scrambles the teams");
+	RegConsoleCmd("sm_scramble", Command_Scramble, "sm_scramble <mode>: Scrambles the teams");
 	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Set a setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
 	
-	new String:sBuffer, String:sVoteCommand[64];
+	new String:sBuffer[64], String:sVoteCommand[64];
 	GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
 	Format(sVoteCommand, sizeof(sVoteCommand), "sm_%s", sBuffer);
 	RegConsoleCmd(sVoteCommand, Command_ScrambleNow, "Command used to start a vote to scramble the teams");
@@ -406,81 +407,21 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 	
 }
 
-public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
-{
-	
-	/**
-	Make sure it's still ok to scramble
-	*/
-	if (!OkToScramble)
-	{
-		return Plugin_Handled;
-	}
-	
-	g_bScrambling = true;
-	
-	switch (mode)
-	{
-		case 
-	
-	
-	
-	}
-
-
-	/**
-	Reset the handle because the timer is over and the callback is done
-	*/
-	g_hScrambleTimer = INVALID_HANDLE;
-	
-	/**
-	We are done, bug out.
-	*/
-	g_bScrambling = false;
-	return Plugin_Handled;
-}
-
-stock StartAScramble(mode)
-{
-	
-	/**
-	See if we are already started a scramble
-	*/
-	if (g_hScrambleTimer == INVALID_HANDLE)
-	{
-		
-		/**
-		There is a scramble in progress
-		*/
-		return;
-
-	}
-	
-	/**
-	Report that a scramble is about to start
-	*/
-	PrintCenterTextAll("%T", "Scramble", LANG_SERVER);
-	
-	/**
-	Start a timer and log the action
-	*/
-	g_hScrambleTimer = CreateTimer(g_fTimer_ScrambleDelay, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
-	LogAction(0, -1, "[SAS] A scamble timer was started");
-}
-
-stock bool:OkToScramble()
-{
-
-}
-
 GetClientScore(client)
 {
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
+		{
 			return TF2_GetClientScore(client);
+		}
 		case GameType_DOD:
+		{
 			// something
+		}
 		default:
+		{
 			return g_aPlayers[client][iFrags];
+		}
+	}
 }
