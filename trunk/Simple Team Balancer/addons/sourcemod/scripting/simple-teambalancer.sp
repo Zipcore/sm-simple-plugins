@@ -56,7 +56,6 @@ enum PlayerData
  Global convar handles 
  */
 new Handle:stb_enabled = INVALID_HANDLE;
-new Handle:stb_buddyenabled = INVALID_HANDLE;
 new Handle:stb_logactivity = INVALID_HANDLE;
 new Handle:stb_logactivity2 = INVALID_HANDLE;
 new Handle:stb_unbalancelimit = INVALID_HANDLE;
@@ -101,7 +100,6 @@ new bool:g_bLogActivity = false;
 new bool:g_bLogActivity2 = false;
 new bool:g_bDeadOnly = false;
 new bool:g_bConVarControl = true;
-new bool:g_bBuddyEnabled = true;
 new bool:g_bBalanceInProgress = false;
 new bool:g_bRoundStart = false;
 new bool:g_bRoundEnd = false;
@@ -141,7 +139,6 @@ public OnPluginStart()
 	stb_logactivity2 = CreateConVar("stb_logactivity2", "0", "Enable/Disable the disaplying of detailed events in the log (WILL SPAM LOG)", _, true, 0.0, true, 1.0);
 	stb_deadonly = CreateConVar("stb_deadonly", "0", "Enable/Disable the switching of only dead players", _, true, 0.0, true, 1.0);
 	stb_convarcontrol = CreateConVar("stb_convarcontrol", "1", "Enable/Disable the control of builtin console variables", _, true, 0.0, true, 1.0);
-	stb_buddyenabled = CreateConVar("stb_buddyenabled", "1", "Enable/Disable the buddy system", _, true, 0.0, true, 1.0);	
 	stb_unbalancelimit = CreateConVar("stb_unbalancelimit", "2", "Amount of players teams are ALLOWED to be unbalanced by", _, true, 1.0, true, 32.0);
 	stb_balancedelay = CreateConVar("stb_balancedelay", "10", "Delay in seconds to start an autobalance");
 	stb_livingplayerswitchdelay = CreateConVar("stb_livingplayerswitchdelay", "20", "Delay in seconds to switch living players once selected");
@@ -183,7 +180,6 @@ public OnPluginStart()
 	HookConVarChange(stb_logactivity2, ConVarSettingsChanged);
 	HookConVarChange(stb_deadonly, ConVarSettingsChanged);
 	HookConVarChange(stb_convarcontrol, ConVarSettingsChanged);
-	HookConVarChange(stb_buddyenabled, ConVarSettingsChanged);
 	HookConVarChange(stb_unbalancelimit, ConVarSettingsChanged);
 	HookConVarChange(stb_balancedelay, ConVarSettingsChanged);
 	HookConVarChange(stb_livingplayerswitchdelay, ConVarSettingsChanged);
@@ -192,12 +188,6 @@ public OnPluginStart()
 	HookConVarChange(stb_switchbackforced, ConVarSettingsChanged);
 	HookConVarChange(stb_uberlevel, ConVarSettingsChanged);
 	HookConVarChange(stb_adverts, ConVarSettingsChanged);
-	
-	/**
-	Create console commands
-	*/
-	RegConsoleCmd("sm_buddy", Command_AddBalanceBuddy, "Add a balance buddy");
-	RegConsoleCmd("sm_lockbuddy", Command_LockBuddy, "Locks your balance buddy selection");
 
 	/**
 	Get game type and load the team numbers
@@ -732,92 +722,6 @@ public HookFlagEvent(Handle:event, const String:name[], bool:dontBroadcast)
 			g_aPlayers[iClient][bFlagCarrier] = false;
 		}
 	}
-}
-
-/* COMMAND EVENTS */
-
-public Action:Command_AddBalanceBuddy(client, args)
-{
-	if (client == 0)
-	{
-		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
-		return Plugin_Handled;
-	}
-	if (!g_bIsEnabled || !g_bBuddyEnabled) 
-	{
-		ReplyToCommand(client, "[SM] %T", "CmdDisabled", LANG_SERVER);
-		return Plugin_Handled;
-	}
-	if (g_bBuddyRestriction) 
-	{
-		if (!SM_IsValidAdmin(client, g_sAdminFlag)) 
-		{
-			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
-			return Plugin_Handled;
-		}
-	}
-	decl String:sPlayerUserId[24];
-	GetCmdArg(1, sPlayerUserId, sizeof(sPlayerUserId));
-	new iPlayer = GetClientOfUserId(StringToInt(sPlayerUserId));
-	if (!iPlayer || !IsClientInGame(iPlayer) || client == iPlayer) 
-	{
-		if (client == iPlayer) 
-		{
-			PrintHintText(client, "%T", "SelectSelf", LANG_SERVER);
-		}
-		ReplyToCommand(client, "[SM] Usage: buddy <userid>");
-		new Handle:playermenu = BuildPlayerMenu();
-		DisplayMenu(playermenu, client, MENU_TIME_FOREVER);	
-	} 
-	else 
-	{
-		decl String:cName[128];
-		decl String:bName[128];
-		GetClientName(client, cName, sizeof(cName));
-		GetClientName(iPlayer, bName, sizeof(bName));
-		if (SM_IsBuddyLocked(iPlayer)) 
-		{
-			ReplyToCommand(client, "[SM] %T", "PlayerLockedBuddyMsg", LANG_SERVER, bName);
-			return Plugin_Handled;
-		}
-		SM_AssignBuddy(client, iPlayer);
-		PrintHintText(client, "%T", "BuddyMsg", LANG_SERVER, bName);
-		PrintHintText(iPlayer, "%T", "BuddyMsg", LANG_SERVER, cName);
-	}
-	return Plugin_Handled;	
-}
-
-public Action:Command_LockBuddy(client, args)
-{
-	if (client == 0) 
-	{
-		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
-		return Plugin_Handled;
-	}
-	if (!g_bIsEnabled) 
-	{
-		ReplyToCommand(client, "[SM] %T", "CmdDisabled", LANG_SERVER);
-		return Plugin_Handled;
-	}
-	if (g_bBuddyRestriction)
-	{
-		if (!SM_IsValidAdmin(client, g_sAdminFlag)) 
-		{
-			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
-			return Plugin_Handled;
-		}
-	}
-	if (SM_IsBuddyLocked(client)) 
-	{
-		SM_LockBuddy(client, false);
-		PrintHintText(client, "%T", "BuddyLockMsgDisabled", LANG_SERVER);
-	} 
-	else 
-	{
-		SM_LockBuddy(client, true);
-		PrintHintText(client, "%T", "BuddyLockMsgEnabled", LANG_SERVER);
-	}
-	return Plugin_Handled;
 }
 
 /**
@@ -1700,17 +1604,6 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 		else
 		{
 			g_bPriorityPlayers = true;
-		}
-	}
-	else if (convar == stb_buddyenabled)
-	{
-		if (StringToInt(newValue) == 0)
-		{
-			g_bBuddyEnabled = false;
-		}
-		else
-		{
-			g_bBuddyEnabled = true;
 		}
 	}
 	else if (convar == stb_buddyrestriction)
