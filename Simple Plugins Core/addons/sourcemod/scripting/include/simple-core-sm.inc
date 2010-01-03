@@ -62,6 +62,15 @@ stock bool:RemovePunctuation(String:input[], String:buffer[], maxlength)
 	return found;
 }
 
+stock bool:IsValidClient(client) 
+{ 
+    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client)) 
+    { 
+      return false; 
+    } 
+    return IsClientInGame(client); 
+}
+
 stock ClearTimer(&Handle:timer)
 {
 	if (timer != INVALID_HANDLE)
