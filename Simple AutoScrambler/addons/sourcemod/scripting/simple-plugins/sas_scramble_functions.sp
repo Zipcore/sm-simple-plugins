@@ -1,3 +1,110 @@
+/************************************************************************
+*************************************************************************
+Simple AutoScrambler
+Description:
+	Automatically scrambles the teams based upon a number of events.
+*************************************************************************
+*************************************************************************
+This file is part of Simple Plugins project.
+
+This plugin is free software: you can redistribute 
+it and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation, either version 3 of the License, or
+later version. 
+
+This plugin is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
+*************************************************************************
+*************************************************************************
+File Information
+$Id: sas_config_access.sp 85 2010-01-02 12:43:24Z antithasys $
+$Author: antithasys $
+$Revision: 85 $
+$Date: 2010-01-02 06:43:24 -0600 (Sat, 02 Jan 2010) $
+$LastChangedBy: antithasys $
+$LastChangedDate: 2010-01-02 06:43:24 -0600 (Sat, 02 Jan 2010) $
+$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20AutoScrambler/addons/sourcemod/scripting/simple-plugins/sas_config_access.sp $
+$Copyright: (c) Simple Plugins 2008-2009$
+*************************************************************************
+*************************************************************************
+*/
+
+new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
+
+new bool:g_bScrambling = false;
+
+stock StartAScramble(mode)
+{
+	
+	/**
+	See if we are already started a scramble
+	*/
+	if (g_hScrambleTimer == INVALID_HANDLE)
+	{
+		
+		/**
+		There is a scramble in progress
+		*/
+		return;
+
+	}
+	
+	/**
+	Report that a scramble is about to start
+	*/
+	PrintCenterTextAll("%T", "Scramble", LANG_SERVER);
+	
+	/**
+	Start a timer and log the action
+	*/
+	g_hScrambleTimer = CreateTimer(g_fTimer_ScrambleDelay, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
+	LogAction(0, -1, "[SAS] A scamble timer was started");
+}
+
+stock bool:OkToScramble()
+{
+
+}
+
+public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
+{
+	
+	/**
+	Make sure it's still ok to scramble
+	*/
+	if (!OkToScramble)
+	{
+		return Plugin_Handled;
+	}
+	
+	g_bScrambling = true;
+	
+	switch (mode)
+	{
+		case 
+	
+	
+	
+	}
+
+
+	/**
+	Reset the handle because the timer is over and the callback is done
+	*/
+	g_hScrambleTimer = INVALID_HANDLE;
+	
+	/**
+	We are done, bug out.
+	*/
+	g_bScrambling = false;
+	return Plugin_Handled;
+}
+
 stock SortRandomly(float:array[][], numClients)
 {
 	// copy everything into a 1d array
@@ -52,36 +159,49 @@ stock bool:CanScrambleTarget(client)
 	}
 	
 	// check to see if a client should be protected due to being a leader
-	if (IsClientTopPlayer(client)
+	if (GetSettingValue("top_protection") && IsClientTopPlayer(client))
+	{
 		return false;
+	}
 		
 	// only do specific immunity checks during a mid-round scramble
-	if (g_RoundState == normal && g_CurrentMod == GameType_TF)
+	switch (g_CurrentMod)
 	{
-		if (TF2_IsClientUbered(client))
-			return false;
-		if (GetSettingValue("tf2_engineers"))
+		case GameType_TF:
 		{
-			if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*"))
+			if (g_aRoundInfo[Round_State] == Round_Normal)
 			{
-				return false;
-			}
-			if (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer))
+				if (TF2_IsClientUbered(client))
+				{
+					return false;
+				}
+			if (GetSettingValue("tf2_engineers"))
 			{
-				return false;
+				if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*"))
+				{
+					return false;
+				}
+				if (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer))
+				{
+					return false;
+				}
 			}
+			if (GetSettingValue("tf2_medics"))
+			{
+				if (TF2_IsClientUberCharged(client))
+				{
+					return false;
+				}
+				if (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic))
+				{
+					return false;
+				}
+			}	
 		}
-		if (GetSettingValue("tf2_medics"))
+		default:
 		{
-			if (TF2_IsClientUberCharged(client))
-			{
-				return false;
-			}
-			if (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic))
-			{
-				return false;
-			}
-		}	
+		
+		}
 	}
 	return true;
 }
@@ -112,16 +232,11 @@ public SortIntsDesc(x[], y[], array[][], Handle:data)
   return 0;
 }
 
-stock IsClientTopPlayer(client)
+stock bool:IsClientTopPlayer(client)
 {
-	new iProtection = GetSettingValue("top_protection");
-	if (!iProtection)
-	{
-		return false;
-	}
 	new teamSize = GetTeamClientCount(client), 
-		scores[][2],
-		count;
+			scores[][2],
+			count;
 	for (new i = i; i < teamSize; i++)
 	{
 		scores[count++][0] = i;
