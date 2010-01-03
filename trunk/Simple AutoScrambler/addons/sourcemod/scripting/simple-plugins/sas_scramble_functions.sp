@@ -1,4 +1,4 @@
-stock SortRandom(float:array[][], numClients)
+stock SortRandomly(float:array[][], numClients)
 {
 	// copy everything into a 1d array
 	new clients[numClints];
@@ -10,29 +10,35 @@ stock SortRandom(float:array[][], numClients)
 		array[i][0] = float(clients[i]);
 }
 
-stock SortScores(float:array[][], numClients)
+stock SortByScores(float:array[][], numClients)
 {
 	// get everyone's score
 	for (new i; i < numClients; i++)
+	{
 		array[i][1] = float(GetClientScore(i));
+	}
 	SortCustom2D(array, numClients, SortFloatsDesc);
 }
 
-stock SortRatios(float:array[][], numClients)
+stock SortByKillRatios(float:array[][], numClients)
 {
 	// get everyone's kill/death ratio
 	for (new i; i < numClients; i++)
+	{
 		array[i][1] = g_aPlayers[i][iFrags] / g_aPlayers[i][iDeaths];
+	}
 	SortCustom2D(array, numClients, SortFloatsDesc);
 }
 
-stock bool:IsValidTarget(client)
+stock bool:CanScrambleTarget(client)
 {
 	// if admins are set to be immune, check the client's access
 	if (GetSettingValue("admins"))
 	{
 		if (IsAuthorized(client, "flag_immunity"))
+		{
 			return false;
+		}
 	}
 	
 	// check for buddy immunity
@@ -40,7 +46,9 @@ stock bool:IsValidTarget(client)
 	{
 		new iBuddy = SM_GetClientBuddy(client);
 		if (iBuddy && GetClientTeam(client) == GetClientTeam(iBuddy))
+		{
 			return false;
+		}
 	}
 	
 	// check to see if a client should be protected due to being a leader
@@ -54,17 +62,25 @@ stock bool:IsValidTarget(client)
 			return false;
 		if (GetSettingValue("tf2_engineers"))
 		{
-			if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*");
+			if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*"))
+			{
 				return false;
+			}
 			if (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer))
+			{
 				return false;
+			}
 		}
 		if (GetSettingValue("tf2_medics"))
 		{
 			if (TF2_IsClientUberCharged(client))
+			{
 				return false;
+			}
 			if (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic))
+			{
 				return false;
+			}
 		}	
 	}
 	return true;
@@ -72,19 +88,27 @@ stock bool:IsValidTarget(client)
 
 public SortFloatsDesc(x[], y[], array[][], Handle:data)
 {
-    if (Float:x[1] > Float:y[1])
-        return -1;
+  if (Float:x[1] > Float:y[1])
+	{
+    return -1;
+	}
 	else if (Float:x[1] < Float:y[1])
+	{
 		return 1;
-    return 0;
+	}
+  return 0;
 }
 
 public SortIntsDesc(x[], y[], array[][], Handle:data)
 {
 	if (x[1] > y[1])
+	{
 		return -1;
+	}
 	else if (x[1] < y[1])
+	{
 		return 1;
+	}
   return 0;
 }
 
@@ -92,7 +116,9 @@ stock IsClientTopPlayer(client)
 {
 	new iProtection = GetSettingValue("top_protection");
 	if (!iProtection)
+	{
 		return false;
+	}
 	new teamSize = GetTeamClientCount(client), 
 		scores[][2],
 		count;
@@ -105,7 +131,10 @@ stock IsClientTopPlayer(client)
 	for (new i; i <= PROTECTION; i++)
 	{
 		if (i == client)
+		{
 			return true;
-	}	return false;
+		}
+	}	
+	return false;
 }
 	
