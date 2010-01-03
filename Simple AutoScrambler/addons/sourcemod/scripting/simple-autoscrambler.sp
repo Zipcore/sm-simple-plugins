@@ -38,29 +38,19 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION "0.1.$Rev$"
 
-/**
-#define ADMIN_IMMUNE			(1<<0)
-#define MEDIC_IMMUNE			(1<<1)
-#define ENGINEER_IMMUNE	(1<<2)
-#define BUDDY_IMMUNE			(1<<3)
-#define TEAMWORK_IMMUNE	(1<<4)
-*/
-
-/**
-Round States
-PREROUND 	=	Players cannot hurt eachother, or their frags aren't counted
-NORMAL		= 	Players are scoring points normally
-BONUS		=	A team has won, and we're waiting for next round... Team is slaughtering the defenseless other team
-#define PREROUND 0
-#define NORMAL 1
-#define BONUS 2
-*/
-
 enum e_RoundState
 {
 	Round_Pre,
 	Round_Normal,
 	Round_Bonus
+};
+
+enum e_PlayerData
+{
+	Handle:hForcedTimer,
+	bool:bProtected,
+	iFrags,
+	iDeaths;
 };
 
 /**
@@ -74,15 +64,6 @@ Different top player modes:
 1	=	Divide Top 4 players on the two teams.
 2	=	Protect the Top 2 players on each team.
 */
-
-enum e_PlayerData
-{
-	Handle:hForcedTimer,
-	bool:bProtected,
-	iFrags,
-	iDeaths;
-};
-
 enum e_ScrambleMode
 {
 	Mode_Random,
@@ -112,10 +93,13 @@ new g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
 new g_aRoundInfo[e_RoundData];
 
 /**
- Other globals
+Other globals
  */
 
  
+/**
+Separate files to include
+ */
 #include "simple-plugins/sas_config_access.sp"
 #include "simple-plugins/sas_scramble_functions.sp"
 

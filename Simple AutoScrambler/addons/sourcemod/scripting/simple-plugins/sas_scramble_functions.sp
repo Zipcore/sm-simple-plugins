@@ -22,13 +22,13 @@ along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 *************************************************************************
 *************************************************************************
 File Information
-$Id: sas_config_access.sp 85 2010-01-02 12:43:24Z antithasys $
-$Author: antithasys $
-$Revision: 85 $
-$Date: 2010-01-02 06:43:24 -0600 (Sat, 02 Jan 2010) $
-$LastChangedBy: antithasys $
-$LastChangedDate: 2010-01-02 06:43:24 -0600 (Sat, 02 Jan 2010) $
-$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20AutoScrambler/addons/sourcemod/scripting/simple-plugins/sas_config_access.sp $
+$Id$
+$Author$
+$Revision$
+$Date$
+$LastChangedBy$
+$LastChangedDate$
+$URL$
 $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
