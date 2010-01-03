@@ -39,6 +39,8 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define _simple_core_sm_included
 
+#define CORE_SM_INC_VERSION "1.0.$Rev$"
+
 #define IN  (0x0001 | 0x0010)
 #define OUT (0x0002 | 0x0008)
 
@@ -457,4 +459,37 @@ stock StringToLower(String:target[], String:source[])
 	{
 		target[i] = CharToLower(source[i]);		
 	}
+}
+
+stock FindRandomPlayer() 
+{ 
+    new client; 
+    do 
+    { 
+        client = GetRandomInt(1, MAXPLAYERS + 1); 
+    } while (!IsValidClient(client)); 
+    return client; 
+} 
+
+stock bool:IsValidClient(client) 
+{ 
+    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client)) 
+    { 
+        return false; 
+    } 
+    return IsClientInGame(client); 
+} 
+
+stock bool:IsValidAdmin(client, const String:flags[])
+{
+	new ibFlags = ReadFlagString(flags);
+	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
+	{
+		return true;
+	}
+	if (GetUserFlagBits(client) & ADMFLAG_ROOT)
+	{
+		return true;
+	}
+	return false;
 }

@@ -78,9 +78,6 @@ public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
 	CreateNative("SM_LockBuddy", Native_SM_LockBuddy);
 	CreateNative("SM_IsBuddyLocked", Native_SM_IsBuddyLocked);
 	CreateNative("SM_ClearBuddy", Native_SM_ClearBuddy);
-	CreateNative("SM_IsValidAdmin", Native_SM_IsValidAdmin);
-	CreateNative("SM_IsValidTeam", Native_SM_IsValidTeam);
-	CreateNative("SM_IsValidClient", Native_SM_IsValidClient);
 	RegPluginLibrary("simpleplugins");
 	return true;
 }
@@ -165,6 +162,12 @@ public OnPluginStart()
 	}
 	
 	/**
+	Create console commands
+	*/
+	RegConsoleCmd("sm_buddy", Command_AddBalanceBuddy, "Add a balance buddy");
+	RegConsoleCmd("sm_lockbuddy", Command_LockBuddy, "Locks your balance buddy selection");
+	
+	/**
 	Load common translations
 	*/
 	LoadTranslations ("common.phrases");
@@ -188,6 +191,87 @@ public OnClientDisconnect(client)
 	}
 	SM_ClearForcedTeam(client);
 }
+
+
+public Action:Command_AddBalanceBuddy(client, args)
+{
+	if (client == 0)
+	{
+		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	if (!g_bBuddyEnabled) 
+	{
+		ReplyToCommand(client, "[SM] %T", "CmdDisabled", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	if (g_bBuddyRestriction) 
+	{
+		if (!IsValidAdmin(client, g_sAdminFlag)) 
+		{
+			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
+			return Plugin_Handled;
+		}
+	}
+	decl String:sPlayerUserId[24];
+	GetCmdArg(1, sPlayerUserId, sizeof(sPlayerUserId));
+	new iPlayer = GetClientOfUserId(StringToInt(sPlayerUserId));
+	if (!iPlayer || !IsClientInGame(iPlayer) || client == iPlayer) 
+	{
+		if (client == iPlayer) 
+		{
+			PrintHintText(client, "%T", "SelectSelf", LANG_SERVER);
+		}
+		ReplyToCommand(client, "[SM] Usage: buddy <userid>");
+		new Handle:playermenu = BuildPlayerMenu();
+		DisplayMenu(playermenu, client, MENU_TIME_FOREVER);	
+	} 
+	else 
+	{
+		decl String:cName[128];
+		decl String:bName[128];
+		GetClientName(client, cName, sizeof(cName));
+		GetClientName(iPlayer, bName, sizeof(bName));
+		if (SM_IsBuddyLocked(iPlayer)) 
+		{
+			ReplyToCommand(client, "[SM] %T", "PlayerLockedBuddyMsg", LANG_SERVER, bName);
+			return Plugin_Handled;
+		}
+		SM_AssignBuddy(client, iPlayer);
+		PrintHintText(client, "%T", "BuddyMsg", LANG_SERVER, bName);
+		PrintHintText(iPlayer, "%T", "BuddyMsg", LANG_SERVER, cName);
+	}
+	return Plugin_Handled;	
+}
+
+public Action:Command_LockBuddy(client, args)
+{
+	if (client == 0) 
+	{
+		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
+		return Plugin_Handled;
+	}
+	if (g_bBuddyRestriction)
+	{
+		if (!IsValidAdmin(client, g_sAdminFlag)) 
+		{
+			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
+			return Plugin_Handled;
+		}
+	}
+	if (SM_IsBuddyLocked(client)) 
+	{
+		SM_LockBuddy(client, false);
+		PrintHintText(client, "%T", "BuddyLockMsgDisabled", LANG_SERVER);
+	} 
+	else 
+	{
+		SM_LockBuddy(client, true);
+		PrintHintText(client, "%T", "BuddyLockMsgEnabled", LANG_SERVER);
+	}
+	return Plugin_Handled;
+}
+
 
 public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
@@ -681,47 +765,6 @@ public Native_SM_IsValidTeam(Handle:plugin, numParams)
 	Check the team
 	*/
 	if (iTeam == g_aCurrentTeams[Spectator] || iTeam == g_aCurrentTeams[Team1] || iTeam == g_aCurrentTeams[Team2])
-	{
-		return true;
-	}
-	return false;
-}
-
-public Native_SM_IsValidAdmin(Handle:plugin, numParams)
-{
-	/**
-	Get the client and flags
-	*/
-	new iClient = GetNativeCell(1);
-	decl String:sFlags[15];
-	GetNativeString(2, sFlags, sizeof(sFlags));
-	new ibFlags = ReadFlagString(sFlags);
-	
-	/**
-	Check the flags
-	*/
-	if ((GetUserFlagBits(iClient) & ibFlags) == ibFlags)
-	{
-		return true;
-	}
-	if (GetUserFlagBits(iClient) & ADMFLAG_ROOT)
-	{
-		return true;
-	}
-	return false;
-}
-
-public Native_SM_IsValidClient(Handle:plugin, numParams)
-{
-	/**
-	Get the client
-	*/
-	new iClient = GetNativeCell(1);
-	
-	/**
-	Check the flags
-	*/
-	if (iClient != 0 && IsClientConnected(iClient) && IsClientInGame(iClient))
 	{
 		return true;
 	}
