@@ -398,9 +398,11 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 		case TF2:
 		{
 			if (GetEventInt(event, "death_flags") & 32) 
-				return Plugin_Handled;
+				return Plugin_Continue;
 		}
 	}
+	g_aPlayers[GetClientOfUserId(GetEventInt(event, "attacker"))][iFrags]++;
+	g_aPlayers[GetClientOfUserId(GetEventInt(event, "victim"))][iDeaths]++;
 	
 }
 
@@ -469,4 +471,16 @@ stock StartAScramble(mode)
 stock bool:OkToScramble()
 {
 
+}
+
+GetClientScore(client)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+			return TF2_GetClientScore(client);
+		case GameType_DOD:
+			// something
+		default:
+			return g_aPlayers[client][iFrags];
 }
