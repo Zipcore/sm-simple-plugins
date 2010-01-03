@@ -120,13 +120,10 @@ public _pl_simpleplugin_SetNTVOptional()
 	MarkNativeAsOptional("SM_ClearForcedTeam");
 	MarkNativeAsOptional("SM_GetForcedPlayer");
 	MarkNativeAsOptional("SM_AssignBuddy");
-	MarkNativeAsOptional("SM_SearchBuddy");
 	MarkNativeAsOptional("SM_LockBuddy");
 	MarkNativeAsOptional("SM_IsBuddyLocked");
 	MarkNativeAsOptional("SM_ClearBuddy");
-	MarkNativeAsOptional("SM_IsValidAdmin");
 	MarkNativeAsOptional("SM_IsValidTeam");
-	MarkNativeAsOptional("SM_IsValidClient");
 }
 #endif
 
@@ -245,17 +242,6 @@ native bool:SM_IsBuddyLocked(client);
 native bool:SM_ClearBuddy(client, bool:override = false);
 
 /**********************************************************************
- * Determine if the player has the supplied flags
- * ADMFLAG_ROOT will always return true
- *
- * @param 		client		The client index of the player to assign
- * @param 		flags			The char flag(s) to check against
- * @return						True if valid, false if not
- **********************************************************************/
-native bool:SM_IsValidAdmin(client, const String:flags[]);
-
-
-/**********************************************************************
  * Determine if the team is a valid team
  *
  * @param 		team		The team index to determine if valid for
@@ -263,15 +249,6 @@ native bool:SM_IsValidAdmin(client, const String:flags[]);
  * @return						True if valid, false if not
  **********************************************************************/
 native bool:SM_IsValidTeam(team);
-
-/**********************************************************************
- * Determine if the client is a valid connected and in game client
- *
- * @param 		client		The client index
- * @return						True if valid, false if not
- **********************************************************************/
-native bool:SM_IsValidClient(client);
-
 
 public e_SupportedMods:GetCurrentMod()
 {

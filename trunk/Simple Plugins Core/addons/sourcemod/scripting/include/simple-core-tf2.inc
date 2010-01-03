@@ -39,26 +39,32 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define _simple_core_tf2_included
 
-#define TF2_PLAYER_SLOWED       (1 << 0)    // 1
-#define TF2_PLAYER_ZOOMED       (1 << 1)    // 2
-#define TF2_PLAYER_DISGUISING   (1 << 2)    // 4
-#define TF2_PLAYER_DISGUISED		(1 << 3)    // 8
-#define TF2_PLAYER_CLOAKED      (1 << 4)    // 16
-#define TF2_PLAYER_INVULN       (1 << 5)    // 32
-#define TF2_PLAYER_GLOWING	    (1 << 6)    // 64
-#define TF2_PLAYER_TAUNTING	    (1 << 7)    // 128
-//#define TF2_PLAYER_??	        (1 << 8)    // 256
-//#define TF2_PLAYER_??	        (1 << 9)    // 512
-#define TF2_PLAYER_TELEPORT			(1 << 10)   // 1024
-#define TF2_PLAYER_CRITS	   		(1 << 11)   // 2048
-//#define TF2_PLAYER_??	        (1 << 12)   // 4096 	
-#define TF2_PLAYER_FEIGNDEATH		(1 << 13)   // 8192
-#define TF2_PLAYER_BLUR		    	(1 << 14)   // 16384 //Bonk
-#define TF2_PLAYER_STUN					(1 << 15)   // 32768
-#define TF2_PLAYER_HEALING      (1 << 16)   // 65536
-#define TF2_PLAYER_ONFIRE				(1 << 17)   // 131072
-#define TF2_PLAYER_OVERHEALING  (1 << 18)   // 262144
-#define TF2_PLAYER_JAR	  			(1 << 19)   // 524288
+#define CORE_TF2_INC_VERSION "1.0.$Rev$"
+
+//m_nPlayerCond Values
+#define TF2_PLAYERCOND_SLOWED    		(1<<0)    //Zoomed / Arrow drawn / minigun spinning
+#define TF2_PLAYERCOND_ZOOMED      	(1<<1)    //FOV change (sniper)
+#define TF2_PLAYERCOND_DISGUISING			(1<<2)
+#define TF2_PLAYERCOND_DISGUISED    	(1<<3)
+#define TF2_PLAYERCOND_SPYCLOAK				(1<<4)
+#define TF2_PLAYERCOND_UBERCHARGED	(1<<5)
+#define TF2_PLAYERCOND_TELEGLOW 			(1<<6)
+#define TF2_PLAYERCOND_TAUNT        	(1<<7)
+#define TF2_PLAYERCOND_UBERFADING    (1<<8)
+//#define TF2_PLAYERCOND_							(1<<9)
+#define TF2_PLAYERCOND_PREPTELE       (1<<10)    //Player is teleporting
+#define TF2_PLAYERCOND_KRITS        		(1<<11)    //Fired for krit uber and at end of round
+//#define TF2_PLAYERCOND_							(1<<12)
+#define TF2_PLAYERCOND_FEIGHDEATH    	(1<<13)    //Dmg reduction from dead ringer
+#define TF2_PLAYERCOND_BONKD        	(1<<14)    //Atomic bonk
+#define TF2_PLAYERCOND_DAZED        	(1<<15)    //When a player gets dazed (atomic bomb / airblasted / baseball bat)
+#define TF2_PLAYERCOND_BUFFBANNER    (1<<16)    //Removed at resupply locker as well    
+#define TF2_PLAYERCOND_CHARGE        (1<<17)    //Demoman charge
+#define TF2_PLAYERCOND_HEADGAINED    (1<<18)    //Demoman decap - first only
+#define TF2_PLAYERCOND_HEALING        (1<<19)    //Player is being healed
+#define TF2_PLAYERCOND_ONFIREALERT    (1<<20)    //FIRE FIRE FIRE
+#define TF2_PLAYERCOND_OVERHEALED    (1<<21)    //Player is overhealed 
+#define TF2_PLAYERCOND_JARATE      		(1<<22)
 
 enum TFGameType
 {
@@ -89,37 +95,37 @@ stock TF2_GetNumHealers(client)
 stock bool:TF2_IsPlayerZoomed(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_ZOOMED) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_ZOOMED) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerHealing(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_HEALING) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_HEALING) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerOverHealing(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_OVERHEALING) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_OVERHEALED) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerTaunt(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_TAUNTING) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_TAUNT) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerSlowed(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_SLOWED) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_SLOWED) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerDisguised(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_DISGUISED) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_DISGUISED) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerChangingCloak(client)
@@ -137,19 +143,19 @@ stock bool:TF2_IsPlayerChangingCloak(client)
 stock bool:TF2_IsPlayerCloaked(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_CLOAKED) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_SPYCLOAK) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerFeignDeath(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_FEIGNDEATH) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_FEIGHDEATH) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerBlur(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_BLUR) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_BONKD) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerChargeReleased(client)
@@ -171,34 +177,34 @@ stock bool:TF2_IsPlayerChargeReleased(client)
 stock bool:TF2_IsPlayerUber(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & (TF2_PLAYER_INVULN | TF2_PLAYER_CRITS)) != 0) : false;
+	return pcond >= 0 ? ((pcond & (TF2_PLAYERCOND_UBERCHARGED | TF2_PLAYERCOND_KRITS)) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerInvuln(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_INVULN) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_UBERCHARGED) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerCrits(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_CRITS) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_KRITS) != 0) : false;
 }
 
 stock bool:TF2_IsPlayerOnFire(client)
 {
 	new pcond = TF2_GetPlayerCond(client);
-	return pcond >= 0 ? ((pcond & TF2_PLAYER_ONFIRE) != 0) : false;
+	return pcond >= 0 ? ((pcond & TF2_PLAYERCOND_ONFIREALERT) != 0) : false;
 }
 
 stock TF2_SetPlayerCloak(client, bool:enabled)
 {
 	new playerCond = TF2_GetPlayerCond(client);
 	if (enabled)
-		TF2_SetPlayerCond(client, (playerCond | TF2_PLAYER_CLOAKED));
+		TF2_SetPlayerCond(client, (playerCond | TF2_PLAYERCOND_SPYCLOAK));
 	else
-	TF2_SetPlayerCond(client, (playerCond & (~TF2_PLAYER_CLOAKED)));
+	TF2_SetPlayerCond(client, (playerCond & (~TF2_PLAYERCOND_SPYCLOAK)));
 }
 
 stock Float:TF2_GetClassSpeed(TFClassType:class)
@@ -644,3 +650,133 @@ stock TFGameType:GetGameType()
 	}
 	return TFGameMode_UNKOWN;
 }
+
+
+stock TF2_GetPlayerDominations(client)
+{
+	new iOffset = FindSendPropInfo("CTFPlayerResource", "m_iActiveDominations"),
+		ent = FindEntityByClassname(-1, "tf_player_manager");
+	if (ent != -1)
+		return GetEntData(ent, (iOffset + client*4), 4);	
+	return 0;
+}
+
+stock TF2_GetTeamDominations(team)
+{
+	new iDominations;
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (IsClientInGame(i) && GetClientTeam(i) == team)
+			iDominations += TF2_GetPlayerDominations(i);
+	}
+	return iDominations;
+}
+
+/**
+* checks if a client is only class
+* @param client		=	client index
+* @param class		= 	player class
+* Valid Classes:
+* TFClass_Medic; TFClass_Engineer; TFClass_Sniper; TFClass_Spy; TFClass_Heavy
+* TFClass_Scout; TFClass_Demoman; TFClass_Soldier; TFClass_Pyro
+*/
+
+stock bool:TF2_IsClientOnlyClass(client, TFClassType:class)
+{
+	if (TFClassType:TF2_GetPlayerClass(client) != class)
+		return false;
+	new clientTeam = GetClientTeam(client);
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (i != client && IsClientInGame(i) && GetClientTeam(i) == clientTeam && TFClassType:TF2_GetPlayerClass(i) == class)
+			return false;
+	}
+	return true;
+}
+
+stock TF2_RemoveRagdolls()
+{
+	new iEnt = -1;
+	while ((iEnt = FindEntityByClassname(iEnt, "tf_ragdoll")) != -1)
+		AcceptEntityInput(iEnt, "Kill");
+}
+
+stock bool:TF2_IsClientUberCharged(client)
+{
+	if (!IsPlayerAlive(client))
+		return false;
+	new TFClassType:class = TF2_GetPlayerClass(client);
+	if (class == TFClass_Medic)
+	{			
+		new entityIndex = GetPlayerWeaponSlot(client, 1);
+		new Float:chargeLevel = GetEntPropFloat(entityIndex, Prop_Send, "m_flChargeLevel");
+		if (chargeLevel >= 0.40)				
+			return true;				
+	}
+	return false;
+}
+
+stock bool:TF2_IsClientUbered(client)
+{
+	if (GetEntProp(client, Prop_Send, "m_nPlayerCond") & 32)
+		return true;
+	return false;
+}
+
+/**
+valid buildings:
+obj_sentrygun
+obj_dispenser
+obj_teleporter
+*/
+stock bool:TF2_DoesClientHaveBuilding(client, const String:building)
+{
+	new iEnt = -1;
+	while ((iEnt = FindEntityByClassname(iEnt, building)) != -1)
+	{
+		if (GetEntDataEnt2(iEnt, FindSendPropInfo("CBaseObject", "m_hBuilder")) == client)
+			return true;
+	}
+	return false;
+}
+
+stock TF2_GetClientScore(client)
+{	
+	return TF2_GetPlayerResourceData(client, TFResource_TotalScore));
+}
+
+stock TF2_DestroyBuildings(client)
+{
+	new iMaxEntities = GetMaxEntities();
+	new iOwnerOffset = OWNEROFFSET;
+	for (new i = MaxClients + 1; i <= iMaxEntities; i++)
+	{
+		if (!IsValidEntity(i))
+		{
+			continue;
+		}
+		decl String:sNetClass[32];
+		GetEntityNetClass(i, sNetClass, sizeof(sNetClass));
+		if (strcmp(sNetClass, "CObjectSentrygun") == 0 
+		|| strcmp(sNetClass, "CObjectTeleporter") == 0 
+		|| strcmp(sNetClass, "CObjectDispenser") == 0)
+		{
+			if (GetEntDataEnt2(i, iOwnerOffset) == client)
+			{
+				SetVariantInt(9999);
+				AcceptEntityInput(i, "RemoveHealth");
+			}
+		}
+	}
+}
+
+stock TF2_SetTeamScore(team, score)
+{
+	new iEnt = FindEntityByClassname(-1, "tf_gamerules");
+	if (iEnt != -1)
+	{
+		SetVariantInt(score-GetTeamScore(team));
+		AcceptEntityInput(iEnt, team==2?"AddRedTeamScore":"AddBlueTeamScore");
+	}
+}
+
