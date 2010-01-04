@@ -83,13 +83,51 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	}
 	
 	g_bScrambling = true;
-	
-	switch (mode)
+	if (mode == Mode_TopSwap)
 	{
-		case 
-	
-	
-	
+		SwapTopPlayers();
+	}
+	else
+	{
+		new Float:f_ToScramble[GetClientCount()][2],
+			iCounter, team = g_iLastRoundLoser;
+		if (!team)
+		{
+			team = GetRandomInt(0,1) ? g_aCurrentTeams[TeamOne]:g_aCurrentTeams[TeamTwo];
+		}
+		for (new i = 1; i <= MaxClients; i++)
+		{
+			if (IsValidClient(i) && CanScrambleTarget(i))
+			{
+				f_ToScramlbe[counter++][0] = float(i);
+			}
+		}
+		switch (mode)
+		{
+			case Mode_Random:
+			{
+				SortRandomly(f_ToScramble, iCounter);
+			}
+			case Mode_Scores:
+			{
+				SortByScores(f_ToScramble, iCounter);
+			}
+			case Mode_Scores:
+			{
+				SortByScores(f_ToScramble, iCounter);
+			}
+			case Mode_KillRatios:
+			{
+				SortByKillRatios(f_ToScramble, iCounter);
+			}
+		}
+		// start swapping
+		for (new i; i < iCounter; i++)
+		{
+			new client = RoundFloat(f_ToScramble[i][0]);
+			SM_MovePlayer(client, team);
+			team = team ==  g_aCurrentTeams[TeamTwo] ? g_aCurrentTeams[TeamOne] : g_aCurrentTeams[TeamTwo];
+		}			
 	}
 
 
@@ -103,6 +141,61 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	g_bScrambling = false;
 	return Plugin_Handled;
+}
+
+stock SwapTopPlayers();
+{
+	new aTeamOne[GetTeamClientCount(g_aCurrentTeams[TeamOne])][2],
+		aTeamTwo[GetTeamClientCount(g_aCurrentTeams[TeamTwo])][2],
+		iCounter1, iCounter2, iSwaps = GetSettingValue("top_swaps")
+	// load up the top players into an array
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i) && CanScrambleTarget(i))
+		{
+			new iTeam = GetClientTeam(i);
+			if (iTeam == g_aCurrentTeams[TeamOne])
+			{
+				aTeamOne[iCounter1][0] = i;
+				aTeamOne[iCounter1][1] = GetClientScore(client);
+				iCounter1++
+			}
+			else
+				aTeamTwo[iCounter2][0] = i;
+				aTeamTwo[iCounter2][1] = GetClientScore(client);
+				iCounter2++;
+			}
+		}
+	}
+	SortCustom2D(aTeamOne, iCounter1, SortIntsDesc);
+	SortCustom2D(aTeamTwo, iCounter2, SortIntsDesc);
+	if (!iSwaps)
+	{
+		LogError("[SAS] You have set top_swaps to 0, defaulting to 2");
+		iSwaps = 2;
+	}
+	if (iCounter1 < iSwaps || iCounter2 < iSwaps)
+	{
+		if (iCounter1 > iCounter2)
+		{
+			iSwaps = iCounter2;
+		}
+		else
+		{
+			iSwaps = iCounter1
+		}
+		if (!iSwaps)
+		{
+			LogMessage("[SAS] not enough valid players to do a top-swap");
+			return;
+		}
+	}
+	// swap the players
+	for (new i; i < iSwaps; i++)
+	{
+		SM_MovePlayer(aTeamOne[i][0], g_aCurrentTeams[TeamTwo]);
+		SM_MovePlayer(aTeamTwo[i][0], g_aCurrentTeams[TeamOne]);
+	}
 }
 
 stock SortRandomly(float:array[][], numClients)
@@ -139,6 +232,9 @@ stock SortByKillRatios(float:array[][], numClients)
 
 stock bool:CanScrambleTarget(client)
 {
+	new team = GetClientTeam(client);
+	if (team != g_aCurrentTeams[team1] && team != g_aCurrentTeams[team2])
+		return false;
 	// if admins are set to be immune, check the client's access
 	if (GetSettingValue("admins"))
 	{
@@ -251,5 +347,24 @@ stock bool:IsClientTopPlayer(client)
 		}
 	}	
 	return false;
+}
+
+GetClientScore(client)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			return TF2_GetClientScore(client);
+		}
+		case GameType_DOD:
+		{
+			// something
+		}
+		default:
+		{
+			return g_aPlayers[client][iFrags];
+		}
+	}
 }
 	
