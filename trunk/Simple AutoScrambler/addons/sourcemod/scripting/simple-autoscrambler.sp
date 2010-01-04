@@ -66,6 +66,7 @@ Different top player modes:
 */
 enum e_ScrambleMode
 {
+	Mode_Invalid = 0,
 	Mode_Random,
 	Mode_TopSwap,
 	Mode_Scores,

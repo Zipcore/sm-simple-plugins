@@ -82,6 +82,10 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		return Plugin_Handled;
 	}
 	
+	if (mode == Mode_Invalid);
+	{		
+		mode = GetSettingValue("sort_mode")
+	}	
 	g_bScrambling = true;
 	if (mode == Mode_TopSwap)
 	{
@@ -89,7 +93,10 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	}
 	else
 	{
-		new Float:f_ToScramble[GetClientCount()][2],
+	/**
+	get the valid scramble targets, put them into an array for sorting
+	*/
+		new iClients[GetClientCount()],
 			iCounter, team = g_iLastRoundLoser;
 		if (!team)
 		{
@@ -99,32 +106,28 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		{
 			if (IsValidClient(i) && CanScrambleTarget(i))
 			{
-				f_ToScramlbe[counter++][0] = float(i);
+				iClients[iCounter++] = i;
 			}
 		}
 		switch (mode)
 		{
 			case Mode_Random:
 			{
-				SortRandomly(f_ToScramble, iCounter);
+				SortIntegers(iClients, iCounter, Sort_Random);
 			}
 			case Mode_Scores:
 			{
-				SortByScores(f_ToScramble, iCounter);
-			}
-			case Mode_Scores:
-			{
-				SortByScores(f_ToScramble, iCounter);
+				SortByScores(iClients, iCounter);
 			}
 			case Mode_KillRatios:
 			{
-				SortByKillRatios(f_ToScramble, iCounter);
+				SortByKillRatios(iClients, iCounter);
 			}
 		}
 		// start swapping
 		for (new i; i < iCounter; i++)
 		{
-			new client = RoundFloat(f_ToScramble[i][0]);
+			new client = iClients[i];
 			SM_MovePlayer(client, team);
 			team = team ==  g_aCurrentTeams[TeamTwo] ? g_aCurrentTeams[TeamOne] : g_aCurrentTeams[TeamTwo];
 		}			
@@ -135,11 +138,11 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	Reset the handle because the timer is over and the callback is done
 	*/
 	g_hScrambleTimer = INVALID_HANDLE;
+	g_bScrambling = false;
 	
 	/**
 	We are done, bug out.
 	*/
-	g_bScrambling = false;
 	return Plugin_Handled;
 }
 
@@ -197,37 +200,40 @@ stock SwapTopPlayers();
 		SM_MovePlayer(aTeamTwo[i][0], g_aCurrentTeams[TeamOne]);
 	}
 }
-
-stock SortRandomly(float:array[][], numClients)
+stock SortByScores(array[], numClients)
 {
-	// copy everything into a 1d array
-	new clients[numClints];
-	for (new i; i < numClients; i++)
-		clients[i] = RoundFloat(array[i][0]);
-	SortIntegers(clients, iCount, Sort_Random);
-	// copy back to the main array
-	for (new i; i<numClients; i++)
-		array[i][0] = float(clients[i]);
-}
-
-stock SortByScores(float:array[][], numClients)
-{
+	new sortArray[numClients][2],
+		client;
 	// get everyone's score
 	for (new i; i < numClients; i++)
 	{
-		array[i][1] = float(GetClientScore(i));
+		sortArray[i][0] = array[i];
+		sortArray[i][1] = GetClientScore(array[i]);
 	}
-	SortCustom2D(array, numClients, SortFloatsDesc);
+	SortCustom2D(sortArray, numClients, SortIntsDesc);
+	// copy the sorted array to the original
+	for (new i; i < numClients; i++)
+	{
+		array[i] = sortArray[i][0];
+	}
 }
 
-stock SortByKillRatios(float:array[][], numClients)
+stock SortByKillRatios(array[], numClients)
 {
+	new Float:sortArray[numClients][2],
+		client;
 	// get everyone's kill/death ratio
 	for (new i; i < numClients; i++)
 	{
-		array[i][1] = g_aPlayers[i][iFrags] / g_aPlayers[i][iDeaths];
+		client = array[i]
+		sortArray[i][1] = g_aPlayers[client][iFrags] / g_aPlayers[client][iDeaths];
+		sortArray[i][0] = float(client);
 	}
-	SortCustom2D(array, numClients, SortFloatsDesc);
+	SortCustom2D(sortArray, numClients, SortFloatsDesc);
+	for (new i; i < numClients; i++)
+	{
+		array[i] = RoundFloat(sortArray[i][0]);
+	}
 }
 
 stock bool:CanScrambleTarget(client)
