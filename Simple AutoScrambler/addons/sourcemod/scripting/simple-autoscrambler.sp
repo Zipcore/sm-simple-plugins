@@ -42,7 +42,7 @@ enum e_RoundState
 {
 	Round_Pre,
 	Round_Normal,
-	Round_Bonus
+	Round_Ended
 };
 
 enum e_PlayerData
@@ -75,9 +75,10 @@ enum e_ScrambleMode
 
 enum e_RoundData
 {
-	e_RoundState:Round_State,
-	Round_StartTime,
-	Round_ScrambleTriggers
+	iTeamOneWinstreak
+	iTeamTwoWinstreak
+	iTeamOneFrags
+	iTeamTwoFrags
 };
 
 /**
@@ -91,10 +92,11 @@ Arrays
 new g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
 new g_aRoundInfo[e_RoundData];
 
+
 /**
 Other globals
  */
-
+new e_RoundState:g_RoundState;
  
 /**
 Separate files to include
@@ -136,6 +138,7 @@ public OnPluginStart()
 		{
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_Post);
+			HookEvent"teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
 			new String:sExtError[256];
 			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
 			if (iExtStatus == -2)
@@ -349,28 +352,21 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		case GameType_TF:
 		{
-			if (TF2_InSetup)
-			{
-				g_aRoundInfo[Round_State] = Round_Pre;
-				//TODO: Start a timer to change the round state to normal
-			}
-			else
-			{
-				g_aRoundInfo[Round_State] = Round_Normal;
-			}
+			CheckSetupState();
+			return;
 		}
 	}
+	e_RoundState = Round_Normal
 }
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	switch (g_CurrentMod)
-	{
-		case GameType_TF:
-		{
-			g_aRoundInfo[Round_State] = Round_Bonus;
-		}
-	}
+ e_RoundState = Round_Ended;
+}
+
+public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
+{
+	g_RoundState = normal;
 }
 
 public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
