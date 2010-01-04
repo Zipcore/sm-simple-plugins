@@ -238,8 +238,7 @@ stock SortByKillRatios(array[], numClients)
 
 stock bool:CanScrambleTarget(client)
 {
-	new team = GetClientTeam(client);
-	if (team != g_aCurrentTeams[team1] && team != g_aCurrentTeams[team2])
+	if (!SM_IsValidTeam(client))
 		return false;
 	// if admins are set to be immune, check the client's access
 	if (GetSettingValue("admins"))
@@ -372,5 +371,22 @@ GetClientScore(client)
 			return g_aPlayers[client][iFrags];
 		}
 	}
+}
+CheckSetupState()
+{
+	CreateTimer(1.0, timer_CheckState)
+}
+
+public Action:timer_CheckState(Handle:timer)
+{
+	if (TF2_InSetup)
+	{
+		g_RoundState = Round_Pre;
+	}
+	else
+	{
+		g_RoundState = Round_Normal;
+	}
+	return Plugin_Handed;
 }
 	
