@@ -68,9 +68,7 @@ enum e_ScrambleMode
 {
 	Mode_Random,
 	Mode_TopSwap,
-	Mode_MiddleSwap,
 	Mode_Scores,
-	Mode_Frags,
 	Mode_KillRatios
 };
 
@@ -389,23 +387,4 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 	g_aPlayers[GetClientOfUserId(GetEventInt(event, "attacker"))][iFrags]++;
 	g_aPlayers[GetClientOfUserId(GetEventInt(event, "victim"))][iDeaths]++;
 	
-}
-
-GetClientScore(client)
-{
-	switch (g_CurrentMod)
-	{
-		case GameType_TF:
-		{
-			return TF2_GetClientScore(client);
-		}
-		case GameType_DOD:
-		{
-			// something
-		}
-		default:
-		{
-			return g_aPlayers[client][iFrags];
-		}
-	}
 }
