@@ -238,8 +238,6 @@ stock SortByKillRatios(array[], numClients)
 
 stock bool:CanScrambleTarget(client)
 {
-	if (!SM_IsValidTeam(client))
-		return false;
 	// if admins are set to be immune, check the client's access
 	if (GetSettingValue("admins"))
 	{
@@ -374,7 +372,7 @@ GetClientScore(client)
 }
 CheckSetupState()
 {
-	CreateTimer(1.0, timer_CheckState)
+	CreateTimer(1.0, timer_CheckState);
 }
 
 public Action:timer_CheckState(Handle:timer)

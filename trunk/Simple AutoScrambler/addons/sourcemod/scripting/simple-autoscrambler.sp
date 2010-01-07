@@ -75,9 +75,9 @@ enum e_ScrambleMode
 
 enum e_RoundData
 {
-	iTeamOneWinstreak
-	iTeamTwoWinstreak
-	iTeamOneFrags
+	iTeamOneWinstreak,
+	iTeamTwoWinstreak,
+	iTeamOneFrags,
 	iTeamTwoFrags
 };
 
@@ -356,32 +356,36 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 			return;
 		}
 	}
-	e_RoundState = Round_Normal
+	e_RoundState = Round_Normal;
 }
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
- e_RoundState = Round_Ended;
+	e_RoundState = Round_Ended;
 }
 
 public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
 {
-	g_RoundState = normal;
+	g_RoundState = Round_Normal;
 }
 
 public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (g_bScrambling)
-		return Plugin_Handled;
+	{
+		return Plugin_Continue;
+	}
 	switch (g_CurrentMod)
 	{
 		case TF2:
 		{
-			if (GetEventInt(event, "death_flags") & 32) 
+			if (GetEventInt(event, "death_flags") & 32)
+			{
 				return Plugin_Continue;
+			}
 		}
 	}
 	g_aPlayers[GetClientOfUserId(GetEventInt(event, "attacker"))][iFrags]++;
 	g_aPlayers[GetClientOfUserId(GetEventInt(event, "victim"))][iDeaths]++;
-	
+	return Plugin_Continue;
 }
