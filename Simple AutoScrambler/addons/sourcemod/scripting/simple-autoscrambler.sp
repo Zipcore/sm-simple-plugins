@@ -75,10 +75,12 @@ enum e_ScrambleMode
 
 enum e_RoundData
 {
-	iTeamOneWinstreak,
-	iTeamTwoWinstreak,
-	iTeamOneFrags,
-	iTeamTwoFrags
+	iTeam1Winstreak,
+	iTeam2Winstreak,
+	iTeam1Frags,
+	iTeam2Frags,
+	b_Team1Goal,
+	b_Team2Goal;
 };
 
 /**
@@ -97,6 +99,10 @@ new g_aRoundInfo[e_RoundData];
 Other globals
  */
 new e_RoundState:g_RoundState;
+new bool:g_bWasFullRound,
+		bool:g_bScrambledThisRound;
+new g_iRoundCount,
+		g_iRoundTrigger;
  
 /**
 Separate files to include
@@ -138,7 +144,9 @@ public OnPluginStart()
 		{
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_Post);
-			HookEvent"teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
+			HookEvent("teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
+			HookEvent("ctf_flag_captured"",HookFlagCaptured, EventHookMode_Post);
+			HookEvent("teamplay_point_captured", HookPointCaptured, EventHookMode_Post);
 			new String:sExtError[256];
 			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
 			if (iExtStatus == -2)
@@ -217,6 +225,12 @@ public OnConfigsExecuted()
 		LogAction(0, -1, "Simple AutoScrambler is DISABLED");
 }
 
+public OnMapStart()
+{
+	ResetFrags();
+	ResetStreaks();
+	g_iRoundTrigger = GetSettingValue("rounds");
+}
 public Action:Command_Scramble(client, args)
 {
 
@@ -346,8 +360,19 @@ public Action:Command_Reload(client, args)
 	return Plugin_Handled;
 }
 
+public HookFlagCaptured(Handle:event, const String:name[], bool:dontBroadCast)
+{
+	GetEventInt(event, "capping_team") == g_aCurrentTeams[Team1] ? g_aRoundInfo[bTeam1Goal] = true : 
+		g_aRoundInfo[bTeam2Goal] = true;
+}
+
+}
 public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	if (AutoScrambleCheck(g_iLastRoundWinner))
+	{
+			StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+	}
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
@@ -361,6 +386,31 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	g_bWasFullRound = true;
+	g_iRoundCount++;
+	switch (g_CurrentMod)
+	{
+		case: GameType_TF:
+		{
+			if (GetEventBool(event, "full_round"))
+			{
+				g_iLastRoundWinner = GetEventInt(event, "team");
+			}
+			else
+			{
+				g_iRoundCount--;
+			}
+		}
+		case: GameType_DOD:
+		{
+			g_iLastRoundWinner = GetEventInt(event, "team");
+		}
+		default:
+		{
+			g_iLastRoundWinner = GetEventInt(event, "winner");
+		}
+	}
+	AddTeamStreak(g_iLastRoundWinner);
 	e_RoundState = Round_Ended;
 }
 
@@ -373,19 +423,30 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 {
 	if (g_bScrambling)
 	{
-		return Plugin_Continue;
+	/**
+	block deaths from being logged as a result of scramble
+	*/
+		return Plugin_Handled;
 	}
 	switch (g_CurrentMod)
 	{
 		case TF2:
 		{
+		/** 
+		check for spy fake deaths
+		*/
 			if (GetEventInt(event, "death_flags") & 32)
 			{
 				return Plugin_Continue;
 			}
 		}
 	}
-	g_aPlayers[GetClientOfUserId(GetEventInt(event, "attacker"))][iFrags]++;
-	g_aPlayers[GetClientOfUserId(GetEventInt(event, "victim"))][iDeaths]++;
+	new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"),
+			iVictim = GetClientOfUserId(GetEventInt(event, "victim");
+	if (SM_IsValidClient(iAttacker) && (SM_IsValidClient(iVictim))
+	{
+		g_aPlayers[iAttacker][iFrags]++;
+		g_aPlayers[iVictim][iDeaths]++;
+	}
 	return Plugin_Continue;
 }

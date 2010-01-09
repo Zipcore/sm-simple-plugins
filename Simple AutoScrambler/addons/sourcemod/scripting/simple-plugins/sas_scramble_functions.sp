@@ -38,7 +38,40 @@ new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
 
 new bool:g_bScrambling = false;
 
-stock StartAScramble(mode)
+stock bool:AutoScrambleCeck(e_Teams:iWinningTeam)
+{
+	new iWinStreak = GetSettingValue("win_streak"),
+			iRoundTrigger;
+	/**
+	check for pre-game trigger
+	*/
+	if (GetSettingValue("pre_game") && g_iRoundCount == 0)
+	{
+		return true;
+	}
+	/**
+	check for full round skipping
+	*/
+	if (g_GameType == GameType_TF)
+	{
+		if (GetSettingValue("tf2_full_round_only" && !g_bWasFullRound))
+		{
+			return false;
+		}
+	}
+	/**
+	check to see if the round trigger has been reached
+	*/
+	if ((iRoundTrigger = GetSettingValue("rounds")))
+	{
+		if (iRoundTrigger == g_iRoundCount)
+		{
+			return true;
+		}
+	}
+}
+
+stock StartAScramble(e_ScrambleMode:mode)
 {
 	
 	/**
@@ -68,7 +101,14 @@ stock StartAScramble(mode)
 
 stock bool:OkToScramble()
 {
-
+	if (GetSettingValue("spam_protection") && g_bScrambledThisRound)
+	{
+		return false;
+	}
+	if (GetSettingValue("min_players") > GetClientCount())
+	{
+		return false;
+	}
 }
 
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
@@ -139,6 +179,12 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	g_hScrambleTimer = INVALID_HANDLE;
 	g_bScrambling = false;
+	
+	/**
+	Global Reset Functions
+	*/
+	ResetFrags();
+	ResetStreaks();
 	
 	/**
 	We are done, bug out.
@@ -387,4 +433,39 @@ public Action:timer_CheckState(Handle:timer)
 	}
 	return Plugin_Handed;
 }
-	
+
+sock ResetFrags()
+{
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		g_aPlayers[i][iFrags] = 0;
+		g_aPlayers[i][iDeaths] = 0;
+	}
+	g_aTeams[iTeam1Frags] = 0;
+	g_aTeams[iTeam2Frags] = 0;
+	g_aTeams[iWinner] = -1;
+}
+
+stock ResetStreaks()
+{
+	g_aTeams[iTeam1Winstreak] = 0;
+	g_aTeams[iTeam2Winstreak] = 0;
+}
+
+stock AddTeamStreak(e_Teams:iTeam)
+{
+	if (iTeam == Team1)
+	{
+		g_aTeams[iTeam2Winstreak] = 0;
+		g_aTeams[iTeam1Winstreak]++;
+	}
+	else if (iteam == Team2)
+	{
+		g_aTeams[iTeam1Winstreak] = 0;
+		g_aTeams[iTeam2Winstreak]++;
+	}
+	else
+	{
+		ResetStreaks();
+	}
+}
