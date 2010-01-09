@@ -73,6 +73,20 @@ stock bool:IsValidClient(client)
     return IsClientInGame(client); 
 }
 
+stock bool:IsValidAdmin(client, const String:flags[])
+{
+	new ibFlags = ReadFlagString(flags);
+	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
+	{
+		return true;
+	}
+	if (GetUserFlagBits(client) & ADMFLAG_ROOT)
+	{
+		return true;
+	}
+	return false;
+}
+
 stock ClearTimer(&Handle:timer)
 {
 	if (timer != INVALID_HANDLE)
@@ -463,33 +477,10 @@ stock StringToLower(String:target[], String:source[])
 
 stock FindRandomPlayer() 
 { 
-    new client; 
-    do 
-    { 
-        client = GetRandomInt(1, MAXPLAYERS + 1); 
-    } while (!IsValidClient(client)); 
-    return client; 
-} 
-
-stock bool:IsValidClient(client) 
-{ 
-    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client)) 
-    { 
-        return false; 
-    } 
-    return IsClientInGame(client); 
-} 
-
-stock bool:IsValidAdmin(client, const String:flags[])
-{
-	new ibFlags = ReadFlagString(flags);
-	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
-	{
-		return true;
-	}
-	if (GetUserFlagBits(client) & ADMFLAG_ROOT)
-	{
-		return true;
-	}
-	return false;
+	new client; 
+	do 
+	{ 
+		client = GetRandomInt(1, MAXPLAYERS + 1); 
+	} while (!IsValidClient(client)); 
+	return client; 
 }

@@ -52,9 +52,9 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #tryinclude <cstrike>
 #tryinclude <tf2>
 #tryinclude <tf2_stocks>
+#tryinclude <simple-core-tf2>
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
-#tryinclude <simple-core-tf2>
 
 enum e_SupportedMods
 {
