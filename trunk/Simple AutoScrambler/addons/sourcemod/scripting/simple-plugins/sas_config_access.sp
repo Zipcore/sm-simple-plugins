@@ -83,13 +83,13 @@ stock ProcessConfigFile()
 
 		new line, col;
 		new String:error[128];
-		new SMCError:result = SMC_ParseFile(hParser, file, line, col);
+		new SMCError:result = SMC_ParseFile(hParser, sConfigFile, line, col);
 		CloseHandle(hParser);
 		
 		if (result != SMCError_Okay) 
 		{
 			SMC_GetErrorString(result, error, sizeof(error));
-			LogError("%s on line %d, col %d of %s", error, line, col, file);
+			LogError("%s on line %d, col %d of %s", error, line, col, sConfigFile);
 			LogError("[SAS] Simple AutoScrambler is not running! Failed to parse %s", sConfigFile);
 			SetFailState("Could not parse file %s", sConfigFile);
 		}
@@ -122,7 +122,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 	{
 		case Reading_Integers:
 		{
-			SetTrieValue(g_hSettings, key, value);
+			SetTrieValue(g_hSettings, key, StringToInt(value));
 		}
 		case Reading_Strings:
 		{
@@ -176,7 +176,7 @@ stock GetSettingValue(const String:key[])
 stock bool:IsAuthorized(client, const String:flagkey[])
 {
 	new String:sAccessFlags[18];
-	GetTrieString(g_hSetting, flagkey, sAccessFlags, sizeof(sAccessFlags));
+	GetTrieString(g_hSettings, flagkey, sAccessFlags, sizeof(sAccessFlags));
 	new ibFlags = ReadFlagString(sAccessFlags);
 	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
 	{

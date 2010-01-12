@@ -82,9 +82,9 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		return Plugin_Handled;
 	}
 	
-	if (mode == Mode_Invalid);
+	if (mode == Mode_Invalid)
 	{		
-		mode = GetSettingValue("sort_mode")
+		mode = GetSettingValue("sort_mode");
 	}	
 	g_bScrambling = true;
 	if (mode == Mode_TopSwap)
@@ -97,11 +97,12 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	get the valid scramble targets, put them into an array for sorting
 	*/
 		new	iClients[GetClientCount()],
-				iCounter, team = g_iLastRoundLoser;
+				iCounter, 
+				iTeam;
 		
-		if (!team)
+		if (!iTeam)
 		{
-			team = GetRandomInt(0,1) ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
+			iTeam = GetRandomInt(0,1) ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
 		}
 		
 		for (new i = 1; i <= MaxClients; i++)
@@ -132,8 +133,8 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		for (new i; i < iCounter; i++)
 		{
 			new client = iClients[i];
-			SM_MovePlayer(client, team);
-			team = team ==  g_aCurrentTeams[Team2] ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
+			SM_MovePlayer(client, iTeam);
+			iTeam = iTeam ==  g_aCurrentTeams[Team2] ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
 		}			
 	}
 
@@ -155,9 +156,9 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	if (GetSettingValue("restart_round")
 		|| (GetSettingValue("mid_game_restart") && g_RoundState == Round_Normal)
-		|| (g_RoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart"))
+		|| (g_RoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart")))
 	{
-		RestartRound();
+		RestartRound(g_CurrentMod);
 		if (GetSettingValue("reset_scores"))
 		{
 			ResetScores();
@@ -170,11 +171,11 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	return Plugin_Handled;
 }
 
-stock SwapTopPlayers();
+stock SwapTopPlayers()
 {
 	new	aTeamOne[GetTeamClientCount(g_aCurrentTeams[Team1])][2],
 			aTeamTwo[GetTeamClientCount(g_aCurrentTeams[Team2])][2],
-			iCounter1, iCounter2, iSwaps = GetSettingValue("top_swaps")
+			iCounter1, iCounter2, iSwaps = GetSettingValue("top_swaps");
 	
 	// load up the top players into an array
 	for (new i = 1; i <= MaxClients; i++)
@@ -185,13 +186,13 @@ stock SwapTopPlayers();
 			if (iTeam == g_aCurrentTeams[Team1])
 			{
 				aTeamOne[iCounter1][0] = i;
-				aTeamOne[iCounter1][1] = GetClientScore(client);
-				iCounter1++
+				aTeamOne[iCounter1][1] = GetClientScore(i);
+				iCounter1++;
 			}
 			else
 			{
 				aTeamTwo[iCounter2][0] = i;
-				aTeamTwo[iCounter2][1] = GetClientScore(client);
+				aTeamTwo[iCounter2][1] = GetClientScore(i);
 				iCounter2++;
 			}
 		}
@@ -211,7 +212,7 @@ stock SwapTopPlayers();
 		}
 		else
 		{
-			iSwaps = iCounter1
+			iSwaps = iCounter1;
 		}
 		if (!iSwaps)
 		{
@@ -259,21 +260,21 @@ stock bool:CanScrambleTarget(client)
 	{
 		case GameType_TF:
 		{
-			if (g_RoundState == Round_Normal)
+			
+			if (g_RoundState == Round_Normal && TF2_IsClientUbered(client))
 			{
-				if (TF2_IsClientUbered(client))
-				{
-					return false;
-				}
+				return false;
 			}
+			
 			if (GetSettingValue("tf2_engineers"))
 			{
-				if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*")
+				if ((GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client, "obj_*"))
 					|| (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer)))
 				{
 					return false;
 				}
 			}
+			
 			if (GetSettingValue("tf2_medics"))
 			{
 				if (TF2_IsClientUberCharged(client)
@@ -294,8 +295,8 @@ stock bool:CanScrambleTarget(client)
 
 stock bool:IsClientTopPlayer(client)
 {
-	new teamSize = GetTeamClientCount(client), 
-			scores[][2],
+	new	teamSize = GetTeamClientCount(client), 
+			scores[MAXPLAYERS + 1][2],
 			count;
 	for (new i = i; i < teamSize; i++)
 	{
@@ -303,7 +304,7 @@ stock bool:IsClientTopPlayer(client)
 		scores[count][1] = GetClientScore(i);
 	}
 	SortCustom2D(scores, count, SortIntsDesc);
-	for (new i; i <= PROTECTION; i++)
+	for (new i; i <= count; i++)
 	{
 		if (i == client)
 		{
@@ -330,6 +331,8 @@ stock GetClientScore(client)
 			return g_aPlayers[client][iFrags];
 		}
 	}
+	
+	return 0;
 }
 
 stock ResetScores()
@@ -343,7 +346,7 @@ stock ResetScores()
 	{
 		for (new e_TeamData:y = Team_Frags; y < e_TeamData:sizeof(g_aTeamInfo[]); y++)
 		{
-			g_aTeamInfo[i][y] = 0;
+			g_aTeamInfo[x][y] = 0;
 		}
 	}
 }
@@ -379,8 +382,7 @@ stock AddTeamStreak(e_Teams:iTeam)
 
 stock SortByScores(array[], numClients)
 {
-	new	sortArray[numClients][2],
-			client;
+	new	sortArray[numClients][2];
 	// get everyone's score
 	for (new i; i < numClients; i++)
 	{
@@ -397,16 +399,17 @@ stock SortByScores(array[], numClients)
 
 stock SortByKillRatios(array[], numClients)
 {
-	new	Float:sortArray[numClients][2],
-			client;
+	new	Float:sortArray[numClients][2];
+	new	client;
+	
 	// get everyone's kill/death ratio
 	for (new i; i < numClients; i++)
 	{
-		client = array[i]
-		sortArray[i][1] = g_aPlayers[client][iFrags] / g_aPlayers[client][iDeaths];
+		client = array[i];
+		sortArray[i][1] = FloatDiv(float(g_aPlayers[client][iFrags]), float(g_aPlayers[client][iDeaths]));
 		sortArray[i][0] = float(client);
 	}
-	SortCustom2D(sortArray, numClients, SortFloatsDesc);
+	SortCustom2D(_:sortArray, numClients, SortFloatsDesc);
 	for (new i; i < numClients; i++)
 	{
 		array[i] = RoundFloat(sortArray[i][0]);
@@ -436,5 +439,5 @@ public SortIntsDesc(x[], y[], array[][], Handle:data)
 	{
 		return 1;
 	}
-  return 0;
+	return 0;
 }

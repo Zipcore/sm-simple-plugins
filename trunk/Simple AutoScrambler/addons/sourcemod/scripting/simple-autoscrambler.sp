@@ -90,8 +90,8 @@ new 	g_aTeamInfo[e_Teams][e_TeamData];
 /**
 Cookies
 */
-new 	g_hCookie_LastConnect = INVALID_HANDLE;
-new 	g_hCookie_LastTeam = INVALID_HANDLE;
+new 	Handle:g_hCookie_LastConnect = INVALID_HANDLE;
+new 	Handle:g_hCookie_LastTeam = INVALID_HANDLE;
 
 /**
 Other globals
@@ -110,6 +110,7 @@ Separate files to include
 */
 #include "simple-plugins/sas_config_access.sp"
 #include "simple-plugins/sas_scramble_functions.sp"
+#include "simple-plugins/sas_vote_functions.sp"
 #include "simple-plugins/sas_daemon.sp"
 
 public Plugin:myinfo =
@@ -166,7 +167,6 @@ public OnPluginStart()
 			{
 				LogAction(0, -1, "[SAS] TF2 extension is loaded and will be used.");
 			}
-			g_iOwnerOffset = FindSendPropInfo("CBaseObject", "m_hBuilder");
 		}
 		case GameType_DOD:
 		{
@@ -192,11 +192,7 @@ public OnPluginStart()
 	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
-	
-	new String:sBuffer[64], String:sVoteCommand[64];
-	GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
-	Format(sVoteCommand, sizeof(sVoteCommand), "sm_%s", sBuffer);
-	RegConsoleCmd(sVoteCommand, Command_ScrambleNow, "Command used to start a vote to scramble the teams");
+	CreateVoteCommand();
 	
 	/**
 	Load translations and .cfg file
@@ -211,6 +207,7 @@ public OnAllPluginsLoaded()
 	/**
 	Now lets check for client prefs extension
 	*/
+	new String:sExtError[256];
 	new iExtStatus = GetExtensionFileStatus("clientprefs.ext", sExtError, sizeof(sExtError));
 	if (iExtStatus == -2)
 	{
@@ -345,7 +342,7 @@ public SM_OnPlayerMoved(Handle:plugin, client, team)
 		We are, set the forced team and start the timer
 		*/
 		SM_SetForcedTeam(client, team);
-		new Float:fLockDuration = Float(GetSettingValue("lock_duration"));
+		new Float:fLockDuration = float(GetSettingValue("lock_duration"));
 		g_aPlayers[client][hForcedTimer] = CreateTimer(fLockDuration, Timer_PlayerTeamLock, client, TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
@@ -401,7 +398,7 @@ public Action:Command_Scramble(client, args)
 	/**
 	Make sure it's ok to scramble at this time
 	*/
-	if (!OkToScramble)
+	if (!CanScramble())
 	{
 		return Plugin_Handled;
 	}
@@ -444,7 +441,7 @@ public Action:Command_ResetScores(client, args)
 	Log some activity
 	*/
 	ShowActivityEx(client, "[SAS]", "%N reset the score tracking for the scrambler", client);
-	LogActivity (client, -1, "%N reset the score tracking for the scrambler", client);
+	LogAction(client, -1, "%N reset the score tracking for the scrambler", client);
 	
 	/**
 	We are done, bug out.
@@ -475,7 +472,7 @@ public Action:Command_SetSetting(client, args)
 		No command arguments
 		*/
 		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
-		if (GetCmdReplySource == SM_REPLY_TO_CHAT)
+		if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
 		{
 			ReplyToCommand(client, "Check console for a list of settings");
 		}
@@ -490,7 +487,7 @@ public Action:Command_SetSetting(client, args)
 	/**
 	Get the command arguments
 	*/
-	new String:sArg[1][64];
+	new String:sArg[2][64];
 	GetCmdArg(1, sArg[0], sizeof(sArg[]));
 	GetCmdArg(2, sArg[1], sizeof(sArg[]));
 	
@@ -564,7 +561,7 @@ public Action:Command_SetSetting(client, args)
 		Looks like we did, tell them so
 		*/
 		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
-		if (GetCmdReplySource == SM_REPLY_TO_CHAT)
+		if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
 		{
 			ReplyToCommand(client, "Check console for a list of settings");
 		}
@@ -582,8 +579,8 @@ public Action:Command_SetSetting(client, args)
 		We didn't have an error
 		Log some activity
 		*/
-		ShowActivityEx(client, "[SAS]", "%N changed the scramble option (%s) to (%s)", client, );
-		LogActivity (client, -1, "%N changed the scramble option (%s) to (%s)", client);
+		ShowActivityEx(client, "[SAS]", "%N changed the scramble option (%s) to (%s)", client, sArg[1]);
+		LogAction(client, -1, "%N changed the scramble option (%s) to (%s)", client);
 	}
 	
 	/**
@@ -613,7 +610,7 @@ public Action:Command_Reload(client, args)
 	Log some activity
 	*/
 	ShowActivityEx(client, "[SAS]", "%N reloaded the scrambler config file", client);
-	LogActivity (client, -1, "%N reloaded the config file", client);
+	LogAction(client, -1, "%N reloaded the config file", client);
 	
 	/**
 	We are done, bug out.
@@ -659,7 +656,7 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	switch (g_CurrentMod)
 	{
-		case: GameType_TF:
+		case GameType_TF:
 		{
 			if (GetEventBool(event, "full_round"))
 			{
@@ -671,7 +668,7 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 				g_bWasFullRound = false;
 			}
 		}
-		case: GameType_DOD:
+		case GameType_DOD:
 		{
 			iRoundWinner = GetEventInt(event, "team");
 		}
@@ -681,7 +678,7 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 		}
 	}
 	
-	AddTeamStreak(iRoundWinner);
+	AddTeamStreak(e_Teams:iRoundWinner);
 	
 	g_RoundState = Round_Ended;
 	
@@ -722,8 +719,8 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 	*/
 	if (g_RoundState == Round_Normal)
 	{
-		new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker");
-		new iVictim = GetClientOfUserId(GetEventInt(event, "victim");
+		new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+		new iVictim = GetClientOfUserId(GetEventInt(event, "victim"));
 		
 		if (IsValidClient(iAttacker))
 		{
@@ -746,9 +743,9 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 public Action:Timer_CheckState(Handle:timer, any:data)
 {
 	
-	if (TF2_InSetup)
+	if (TF2_InSetup())
 	{
-		g_RoundState = Round_Pre;
+		g_RoundState = Round_Setup;
 	}
 	else
 	{
@@ -756,7 +753,7 @@ public Action:Timer_CheckState(Handle:timer, any:data)
 		g_RoundState = Round_Normal;
 	}
 	
-	return Plugin_Handed;
+	return Plugin_Handled;
 }
 
 public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
@@ -765,5 +762,5 @@ public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
 	SM_ClearForcedTeam(client);
 	g_aPlayers[client][hForcedTimer] = INVALID_HANDLE;
 	
-	return Plugin_Handed;
+	return Plugin_Handled;
 }
