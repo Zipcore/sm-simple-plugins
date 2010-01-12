@@ -2,7 +2,7 @@
 *************************************************************************
 Simple Plugins SourceMod Core Include File
 Description:
-Core SourceMod include file for the Simple Plugins project.
+	Core SourceMod include file for the Simple Plugins project.
 *************************************************************************
 *************************************************************************
 This file is part of Simple Plugins project.
@@ -36,6 +36,8 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #if defined _simple_core_sm_included
 	#endinput
 #endif
+
+#include <sdktools>
 
 #define _simple_core_sm_included
 
@@ -94,6 +96,17 @@ stock ClearTimer(&Handle:timer)
 		KillTimer(timer);
 	}
 	timer = INVALID_HANDLE;
+}
+
+stock RestartRound(e_SupportedMods:mod)
+{
+	switch (mod)
+	{
+		default:
+		{
+			ServerCommand("mp_restartgame 1");
+		}
+	}
 }
 
 stock bool:EdictEqual(ent, const String:name[])
