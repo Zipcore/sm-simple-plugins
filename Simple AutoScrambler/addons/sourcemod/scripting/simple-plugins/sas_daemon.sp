@@ -39,7 +39,7 @@ new	Handle:g_hTimer_MapStart = INVALID_HANDLE;
 
 stock StartDaemon()
 {
-	g_hTimer_Daemon = CreateTimer(1.0, Timer_Daemon, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+	g_hTimer_Daemon = CreateTimer(2.0, Timer_Daemon, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
 stock StopDaemon()
@@ -77,7 +77,14 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 	
 	if (bPerformScramble)
 	{
-		StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+		if (GetSettingValue("auto_action"))
+		{
+			StartVote();
+		}
+		else
+		{
+			StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+		}
 	}
 		
 	return Plugin_Continue;
@@ -87,7 +94,7 @@ public Action:Timer_MapStart(Handle:timer, any:data)
 {
 	if (CanScramble())
 	{
-		StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+		StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 	}
 	
 	g_hTimer_MapStart = INVALID_HANDLE;

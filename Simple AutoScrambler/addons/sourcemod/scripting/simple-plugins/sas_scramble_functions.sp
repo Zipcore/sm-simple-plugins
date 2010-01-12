@@ -38,7 +38,7 @@ new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
 
 new bool:g_bScrambling = false;
 
-stock StartAScramble(e_ScrambleMode:mode)
+stock StartScramble(e_ScrambleMode:mode)
 {
 	
 	/**
@@ -63,6 +63,12 @@ stock StartAScramble(e_ScrambleMode:mode)
 	*/
 	g_hScrambleTimer = CreateTimer(15.0, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
 	LogAction(0, -1, "[SAS] A scamble timer was started");
+}
+
+stock StopScramble()
+{
+	ClearTimer(g_hScrambleTimer);
+	g_bScrambling = false;
 }
 
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
