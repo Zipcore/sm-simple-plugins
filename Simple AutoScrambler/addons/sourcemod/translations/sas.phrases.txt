@@ -1,0 +1,8 @@
+﻿"Phrases"
+{
+	"vote_ad"
+	{
+		"#format"	"{1:s}"
+		"en" "Say {1} to vote for a scramble"
+	}	
+}
