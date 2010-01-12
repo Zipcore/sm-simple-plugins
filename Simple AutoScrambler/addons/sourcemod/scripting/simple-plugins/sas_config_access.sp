@@ -45,6 +45,7 @@ enum e_ConfigState
 };
 
 new Handle:g_hSettings = INVALID_HANDLE;
+new Handle:g_hSettingsList = INVALID_HANDLE;
 new e_ConfigState:g_eConfigState;
 
 /**
@@ -68,7 +69,13 @@ stock ProcessConfigFile()
 		/**
 		Clear the trie
 		*/
+		if (g_hSettings == INVALID_HANDLE)
+		{
+			g_hSettings = CreateTrie();
+			g_hSettingsList = CreateArray(64, 0);
+		}
 		ClearTrie(g_hSettings);
+		ClearArray(g_hSettingsList);
 		
 		new Handle:hParser = SMC_CreateParser();
 		SMC_SetReaders(hParser, Config_NewSection, Config_KeyValue, Config_EndSection);
@@ -122,6 +129,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 			SetTrieString(g_hSettings, key, value);
 		}
 	}
+	PushArrayString(g_hSettingsList, key);
 	return SMCParse_Continue;
 }
 
@@ -143,6 +151,21 @@ public Config_End(Handle:parser, bool:halted, bool:failed)
 /**
 Access the settings
 */
+stock PrintSettings(client)
+{
+	new iArraySize = GetArraySize(g_hSettingsList);
+	if (iArraySize == 0)
+	{
+		return;
+	}
+	for (new i = 0; i < iArraySize; i++)
+	{
+		new String:sSetting[64];
+		GetArrayString(g_hSettingsList, i, sSetting, sizeof(sSetting));
+		PrintToConsole(client, sSetting);
+	}
+}
+
 stock GetSettingValue(const String:key[])
 {
 	new iValue;

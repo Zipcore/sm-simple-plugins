@@ -38,53 +38,19 @@ new Handle:g_hScrambleTimer	 = INVALID_HANDLE;
 
 new bool:g_bScrambling = false;
 
-stock bool:AutoScrambleCeck(e_Teams:iWinningTeam)
-{
-	new iWinStreak = GetSettingValue("win_streak"),
-			iRoundTrigger;
-	/**
-	check for pre-game trigger
-	*/
-	if (GetSettingValue("pre_game") && g_iRoundCount == 0)
-	{
-		return true;
-	}
-	/**
-	check for full round skipping
-	*/
-	if (g_GameType == GameType_TF)
-	{
-		if (GetSettingValue("tf2_full_round_only" && !g_bWasFullRound))
-		{
-			return false;
-		}
-	}
-	/**
-	check to see if the round trigger has been reached
-	*/
-	if ((iRoundTrigger = GetSettingValue("rounds")))
-	{
-		if (iRoundTrigger == g_iRoundCount)
-		{
-			return true;
-		}
-	}
-}
-
 stock StartAScramble(e_ScrambleMode:mode)
 {
 	
 	/**
 	See if we are already started a scramble
 	*/
-	if (g_hScrambleTimer == INVALID_HANDLE)
+	if (g_hScrambleTimer != INVALID_HANDLE)
 	{
 		
 		/**
 		There is a scramble in progress
 		*/
 		return;
-
 	}
 	
 	/**
@@ -95,20 +61,8 @@ stock StartAScramble(e_ScrambleMode:mode)
 	/**
 	Start a timer and log the action
 	*/
-	g_hScrambleTimer = CreateTimer(g_fTimer_ScrambleDelay, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
+	g_hScrambleTimer = CreateTimer(15.0, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
 	LogAction(0, -1, "[SAS] A scamble timer was started");
-}
-
-stock bool:OkToScramble()
-{
-	if (GetSettingValue("spam_protection") && g_bScrambledThisRound)
-	{
-		return false;
-	}
-	if (GetSettingValue("min_players") > GetClientCount())
-	{
-		return false;
-	}
 }
 
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
@@ -117,8 +71,14 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	/**
 	Make sure it's still ok to scramble
 	*/
-	if (!OkToScramble)
+	if (!CanScramble())
 	{
+		
+		/**
+		Not ok, bug out
+		*/
+		g_hScrambleTimer = INVALID_HANDLE;
+		g_bScrambling = false;
 		return Plugin_Handled;
 	}
 	
@@ -136,12 +96,14 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	/**
 	get the valid scramble targets, put them into an array for sorting
 	*/
-		new iClients[GetClientCount()],
-			iCounter, team = g_iLastRoundLoser;
+		new	iClients[GetClientCount()],
+				iCounter, team = g_iLastRoundLoser;
+		
 		if (!team)
 		{
-			team = GetRandomInt(0,1) ? g_aCurrentTeams[TeamOne]:g_aCurrentTeams[TeamTwo];
+			team = GetRandomInt(0,1) ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
 		}
+		
 		for (new i = 1; i <= MaxClients; i++)
 		{
 			if (IsValidClient(i) && CanScrambleTarget(i))
@@ -149,6 +111,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 				iClients[iCounter++] = i;
 			}
 		}
+		
 		switch (mode)
 		{
 			case Mode_Random:
@@ -164,12 +127,13 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 				SortByKillRatios(iClients, iCounter);
 			}
 		}
+		
 		// start swapping
 		for (new i; i < iCounter; i++)
 		{
 			new client = iClients[i];
 			SM_MovePlayer(client, team);
-			team = team ==  g_aCurrentTeams[TeamTwo] ? g_aCurrentTeams[TeamOne] : g_aCurrentTeams[TeamTwo];
+			team = team ==  g_aCurrentTeams[Team2] ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
 		}			
 	}
 
@@ -183,8 +147,22 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	/**
 	Global Reset Functions
 	*/
-	ResetFrags();
+	ResetScores();
 	ResetStreaks();
+	
+	/**
+	Check if we need to restart the round
+	*/
+	if (GetSettingValue("restart_round")
+		|| (GetSettingValue("mid_game_restart") && g_RoundState == Round_Normal)
+		|| (g_RoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart"))
+	{
+		RestartRound();
+		if (GetSettingValue("reset_scores"))
+		{
+			ResetScores();
+		}
+	}
 	
 	/**
 	We are done, bug out.
@@ -194,22 +172,24 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 
 stock SwapTopPlayers();
 {
-	new aTeamOne[GetTeamClientCount(g_aCurrentTeams[TeamOne])][2],
-		aTeamTwo[GetTeamClientCount(g_aCurrentTeams[TeamTwo])][2],
-		iCounter1, iCounter2, iSwaps = GetSettingValue("top_swaps")
+	new	aTeamOne[GetTeamClientCount(g_aCurrentTeams[Team1])][2],
+			aTeamTwo[GetTeamClientCount(g_aCurrentTeams[Team2])][2],
+			iCounter1, iCounter2, iSwaps = GetSettingValue("top_swaps")
+	
 	// load up the top players into an array
 	for (new i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i) && CanScrambleTarget(i))
 		{
 			new iTeam = GetClientTeam(i);
-			if (iTeam == g_aCurrentTeams[TeamOne])
+			if (iTeam == g_aCurrentTeams[Team1])
 			{
 				aTeamOne[iCounter1][0] = i;
 				aTeamOne[iCounter1][1] = GetClientScore(client);
 				iCounter1++
 			}
 			else
+			{
 				aTeamTwo[iCounter2][0] = i;
 				aTeamTwo[iCounter2][1] = GetClientScore(client);
 				iCounter2++;
@@ -242,43 +222,8 @@ stock SwapTopPlayers();
 	// swap the players
 	for (new i; i < iSwaps; i++)
 	{
-		SM_MovePlayer(aTeamOne[i][0], g_aCurrentTeams[TeamTwo]);
-		SM_MovePlayer(aTeamTwo[i][0], g_aCurrentTeams[TeamOne]);
-	}
-}
-stock SortByScores(array[], numClients)
-{
-	new sortArray[numClients][2],
-		client;
-	// get everyone's score
-	for (new i; i < numClients; i++)
-	{
-		sortArray[i][0] = array[i];
-		sortArray[i][1] = GetClientScore(array[i]);
-	}
-	SortCustom2D(sortArray, numClients, SortIntsDesc);
-	// copy the sorted array to the original
-	for (new i; i < numClients; i++)
-	{
-		array[i] = sortArray[i][0];
-	}
-}
-
-stock SortByKillRatios(array[], numClients)
-{
-	new Float:sortArray[numClients][2],
-		client;
-	// get everyone's kill/death ratio
-	for (new i; i < numClients; i++)
-	{
-		client = array[i]
-		sortArray[i][1] = g_aPlayers[client][iFrags] / g_aPlayers[client][iDeaths];
-		sortArray[i][0] = float(client);
-	}
-	SortCustom2D(sortArray, numClients, SortFloatsDesc);
-	for (new i; i < numClients; i++)
-	{
-		array[i] = RoundFloat(sortArray[i][0]);
+		SM_MovePlayer(aTeamOne[i][0], g_aCurrentTeams[Team2]);
+		SM_MovePlayer(aTeamTwo[i][0], g_aCurrentTeams[Team1]);
 	}
 }
 
@@ -314,41 +259,158 @@ stock bool:CanScrambleTarget(client)
 	{
 		case GameType_TF:
 		{
-			if (g_aRoundInfo[Round_State] == Round_Normal)
+			if (g_RoundState == Round_Normal)
 			{
 				if (TF2_IsClientUbered(client))
 				{
 					return false;
 				}
+			}
 			if (GetSettingValue("tf2_engineers"))
 			{
-				if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*"))
-				{
-					return false;
-				}
-				if (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer))
+				if (GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client "obj_*")
+					|| (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer)))
 				{
 					return false;
 				}
 			}
 			if (GetSettingValue("tf2_medics"))
 			{
-				if (TF2_IsClientUberCharged(client))
+				if (TF2_IsClientUberCharged(client)
+					|| (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic)))
 				{
 					return false;
 				}
-				if (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic))
-				{
-					return false;
-				}
-			}	
+			}
 		}
 		default:
 		{
-		
+			//something
 		}
 	}
+	
 	return true;
+}
+
+stock bool:IsClientTopPlayer(client)
+{
+	new teamSize = GetTeamClientCount(client), 
+			scores[][2],
+			count;
+	for (new i = i; i < teamSize; i++)
+	{
+		scores[count++][0] = i;
+		scores[count][1] = GetClientScore(i);
+	}
+	SortCustom2D(scores, count, SortIntsDesc);
+	for (new i; i <= PROTECTION; i++)
+	{
+		if (i == client)
+		{
+			return true;
+		}
+	}	
+	return false;
+}
+
+stock GetClientScore(client)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			return TF2_GetClientScore(client);
+		}
+		case GameType_DOD:
+		{
+			// something
+		}
+		default:
+		{
+			return g_aPlayers[client][iFrags];
+		}
+	}
+}
+
+stock ResetScores()
+{
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		g_aPlayers[i][iFrags] = 0;
+		g_aPlayers[i][iDeaths] = 0;
+	}
+	for (new e_Teams:x = Unknown; x < e_Teams:sizeof(g_aTeamInfo); x++)
+	{
+		for (new e_TeamData:y = Team_Frags; y < e_TeamData:sizeof(g_aTeamInfo[]); y++)
+		{
+			g_aTeamInfo[i][y] = 0;
+		}
+	}
+}
+
+stock ResetStreaks()
+{
+	for (new e_Teams:x = Unknown; x < e_Teams:sizeof(g_aTeamInfo); x++)
+	{
+		g_aTeamInfo[x][Team_WinStreak] = 0;
+	}
+}
+
+stock AddTeamStreak(e_Teams:iTeam)
+{
+	switch (iTeam)
+	{
+		case Team1:
+		{
+			g_aTeamInfo[Team1][Team_WinStreak]++;
+			g_aTeamInfo[Team2][Team_WinStreak] = 0;
+		}
+		case Team2:
+		{
+			g_aTeamInfo[Team1][Team_WinStreak] = 0;
+			g_aTeamInfo[Team2][Team_WinStreak]++;
+		}
+		default:
+		{
+			ResetStreaks();
+		}
+	}
+}
+
+stock SortByScores(array[], numClients)
+{
+	new	sortArray[numClients][2],
+			client;
+	// get everyone's score
+	for (new i; i < numClients; i++)
+	{
+		sortArray[i][0] = array[i];
+		sortArray[i][1] = GetClientScore(array[i]);
+	}
+	SortCustom2D(sortArray, numClients, SortIntsDesc);
+	// copy the sorted array to the original
+	for (new i; i < numClients; i++)
+	{
+		array[i] = sortArray[i][0];
+	}
+}
+
+stock SortByKillRatios(array[], numClients)
+{
+	new	Float:sortArray[numClients][2],
+			client;
+	// get everyone's kill/death ratio
+	for (new i; i < numClients; i++)
+	{
+		client = array[i]
+		sortArray[i][1] = g_aPlayers[client][iFrags] / g_aPlayers[client][iDeaths];
+		sortArray[i][0] = float(client);
+	}
+	SortCustom2D(sortArray, numClients, SortFloatsDesc);
+	for (new i; i < numClients; i++)
+	{
+		array[i] = RoundFloat(sortArray[i][0]);
+	}
 }
 
 public SortFloatsDesc(x[], y[], array[][], Handle:data)
@@ -375,97 +437,4 @@ public SortIntsDesc(x[], y[], array[][], Handle:data)
 		return 1;
 	}
   return 0;
-}
-
-stock bool:IsClientTopPlayer(client)
-{
-	new teamSize = GetTeamClientCount(client), 
-			scores[][2],
-			count;
-	for (new i = i; i < teamSize; i++)
-	{
-		scores[count++][0] = i;
-		scores[count][1] = GetClientScore(i);
-	}
-	SortCustom2D(scores, count, SortIntsDesc);
-	for (new i; i <= PROTECTION; i++)
-	{
-		if (i == client)
-		{
-			return true;
-		}
-	}	
-	return false;
-}
-
-GetClientScore(client)
-{
-	switch (g_CurrentMod)
-	{
-		case GameType_TF:
-		{
-			return TF2_GetClientScore(client);
-		}
-		case GameType_DOD:
-		{
-			// something
-		}
-		default:
-		{
-			return g_aPlayers[client][iFrags];
-		}
-	}
-}
-CheckSetupState()
-{
-	CreateTimer(1.0, timer_CheckState);
-}
-
-public Action:timer_CheckState(Handle:timer)
-{
-	if (TF2_InSetup)
-	{
-		g_RoundState = Round_Pre;
-	}
-	else
-	{
-		g_RoundState = Round_Normal;
-	}
-	return Plugin_Handed;
-}
-
-sock ResetFrags()
-{
-	for (new i = 1; i <= MaxClients; i++)
-	{
-		g_aPlayers[i][iFrags] = 0;
-		g_aPlayers[i][iDeaths] = 0;
-	}
-	g_aTeams[iTeam1Frags] = 0;
-	g_aTeams[iTeam2Frags] = 0;
-	g_aTeams[iWinner] = -1;
-}
-
-stock ResetStreaks()
-{
-	g_aTeams[iTeam1Winstreak] = 0;
-	g_aTeams[iTeam2Winstreak] = 0;
-}
-
-stock AddTeamStreak(e_Teams:iTeam)
-{
-	if (iTeam == Team1)
-	{
-		g_aTeams[iTeam2Winstreak] = 0;
-		g_aTeams[iTeam1Winstreak]++;
-	}
-	else if (iteam == Team2)
-	{
-		g_aTeams[iTeam1Winstreak] = 0;
-		g_aTeams[iTeam2Winstreak]++;
-	}
-	else
-	{
-		ResetStreaks();
-	}
 }

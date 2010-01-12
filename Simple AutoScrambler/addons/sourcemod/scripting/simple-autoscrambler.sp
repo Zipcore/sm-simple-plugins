@@ -35,36 +35,15 @@ $Copyright: (c) Simple Plugins 2008-2009$
 */
 
 #include <simple-plugins>
+#undef REQUIRE_EXTENSIONS
+#undef AUTOLOAD_EXTENSIONS
+#tryinclude <clientprefs>
+#define AUTOLOAD_EXTENSIONS
+#define REQUIRE_EXTENSIONS
 
 #define PLUGIN_VERSION "0.1.$Rev$"
 
-enum e_RoundState
-{
-	Round_Pre,
-	Round_Normal,
-	Round_Ended
-};
-
-enum e_PlayerData
-{
-	Handle:hForcedTimer,
-	bool:bProtected,
-	iFrags,
-	iDeaths;
-};
-
-/**
-Different scramble modes:
-1	=	Full Scramble, dont restart round.
-2	=	Admins Immune, dont restart round.
-3	=	Full Scramble, restart round and reset scores.
-4	=	Admins Immune, restart round and reset scores.
-
-Different top player modes:
-1	=	Divide Top 4 players on the two teams.
-2	=	Protect the Top 2 players on each team.
-*/
-enum e_ScrambleMode
+enum 	e_ScrambleMode
 {
 	Mode_Invalid = 0,
 	Mode_Random,
@@ -73,14 +52,28 @@ enum e_ScrambleMode
 	Mode_KillRatios
 };
 
-enum e_RoundData
+enum 	e_RoundState
 {
-	iTeam1Winstreak,
-	iTeam2Winstreak,
-	iTeam1Frags,
-	iTeam2Frags,
-	b_Team1Goal,
-	b_Team2Goal;
+	Map_Start,
+	Round_Setup,
+	Round_Normal,
+	Round_Ended
+};
+
+enum 	e_PlayerData
+{
+	Handle:hForcedTimer,
+	bool:bProtected,
+	iFrags,
+	iDeaths
+};
+
+enum 	e_TeamData
+{
+	Team_WinStreak,
+	Team_Frags,
+	Team_Deaths,
+	Team_Goal
 };
 
 /**
@@ -90,25 +83,34 @@ Timers
 
 /**
 Arrays 
- */
-new g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
-new g_aRoundInfo[e_RoundData];
+*/
+new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
+new 	g_aTeamInfo[e_Teams][e_TeamData];
 
+/**
+Cookies
+*/
+new 	g_hCookie_LastConnect = INVALID_HANDLE;
+new 	g_hCookie_LastTeam = INVALID_HANDLE;
 
 /**
 Other globals
- */
-new e_RoundState:g_RoundState;
-new bool:g_bWasFullRound,
-		bool:g_bScrambledThisRound;
-new g_iRoundCount,
-		g_iRoundTrigger;
- 
+*/
+new		e_RoundState:g_RoundState;
+
+new		bool:g_bWasFullRound = false,
+			bool:g_bScrambledThisRound = false,
+			bool:g_bUseClientprefs = false;
+
+new		g_iRoundCount,
+			g_iRoundStartTime;
+
 /**
 Separate files to include
- */
+*/
 #include "simple-plugins/sas_config_access.sp"
 #include "simple-plugins/sas_scramble_functions.sp"
+#include "simple-plugins/sas_daemon.sp"
 
 public Plugin:myinfo =
 {
@@ -145,8 +147,8 @@ public OnPluginStart()
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_Post);
 			HookEvent("teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
-			HookEvent("ctf_flag_captured"",HookFlagCaptured, EventHookMode_Post);
-			HookEvent("teamplay_point_captured", HookPointCaptured, EventHookMode_Post);
+			HookEvent("ctf_flag_captured", HookCapture, EventHookMode_Post);
+			HookEvent("teamplay_point_captured", HookCapture, EventHookMode_Post);
 			new String:sExtError[256];
 			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
 			if (iExtStatus == -2)
@@ -188,7 +190,7 @@ public OnPluginStart()
 	*/
 	RegConsoleCmd("sm_scramble", Command_Scramble, "sm_scramble <mode>: Scrambles the teams");
 	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
-	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Set a setting");
+	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
 	
 	new String:sBuffer[64], String:sVoteCommand[64];
@@ -205,7 +207,49 @@ public OnPluginStart()
 
 public OnAllPluginsLoaded()
 {
-	//something
+	
+	/**
+	Now lets check for client prefs extension
+	*/
+	new iExtStatus = GetExtensionFileStatus("clientprefs.ext", sExtError, sizeof(sExtError));
+	if (iExtStatus == -2)
+	{
+		LogAction(0, -1, "[SAS] Client Preferences extension was not found.");
+		LogAction(0, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		g_bUseClientprefs = false;
+	}
+	if (iExtStatus == -1 || iExtStatus == 0)
+	{
+		LogAction(0, -1, "[SAS] Client Preferences extension is loaded with errors.");
+		LogAction(0, -1, "[SAS] Status reported was [%s].", sExtError);
+		LogAction(0, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		g_bUseClientprefs = false;
+	}
+	if (iExtStatus == 1)
+	{
+		LogAction(0, -1, "[SAS] Client Preferences extension is loaded, checking database.");
+		if (!SQL_CheckConfig("clientprefs"))
+		{
+			LogAction(0, -1, "[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
+			LogAction(0, -1, "[SAS] Plugin continued to load, but Client Preferences will not be used.");
+			g_bUseClientprefs = false;
+		}
+		else
+		{
+			LogAction(0, -1, "[SAS] Database config 'clientprefs' was found.");
+			LogAction(0, -1, "[SAS] Plugin will use Client Preferences.");
+			g_bUseClientprefs = true;
+		}
+		
+		/**
+		Deal with client cookies
+		*/
+		if (g_bUseClientprefs)
+		{
+			g_hCookie_LastConnect = RegClientCookie("sas_lastconnect", "Timestamp of your last disconnection.", CookieAccess_Protected);
+			g_hCookie_LastTeam = RegClientCookie("sas_lastteam", "Last team you were on.", CookieAccess_Protected);
+		}
+	}
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -220,17 +264,120 @@ public OnConfigsExecuted()
 	Log our activity
 	*/
 	if (GetSettingValue("enabled"))
+	{
 		LogAction(0, -1, "Simple AutoScrambler is ENABLED");
+	}
 	else
+	{
 		LogAction(0, -1, "Simple AutoScrambler is DISABLED");
+	}
 }
 
 public OnMapStart()
 {
-	ResetFrags();
+	g_RoundState = Map_Start;
+	g_bWasFullRound = true;
+	ResetScores();
 	ResetStreaks();
-	g_iRoundTrigger = GetSettingValue("rounds");
+	StartDaemon();
 }
+
+public OnMapEnd()
+{
+	StopDaemon();
+	g_hScrambleTimer = INVALID_HANDLE;
+}
+
+public OnClientPostAdminCheck(client)
+{
+	
+}
+
+public OnClientCookiesCached(client)
+{
+	
+	if (GetSettingValue("lock_players")
+		&& (GetSettingValue("lockimmunity") && !IsAuthorized(client, "flag_lockimmunity")))
+	{
+		new	String:sLastConnect[32],
+				String:sLastTeam[3];
+	
+		/**
+		Get the client cookies
+		*/
+		GetClientCookie(client, g_hCookie_LastConnect, sLastConnect, sizeof(sLastConnect));
+		GetClientCookie(client, g_hCookie_LastTeam, sLastTeam, sizeof(sLastTeam));
+	
+		new	iCurrentTime = GetTime(),
+				iConnectTime = StringToInt(sLastConnect);
+	
+		if (iCurrentTime - iConnectTime <= GetSettingValue("lock_duration"))
+		{
+	
+			/**
+			Bastard tried to reconnect
+			*/
+			SM_MovePlayer(client, StringToInt(sLastTeam));
+		}
+	}
+}
+
+public SM_OnPlayerMoved(Handle:plugin, client, team)
+{
+	
+	/**
+	Make sure we called the move function
+	*/
+	if (plugin != GetMyHandle())
+	{
+		return;
+	}
+	
+	/**
+	Check if we are supposed to lock the players to the team
+	*/
+	if (GetSettingValue("lock_players") 
+		&& g_aPlayers[client][hForcedTimer] == INVALID_HANDLE 
+		&& (GetSettingValue("lockimmunity") && !IsAuthorized(client, "flag_lockimmunity")))
+	{
+		
+		/**
+		We are, set the forced team and start the timer
+		*/
+		SM_SetForcedTeam(client, team);
+		new Float:fLockDuration = Float(GetSettingValue("lock_duration"));
+		g_aPlayers[client][hForcedTimer] = CreateTimer(fLockDuration, Timer_PlayerTeamLock, client, TIMER_FLAG_NO_MAPCHANGE);
+	}
+}
+
+public OnClientDisconnect(client)
+{
+	
+	/**
+	Cleanup
+	*/
+	ClearTimer(g_aPlayers[client][hForcedTimer]);
+	g_aPlayers[client][bProtected] = false;
+	g_aPlayers[client][iFrags] = 0;
+	g_aPlayers[client][iDeaths] = 0;
+	
+	/**
+	Set the disconnect cookies to prevent lock bypasses
+	*/
+	new	String:sTimeStamp[32],
+			String:sTeam[3];
+	
+	new	iTeam = GetClientTeam(client),
+			iTime = GetTime();
+	
+	//FormatTime(sTimeStamp, sizeof(sTimeStamp), "%j-%H-%M");
+	Format(sTimeStamp, sizeof(sTimeStamp), "%d", iTime);
+	Format(sTeam, sizeof(sTeam), "%d", iTeam);
+	
+	SetClientCookie(client, g_hCookie_LastConnect, sTimeStamp);
+	SetClientCookie(client, g_hCookie_LastTeam, sTeam);
+}
+
 public Action:Command_Scramble(client, args)
 {
 
@@ -288,14 +435,16 @@ public Action:Command_ResetScores(client, args)
 	}
 	
 	/**
-	Log some activity
-	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
+	Reset the scores
 	*/
-	LogAction(0, -1, "[SAS] The scores were reset");
+	ResetScores();
+	ResetStreaks();
 	
 	/**
-	TODO: Actually reset the scores
+	Log some activity
 	*/
+	ShowActivityEx(client, "[SAS]", "%N reset the score tracking for the scrambler", client);
+	LogActivity (client, -1, "%N reset the score tracking for the scrambler", client);
 	
 	/**
 	We are done, bug out.
@@ -311,22 +460,134 @@ public Action:Command_SetSetting(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_settings"))
 	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %T", "RestrictedCmd", LANG_SERVER);
 		return Plugin_Handled;
 	}
 	
 	/**
-	Log some activity
-	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
+	Check for command arguments
 	*/
-	LogAction(0, -1, "[SAS] A setting was set");
+	new bool:bArgError = false;
+	if (!GetCmdArgs())
+	{
+		
+		/**
+		No command arguments
+		*/
+		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
+		if (GetCmdReplySource == SM_REPLY_TO_CHAT)
+		{
+			ReplyToCommand(client, "Check console for a list of settings");
+		}
+		PrintSettings(client);
+		
+		/**
+		We are done, bug out.
+		*/
+		return Plugin_Handled;
+	}
 	
 	/**
-	TODO: Actually set the setting in the trie
+	Get the command arguments
 	*/
+	new String:sArg[1][64];
+	GetCmdArg(1, sArg[0], sizeof(sArg[]));
+	GetCmdArg(2, sArg[1], sizeof(sArg[]));
 	
 	/**
-	We are done, bug out.
+	Setup some buffers
+	*/
+	new iBuffer;
+	new String:sBuffer[64];
+	
+	/**
+	Check to see if we can get this with the value function
+	If we can, the value is an integer and we know how to set it
+	*/
+	if (GetTrieValue(g_hSettings, sArg[0], iBuffer))
+	{
+		
+		/**
+		We attempt to set the setting with the integer functions
+		Doublechecking that they didn't send us a string for this setting
+		*/
+		if (!SetTrieValue(g_hSettings, sArg[0], StringToInt(sArg[1])))
+		{
+			
+			/**
+			There was a problem with the value they tried to store
+			*/
+			bArgError = true;
+			ReplyToCommand(client, "Invalid setting");
+		}
+	}
+	
+	/**
+	We couldn't get it with the value function
+	Check to see if we can get this with the string function
+	If we can, the value is an string and we know how to set it
+	*/
+	else if (GetTrieString(g_hSettings, sArg[0], sBuffer, sizeof(sBuffer)))
+	{
+		
+		/**
+		We attempt to set the setting with the string functions
+		Doublechecking that they didn't send us a string for this setting
+		*/
+		if (!SetTrieString(g_hSettings, sArg[0], sArg[1]))
+		{
+			
+			/**
+			There was a problem with the value they tried to store
+			*/
+			bArgError = true;
+			ReplyToCommand(client, "Invalid setting");
+		}
+	}
+	
+	/**
+	It must be an invalid key cause we can't find it
+	*/
+	else
+	{
+		bArgError = true;
+		ReplyToCommand(client, "Invalid key");
+	}
+	
+	/**
+	Check to see if we encountered an error
+	*/
+	if (bArgError)
+	{
+		
+		/**
+		Looks like we did, tell them so
+		*/
+		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
+		if (GetCmdReplySource == SM_REPLY_TO_CHAT)
+		{
+			ReplyToCommand(client, "Check console for a list of settings");
+		}
+		PrintSettings(client);
+		
+		/**
+		We are done, bug out
+		*/
+		return Plugin_Handled;
+	}
+	else
+	{
+		
+		/**
+		We didn't have an error
+		Log some activity
+		*/
+		ShowActivityEx(client, "[SAS]", "%N changed the scramble option (%s) to (%s)", client, );
+		LogActivity (client, -1, "%N changed the scramble option (%s) to (%s)", client);
+	}
+	
+	/**
+	We are done, bug out
 	*/
 	return Plugin_Handled;
 }
@@ -344,15 +605,15 @@ public Action:Command_Reload(client, args)
 	}
 	
 	/**
-	Log some activity
-	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
-	*/
-	LogAction(0, -1, "[SAS] The config file was reloaded");
-	
-	/**
 	Process the config file
 	*/
 	ProcessConfigFile();
+	
+	/**
+	Log some activity
+	*/
+	ShowActivityEx(client, "[SAS]", "%N reloaded the scrambler config file", client);
+	LogActivity (client, -1, "%N reloaded the config file", client);
 	
 	/**
 	We are done, bug out.
@@ -360,93 +621,149 @@ public Action:Command_Reload(client, args)
 	return Plugin_Handled;
 }
 
-public HookFlagCaptured(Handle:event, const String:name[], bool:dontBroadCast)
-{
-	GetEventInt(event, "capping_team") == g_aCurrentTeams[Team1] ? g_aRoundInfo[bTeam1Goal] = true : 
-		g_aRoundInfo[bTeam2Goal] = true;
-}
-
-}
 public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (AutoScrambleCheck(g_iLastRoundWinner))
-	{
-			StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
-	}
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
 		{
-			CheckSetupState();
-			return;
+			CreateTimer(1.0, Timer_CheckState);
+		}
+		default:
+		{
+			g_iRoundStartTime = GetTime();
+			g_RoundState = Round_Normal;
 		}
 	}
-	e_RoundState = Round_Normal;
+}
+
+public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
+{
+	g_iRoundStartTime = GetTime();
+	g_RoundState = Round_Normal;
+}
+
+public HookCapture(Handle:event, const String:name[], bool:dontBroadCast)
+{
+	new e_Teams:CappingTeam = e_Teams:GetEventInt(event, "capping_team");
+	g_aTeamInfo[CappingTeam][Team_Goal] = 1;
 }
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	g_bWasFullRound = true;
+	
+	new iRoundWinner;
+	
 	g_iRoundCount++;
+	g_bWasFullRound = true;
+	
 	switch (g_CurrentMod)
 	{
 		case: GameType_TF:
 		{
 			if (GetEventBool(event, "full_round"))
 			{
-				g_iLastRoundWinner = GetEventInt(event, "team");
+				iRoundWinner = GetEventInt(event, "team");
 			}
 			else
 			{
 				g_iRoundCount--;
+				g_bWasFullRound = false;
 			}
 		}
 		case: GameType_DOD:
 		{
-			g_iLastRoundWinner = GetEventInt(event, "team");
+			iRoundWinner = GetEventInt(event, "team");
 		}
 		default:
 		{
-			g_iLastRoundWinner = GetEventInt(event, "winner");
+			iRoundWinner = GetEventInt(event, "winner");
 		}
 	}
-	AddTeamStreak(g_iLastRoundWinner);
-	e_RoundState = Round_Ended;
-}
-
-public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
-{
-	g_RoundState = Round_Normal;
+	
+	AddTeamStreak(iRoundWinner);
+	
+	g_RoundState = Round_Ended;
+	
+	if (RoundEnd_ScrambleCheck() && CanScramble())
+	{
+		StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+	}
 }
 
 public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	
+	/**
+	If scrambling block deaths from being logged as a result of scramble
+	*/
 	if (g_bScrambling)
 	{
-	/**
-	block deaths from being logged as a result of scramble
-	*/
 		return Plugin_Handled;
 	}
+	
 	switch (g_CurrentMod)
 	{
-		case TF2:
+		case GameType_TF:
 		{
-		/** 
-		check for spy fake deaths
-		*/
+			
+			/** 
+			Check for spy fake deaths
+			*/
 			if (GetEventInt(event, "death_flags") & 32)
 			{
 				return Plugin_Continue;
 			}
 		}
 	}
-	new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"),
-			iVictim = GetClientOfUserId(GetEventInt(event, "victim");
-	if (SM_IsValidClient(iAttacker) && (SM_IsValidClient(iVictim))
+	
+	/**
+	Check the round state and count the kills and deaths if round is active
+	*/
+	if (g_RoundState == Round_Normal)
 	{
-		g_aPlayers[iAttacker][iFrags]++;
-		g_aPlayers[iVictim][iDeaths]++;
+		new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker");
+		new iVictim = GetClientOfUserId(GetEventInt(event, "victim");
+		
+		if (IsValidClient(iAttacker))
+		{
+			new e_Teams:iAttackerTeam = e_Teams:GetClientTeam(iAttacker);
+			g_aPlayers[iAttacker][iFrags]++;
+			g_aTeamInfo[iAttackerTeam][Team_Frags]++;
+		}
+		
+		if (IsValidClient(iVictim))
+		{
+			new e_Teams:iVictimTeam = e_Teams:GetClientTeam(iVictim);
+			g_aPlayers[iVictim][iDeaths]++;
+			g_aTeamInfo[iVictimTeam][Team_Deaths]++;
+		}
 	}
+	
 	return Plugin_Continue;
+}
+
+public Action:Timer_CheckState(Handle:timer, any:data)
+{
+	
+	if (TF2_InSetup)
+	{
+		g_RoundState = Round_Pre;
+	}
+	else
+	{
+		g_iRoundStartTime = GetTime();
+		g_RoundState = Round_Normal;
+	}
+	
+	return Plugin_Handed;
+}
+
+public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
+{
+	
+	SM_ClearForcedTeam(client);
+	g_aPlayers[client][hForcedTimer] = INVALID_HANDLE;
+	
+	return Plugin_Handed;
 }
