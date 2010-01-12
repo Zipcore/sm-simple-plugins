@@ -47,7 +47,7 @@ stock StopDaemon()
 	ClearTimer(g_hTimer_Daemon);
 }
 
-public Action:Timer_Deamon(Handle:timer, any:data)
+public Action:Timer_Daemon(Handle:timer, any:data)
 {
 	
 	if (!CanScramble() || g_bScrambling)
@@ -128,8 +128,8 @@ stock bool:ActiveScan()
 		/**
 		Get the teams average score per player and calculate the difference
 		*/
-		new Float:Team1_AvgDiff = FloatDiv(Float(GetTeamScore(g_aCurrentTeams[Team1])), Float(GetTeamClientCount(g_aCurrentTeams[Team1])));
-		new Float:Team2_AvgDiff = FloatDiv(Float(GetTeamScore(g_aCurrentTeams[Team2])), Float(GetTeamClientCount(g_aCurrentTeams[Team2])));
+		new Float:Team1_AvgDiff = FloatDiv(float(GetTeamScore(g_aCurrentTeams[Team1])), float(GetTeamClientCount(g_aCurrentTeams[Team1])));
+		new Float:Team2_AvgDiff = FloatDiv(float(GetTeamScore(g_aCurrentTeams[Team2])), float(GetTeamClientCount(g_aCurrentTeams[Team2])));
 		new iCurrentDifference = RoundFloat(FloatAbs(Team1_AvgDiff - Team2_AvgDiff));
 		
 		/**
@@ -151,7 +151,7 @@ stock bool:ActiveScan()
 		/**
 		Get the teams frag difference
 		*/
-		new iCurrentDifference = RoundFloat(FloatAbs(Float(g_aTeamInfo[Team1][Team_Frags]) - Float(g_aTeamInfo[Team1][Team_Frags])));
+		new iCurrentDifference = RoundFloat(FloatAbs(float(g_aTeamInfo[Team1][Team_Frags]) - float(g_aTeamInfo[Team1][Team_Frags])));
 		
 		/**
 		If the difference is greater than the max, return true
@@ -178,8 +178,8 @@ stock bool:ActiveScan()
 			/**
 			Get the teams average kill death ratio and calculate the difference
 			*/
-			new Float:fTeam1Ratio = FloatDiv(Float(g_aTeamInfo[Team1][Team_Frags]), Float(g_aTeamInfo[Team1][Team_Deaths]));
-			new Float:fTeam2Ratio = FloatDiv(Float(g_aTeamInfo[Team2][Team_Frags]), Float(g_aTeamInfo[Team2][Team_Deaths]));
+			new Float:fTeam1Ratio = FloatDiv(float(g_aTeamInfo[Team1][Team_Frags]), float(g_aTeamInfo[Team1][Team_Deaths]));
+			new Float:fTeam2Ratio = FloatDiv(float(g_aTeamInfo[Team2][Team_Frags]), float(g_aTeamInfo[Team2][Team_Deaths]));
 			new iCurrentDifference = RoundFloat(FloatAbs(fTeam1Ratio - fTeam2Ratio));
 			
 			/**
@@ -208,8 +208,8 @@ stock bool:ActiveScan()
 			/**
 			Get the teams dominations and calculate the difference
 			*/
-			new Float:fTeam1Doninations = Float(TF2_GetTeamDominations(g_aCurrentTeams[Team1]));
-			new Float:fTeam2Doninations = Float(TF2_GetTeamDominations(g_aCurrentTeams[Team2]));
+			new Float:fTeam1Doninations = float(TF2_GetTeamDominations(g_aCurrentTeams[Team1]));
+			new Float:fTeam2Doninations = float(TF2_GetTeamDominations(g_aCurrentTeams[Team2]));
 			new iCurrentDifference = RoundFloat(FloatAbs(fTeam1Doninations - fTeam2Doninations));
 		
 			/**
@@ -248,19 +248,19 @@ stock bool:RoundEnd_ScrambleCheck()
 			{
 				case TFGameMode_CTF:
 				{
-					iCaps = GetSettingValue("tf2_intel_cap")
+					iCaps = GetSettingValue("tf2_intel_cap");
 				}
 				case TFGameMode_PL:
 				{
-					iCaps = GetSettingValue("tf2_pl_cap")
+					iCaps = GetSettingValue("tf2_pl_cap");
 				}
 				case TFGameMode_PLR:
 				{
-					iCaps = GetSettingValue("tf2_pl_cap")
+					iCaps = GetSettingValue("tf2_pl_cap");
 				}
 				case TFGameMode_KOTH:
 				{
-					iCaps = GetSettingValue("tf2_koth_cap")
+					iCaps = GetSettingValue("tf2_koth_cap");
 				}
 			}
 			
