@@ -42,7 +42,14 @@ stock CreateVoteCommand()
 	RegConsoleCmd(sVoteCommand, Command_Vote, "Command used to start a vote to scramble the teams");
 }
 
+stock StartVote()
+{
+	//somthing
+}
+
 public Action:Command_Vote(client, args)
 {
-
+	//somthing
+	
+	return Plugin_Handled;
 }

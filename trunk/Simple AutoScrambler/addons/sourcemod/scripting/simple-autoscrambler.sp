@@ -79,7 +79,7 @@ enum 	e_TeamData
 /**
 Timers
 */
-
+new		Handle:g_hAdTimer = INVALID_HANDLE;
 
 /**
 Arrays 
@@ -150,28 +150,12 @@ public OnPluginStart()
 			HookEvent("teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
 			HookEvent("ctf_flag_captured", HookCapture, EventHookMode_Post);
 			HookEvent("teamplay_point_captured", HookCapture, EventHookMode_Post);
-			new String:sExtError[256];
-			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
-			if (iExtStatus == -2)
-			{
-				LogAction(0, -1, "[SAS] TF2 extension was not found.");
-				SetFailState("[SAS] Plugin failed to load.");
-			}
-			else if (iExtStatus == -1 || iExtStatus == 0)
-			{
-				LogAction(0, -1, "[SAS] TF2 extension is loaded with errors.");
-				LogAction(0, -1, "[SAS] Status reported was [%s].", sExtError);
-				SetFailState("[SAS] Plugin failed to load.");
-			}
-			else if (iExtStatus == 1)
-			{
-				LogAction(0, -1, "[SAS] TF2 extension is loaded and will be used.");
-			}
 		}
 		case GameType_DOD:
 		{
 			HookEvent("dod_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_Post);
+			HookEvent("dod_point_captured", HookCapture, EventHookMode_Post);
 		}
 		default:
 		{
@@ -193,6 +177,12 @@ public OnPluginStart()
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
 	CreateVoteCommand();
+	
+	if (GetSettingValue("vote_ad_enabled"))
+	{
+		new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
+		g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
+	}
 	
 	/**
 	Load translations and .cfg file
@@ -251,7 +241,10 @@ public OnAllPluginsLoaded()
 
 public OnLibraryRemoved(const String:name[])
 {
-	//something
+	if (StrEqual(name, "simpleplugins", false))
+	{
+		SetFailState("Core was unloaded and is required to run.");
+	}
 }
 
 public OnConfigsExecuted()
@@ -282,7 +275,7 @@ public OnMapStart()
 public OnMapEnd()
 {
 	StopDaemon();
-	g_hScrambleTimer = INVALID_HANDLE;
+	StopScramble();
 }
 
 public OnClientPostAdminCheck(client)
@@ -358,21 +351,26 @@ public OnClientDisconnect(client)
 	g_aPlayers[client][iFrags] = 0;
 	g_aPlayers[client][iDeaths] = 0;
 	
-	/**
-	Set the disconnect cookies to prevent lock bypasses
-	*/
-	new	String:sTimeStamp[32],
-			String:sTeam[3];
 	
-	new	iTeam = GetClientTeam(client),
-			iTime = GetTime();
+	if (g_bUseClientprefs)
+	{
+		
+		/**
+		Set the disconnect cookies to prevent lock bypasses
+		*/
+		new	String:sTimeStamp[32],
+				String:sTeam[3];
 	
-	//FormatTime(sTimeStamp, sizeof(sTimeStamp), "%j-%H-%M");
-	Format(sTimeStamp, sizeof(sTimeStamp), "%d", iTime);
-	Format(sTeam, sizeof(sTeam), "%d", iTeam);
+		new	iTeam = GetClientTeam(client),
+				iTime = GetTime();
 	
-	SetClientCookie(client, g_hCookie_LastConnect, sTimeStamp);
-	SetClientCookie(client, g_hCookie_LastTeam, sTeam);
+		//FormatTime(sTimeStamp, sizeof(sTimeStamp), "%j-%H-%M");
+		Format(sTimeStamp, sizeof(sTimeStamp), "%d", iTime);
+		Format(sTeam, sizeof(sTeam), "%d", iTeam);
+		
+		SetClientCookie(client, g_hCookie_LastConnect, sTimeStamp);
+		SetClientCookie(client, g_hCookie_LastTeam, sTeam);
+	}
 }
 
 public Action:Command_Scramble(client, args)
@@ -682,9 +680,16 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	g_RoundState = Round_Ended;
 	
-	if (RoundEnd_ScrambleCheck() && CanScramble())
+	if (CanScramble() && RoundEnd_ScrambleCheck())
 	{
-		StartAScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+		if (GetSettingValue("auto_action"))
+		{
+			StartVote();
+		}
+		else
+		{
+			StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+		}
 	}
 }
 
@@ -720,7 +725,7 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 	if (g_RoundState == Round_Normal)
 	{
 		new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-		new iVictim = GetClientOfUserId(GetEventInt(event, "victim"));
+		new iVictim = GetClientOfUserId(GetEventInt(event, "userid"));
 		
 		if (IsValidClient(iAttacker))
 		{
@@ -762,5 +767,17 @@ public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
 	SM_ClearForcedTeam(client);
 	g_aPlayers[client][hForcedTimer] = INVALID_HANDLE;
 	
+	return Plugin_Handled;
+}
+
+public Action:Timer_VoteAdvertisement(Handle:timer, any:data)
+{
+	if (!GetSettingValue("vote_ad_enabled"))
+	{
+		g_hAdTimer = INVALID_HANDLE;
+		return Plugin_Stop;
+	}
+	
+	PrintToChatAll("\x01\x04[SAS]\x01 %T", "Vote_Advertisement", LANG_SERVER);
 	return Plugin_Handled;
 }
