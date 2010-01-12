@@ -2,7 +2,7 @@
 *************************************************************************
 Simple Plugins TF2 Core Include File
 Description:
-Core Team Fortress 2 include file for the Simple Plugins project.
+	Core Team Fortress 2 include file for the Simple Plugins project.
 *************************************************************************
 *************************************************************************
 This file is part of Simple Plugins project.
@@ -68,7 +68,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 enum TFGameType
 {
-	TFGameMode_UNKOWN,
+	TFGameMode_Unknown,
 	TFGameMode_CP,
 	TFGameMode_CTF,
 	TFGameMode_ARENA,
@@ -573,7 +573,7 @@ stock TF2_GetClassPlayers(team, cls)
 
 stock bool:TF2_InSetup()
 {
-	iTimerEnt = FindEntityByClassname(-1, "team_round_timer");
+	new iTimerEnt = FindEntityByClassname(-1, "team_round_timer");
 	if (iTimerEnt != -1)
 	{
 		if (!GetEntProp(iTimerEnt, Prop_Send, "m_nState"))
@@ -620,7 +620,7 @@ stock bool:TF2_HasAmmo(client, weaponslot, bool:firing = false)
 	return (iTotalAmmo > 0) ? true : false;
 }
 
-stock TFGameType:GetGameType()
+stock TFGameType:TF2_GetGameType()
 {
 	new String:mapName[256];
 	GetCurrentMap(mapName, sizeof(mapName));
@@ -648,7 +648,7 @@ stock TFGameType:GetGameType()
 	{
 		return TFGameMode_KOTH;
 	}
-	return TFGameMode_UNKOWN;
+	return TFGameMode_Unknown;
 }
 
 
@@ -729,7 +729,7 @@ obj_sentrygun
 obj_dispenser
 obj_teleporter
 */
-stock bool:TF2_DoesClientHaveBuilding(client, const String:building)
+stock bool:TF2_DoesClientHaveBuilding(client, const String:building[])
 {
 	new iEnt = -1;
 	while ((iEnt = FindEntityByClassname(iEnt, building)) != -1)
@@ -742,7 +742,7 @@ stock bool:TF2_DoesClientHaveBuilding(client, const String:building)
 
 stock TF2_GetClientScore(client)
 {	
-	return TF2_GetPlayerResourceData(client, TFResource_TotalScore));
+	return TF2_GetPlayerResourceData(client, TFResource_TotalScore);
 }
 
 stock TF2_DestroyBuildings(client)
