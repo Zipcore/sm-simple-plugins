@@ -67,10 +67,10 @@ public VoteCallback(Handle:menu, MenuAction:action, param1, param2)
 		case MenuAction_VoteEnd:
 		{
 			new iVotes, iTotalVotes;
+			GetMenuVoteInfo(param2, iVotes, iTotalVotes);
 			if (param1 == 0)
 			{
 				new Float:fSuccess = float(GetSettingValue("vote_menu_percentage")) / 100.0;
-				GetMenuVoteInfo(param2, iVotes, iTotalVotes);
 				if ((float(iVotes) / float(iTotalVotes)) >= fSuccess)
 				{
 					PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_Succeeded", iVotes, iTotalVotes);
@@ -96,6 +96,7 @@ public Action:Command_Say(client, args)
 	if (client)
 	{	
 		new String:sBuffer[64], sArg[64];
+		GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
 		GetCmdArgString(sArg, sizeof(sArg);
 		new startidx = 0;
 		if (sArg[strlen(sArg)-1] == '"')
