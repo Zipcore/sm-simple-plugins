@@ -156,6 +156,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	ResetScores();
 	ResetStreaks();
+	DelayVoting(Vote_Scrambled);
 	
 	/**
 	Check if we need to restart the round
