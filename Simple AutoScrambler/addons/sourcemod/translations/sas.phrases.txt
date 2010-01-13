@@ -1,8 +1,35 @@
 ﻿"Phrases"
 {
-	"vote_ad"
+	"Vote_Advertisement"
 	{
 		"#format"	"{1:s}"
 		"en" "Say {1} to vote for a scramble"
-	}	
+	}
+	"Vote_Disabled"
+	{
+		"en"	"Voting has been disabled"
+	}
+	"Vote_Min_Players"
+	{
+		"en"	"There are not enough players to start a vote"
+	}
+	"Vote_Delayed"
+	{
+		"en"	"Voting is delayed at the moment. Try again later"
+	}
+	"Vote_Added"
+	{
+		"#format"	"{1:s},{2:i},{3:1}"
+		"en"	"{1} voted to scramble the teams. {2} vote(s) out of {3} needed"
+	}
+	"Vote_Succeeded"
+	{
+		"#format" "{1:i},{2:1}"
+		"en"	"Vote success. {1} out of {2} players voted to scramble the teams."
+	}
+	"Vote_Fail_Percent"
+	{
+		"#format" "{1:i},{2:1}"
+		"en"	"Vote failed. {1} out of {2} players voted to scramble the teams. This was not a wide enough margin."
+	}
 }
