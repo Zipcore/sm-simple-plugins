@@ -65,7 +65,8 @@ enum 	e_PlayerData
 	Handle:hForcedTimer,
 	bool:bProtected,
 	iFrags,
-	iDeaths
+	iDeaths,
+	bool:bVoted
 };
 
 enum 	e_TeamData
@@ -75,6 +76,14 @@ enum 	e_TeamData
 	Team_Deaths,
 	Team_Goal
 };
+
+enum		e_DelayReasons
+{
+	Vote_Success,
+	Vote_Fail,
+	Vote_Initiate,
+	Vote_Scrambled,
+}
 
 /**
 Timers
@@ -103,14 +112,16 @@ new		bool:g_bWasFullRound = false,
 			bool:g_bUseClientprefs = false;
 
 new		g_iRoundCount,
-			g_iRoundStartTime;
+			g_iRoundStartTime,
+			g_iVotes, 
+			g_iVoteAllowed;
 
 /**
 Separate files to include
 */
 #include "simple-plugins/sas_config_access.sp"
-#include "simple-plugins/sas_scramble_functions.sp"
 #include "simple-plugins/sas_vote_functions.sp"
+#include "simple-plugins/sas_scramble_functions.sp"
 #include "simple-plugins/sas_daemon.sp"
 
 public Plugin:myinfo =
@@ -176,6 +187,8 @@ public OnPluginStart()
 	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
+	RegConsoleCmd("say", Command_Say);
+	RegConsoleCmd("say_team", Commmand_Say);
 	CreateVoteCommand();
 	
 	if (GetSettingValue("vote_ad_enabled"))
@@ -187,7 +200,8 @@ public OnPluginStart()
 	/**
 	Load translations and .cfg file
 	*/
-	LoadTranslations ("simpleautoscrambler.phrases");
+	LoadTranslations ("sas.phrases");
+	LoadTranslations ("common.phrases");
 	LogAction(0, -1, "[SAS] Simple AutoScrambler is loaded.");
 }
 
@@ -276,6 +290,7 @@ public OnMapEnd()
 {
 	StopDaemon();
 	StopScramble();
+	StopVote();
 }
 
 public OnClientPostAdminCheck(client)
@@ -351,6 +366,14 @@ public OnClientDisconnect(client)
 	g_aPlayers[client][iFrags] = 0;
 	g_aPlayers[client][iDeaths] = 0;
 	
+	/** 
+	check to see if we lost a vote
+	*/	
+	if (g_aPlayers[client][bVoted])
+	{
+		g_iVotes--;
+		g_aPlayers[client][bVoted] = false;
+	}	
 	
 	if (g_bUseClientprefs)
 	{
