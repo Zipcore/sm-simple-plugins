@@ -33,7 +33,19 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
-new Handle:g_hVoteMenu;
+
+enum 	e_DelayReasons
+{
+	Reason_MapStart,
+	Reason_Success,
+	Reason_Fail,
+	Reason_Scrambled
+};
+
+new 	Handle:g_hVoteMenu;
+
+new		g_iVotes,
+			g_iVoteAllowed;
 
 stock CreateVoteCommand()
 {
@@ -43,19 +55,129 @@ stock CreateVoteCommand()
 	RegConsoleCmd(sVoteCommand, Command_Vote, "Command used to start a vote to scramble the teams");
 }
 
-stock StartVote()
+public Action:Command_Vote(client, args)
 {
-	if (IsVoteInProgress())
-		return;
-	g_hVoteMenu = CreateMenu(VoteCallback, MenuAction:MENU_ACTIONS_ALL);
-	SetMenuTitle(g_hVoteMenu, "Scramble the teams?");
-	AddMenuItem(g_hVoteMenu, "yes", "Yes");
-	AddMenuItem(g_hVoteMenu, "no", "No");
-	SetMenuExitButton(g_hVoteMenu, false);
-	VoteMenuToAll(g_hVoteMenu, 25);	
+	if (!IsValidClient(client))
+	{
+		return Plugin_Handled;
+	}
+	
+	if (!GetSettingValue("vote_enabled"))
+	{
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Disabled");
+		return Plugin_Handled;
+	}
+	
+	if (GetClientCount() < GetSettingValue("vote_min_players"))
+	{
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Min_Players");
+		return Plugin_Handled;
+	}
+	
+	if (g_iVoteAllowed > GetTime())
+	{
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Delayed");
+		return Plugin_Handled;
+	}
+	
+	if (g_aPlayers[client][bVoted])
+	{
+		PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_AlreadyVoted");
+		return Plugin_Handled;
+	}
+	
+	/**
+	Block the client from putting in the last vote when there is a vote in progress
+	*/
+	/*  I DONT REALLY GET THIS?!?!
+	if (!GetSettingValue("vote_style") && IsVoteInProgress() && iVotesNeeded - g_iVotes <= 1)
+	{
+		ReplyToCommand(client, "\x01\x04[SM]\x01 %t", "Vote in Progress");
+		return Plugin_Handled;
+	}
+	*/
+	
+	new bool:bDoVoteAction = false;
+	
+	/**
+	Check the voting style
+	*/
+	if (!GetSettingValue("vote_style"))
+	{
+		
+		/**
+		RTV voting
+		*/
+		new	iMinimum = GetSettingVlaue("vote_min_triggers"),
+		if (g_iVotes < iMinimum)
+		{
+			
+			/**
+			Add the vote to the tally
+			*/
+			g_iVotes++;
+			g_aPlayers[client][bVoted] = true;
+			PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", client, g_iVotes, iVotesNeeded);
+		}
+		else
+		{
+			bDoVoteAction = true;
+		}
+	}
+	else
+	{
+		
+		/**
+		This is basic chat voting
+		*/
+		new	Float:fPercent = GetSettingValue("vote_chat_percentage") / 100;
+		new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent;
+		if (g_iVotes < iVotedNeeded)
+		{
+		
+			/**
+			Add the vote to the tally
+			*/
+			g_aPlayers[client][bVoted] = true;
+			if (g_iVotes++ <= iVotedNeeded)
+			{
+				PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", client, g_iVotes, iVotesNeeded);
+				if (g_iVotes == iVotedNeeded)
+				{
+					bDoVoteAction = true;
+				}
+			}
+		}
+	}
+	
+	/**
+	See if the trigger has been met
+	*/
+	if (bDoVoteAction)
+	{
+		DelayVoting(Reason_Success);
+		ResetVotes();
+		if (GetSettingValue("vote_style"))
+		{
+			StartVote();
+		}
+		else
+		{
+			if (GetSettingValue("vote_action"))
+			{
+				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+			}
+			else
+			{
+				g_bScrambleNextRound = true;
+			}
+		}
+	}
+	
+	return Plugin_Handled;
 }
 
-public VoteCallback(Handle:menu, MenuAction:action, param1, param2)
+public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 {
 	switch (action)
 	{
@@ -74,126 +196,55 @@ public VoteCallback(Handle:menu, MenuAction:action, param1, param2)
 				if ((float(iVotes) / float(iTotalVotes)) >= fSuccess)
 				{
 					PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_Succeeded", iVotes, iTotalVotes);
-					DelayVoting(Vote_Success);
+					DelayVoting(Reason_Success);
+					ResetVotes();
+					if (GetSettingValue("vote_action"))
+					{
+						StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+					}
+					else
+					{
+						g_bScrambleNextRound = true;
+					}
 				}
 				else
 				{
 					PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_Fail_Percent", iVotes, iTotalVotes);
-					DelayVoting(Vote_Fail);
+					DelayVoting(Reason_Fail);
 				}
 			}
 			else
 			{
 				PrintToChatAll("\x01\x04[SAS\x01\%t" "Vote_Failed", iVotes, iTotalVOtes);
-				DelayVoting(Vote_Fail);
-			}		
+				DelayVoting(Reason_Fail);
+			}
 		}
 	}
 }
 
-public Action:Command_Say(client, args)
+stock StartVote()
 {
-	if (client)
-	{	
-		new String:sBuffer[64], sArg[64];
-		GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
-		GetCmdArgString(sArg, sizeof(sArg);
-		new startidx = 0;
-		if (sArg[strlen(sArg)-1] == '"')
-		{
-			sArg[strlen(sArg)-1] = '\0';
-			startidx = 1;
-		}	
-		/**
-		see if the args supplied are equal to our trigger
-		*/
-		if (strcmp(text[startidx], sBuffer, false) == 0)
-		{
-			new ReplySource:old = SetCmdReplySource(SM_REPLY_TO_CHAT);	
-			AttemptVote(client);
-			SetCmdReplySource(old);		
-		}			
-	}
-	return Plugin_Continue;		
-}
-
-public Action:Command_Vote(client, args)
-{
-	if (client)
+	if (IsVoteInProgress())
 	{
-		AttemptVote(client);
-	}	
-	return Plugin_Handled;
-}
-
-stock AttemptVote(client)
-{
-	if (!GetSettingValue("vote_enabled"))
-	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Disabled");
-		return;
-	}
-	if (GetClientCount() < GetSettingValue("vote_min_players"))
-	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Min_Players");
-		return;
-	}
-	if (g_iVoteAllowed > GetTime())
-	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Delayed");
-		return;
-	}
-	/**
-	now we made it though the checks, tally the votes
-	*/
-	new iVotesNeeded = GetVotesNeeded(),
-			String:sClientName[MAX_NAME_LENGTH+1];
-			
-	/**
-	block the client from putting in the last vote when there is a vote in progress
-	*/
-	
-	if (!GetSettingValue("vote_style") && IsVoteInProgress() && iVotesNeeded - g_iVotes <= 1)
-	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %t", "Vote in Progress");
+		PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_InProgress");
 		return;
 	}
 	
-	/**
-	notify a vote has been tallied
-	*/
-	GetClientName(client, sClientName, sizeof(sClientName);
-	g_iVotes++;
-	g_aPlayers[client][bVoted] = true;
-	PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", sClientName, g_iVotes, iVotesNeeded);
-	
-	/**
-	see if the trigger has been met
-	*/
-	if (g_iVotes >= iVotedNeeded)
-	{
-		DelayVoting(Vote_Success);
-		ResetVotes();
-		if (GetSettingValue("vote_style"))
-		{
-			StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
-		}
-		else
-		{
-			StartVote();
-		}
-	}
+	g_hVoteMenu = CreateMenu(Menu_VoteEnded);
+	SetMenuTitle(g_hVoteMenu, "Scramble the teams?");
+	AddMenuItem(g_hVoteMenu, "yes", "Yes");
+	AddMenuItem(g_hVoteMenu, "no", "No");
+	SetMenuExitButton(g_hVoteMenu, false);
+	VoteMenuToAll(g_hVoteMenu, 25);	
 }
 
-stock GetVotesNeeded()
+stock StopVote()
 {
-	new Float:fPercent = GetSettingValue("vote_tigger_percentage") / 100,
-			iMinimum = GetSettingVlaue("vote_min_triggers"),
-			iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent;
-	if (iVotesNeeded < iMinimum)
-		return iMinimum;
-	else
-		return iVotesNeeded;
+	if (g_hVoteMenu != INVALID_HANDLE)
+	{
+		CloseHandle(g_hVoteMenu);
+	}
+	g_hVoteMenu = INVALID_HANDLE;
 }
 
 stock ResetVotes()
@@ -209,30 +260,21 @@ stock DelayVoting(e_DelayReasons:reason)
 {
 	switch (reason)
 	{
-		case Vote_Initiate:
+		case Reason_MapStart:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_initial_delay");
 		}
-		case Vote_Fail:
-		{
-			g_iVoteAllowed = GetTime() + GetSettingValue("vote_fail_delay");
-		}
-		case Vote_Success:
+		case Reason_Success:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_success_delay");
 		}
-		case Vote_Scrambled:
+		case Reason_Fail:
+		{
+			g_iVoteAllowed = GetTime() + GetSettingValue("vote_fail_delay");
+		}
+		case Reason_Scrambled:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_scramble_delay");
 		}
 	}
-}
-
-stock StopVote()
-{
-	if (g_hVoteMenu != INVALID_HANDLE)
-	{
-		CloseHandle(g_hVoteMenu);
-	}
-	g_hVoteMenu = INVALID_HANDLE;
 }

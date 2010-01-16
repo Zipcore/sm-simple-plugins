@@ -133,10 +133,31 @@ stock bool:ActiveScan()
 	{
 		
 		/**
+		Add up each players score for a teams total score
+		This can be different than the team score in some mods, so we do it this way
+		*/
+		new	iTeam1_TotalScore;
+		new	iTeam2_TotalScore;
+		for (new x = 1; x <= MaxClients; x++)
+		{
+			if (IsValidClient(x))
+			{
+				if (GetClientTeam(x) == g_aCurrentTeams[Team1])
+				{
+					iTeam1_TotalScore = GetClientScore(x);
+				}
+				else if GetClientTeam(x) == g_aCurrentTeams[Team2])
+				{
+					iTeam2_TotalScore = GetClientScore(x);
+				}
+			}
+		}
+		
+		/**
 		Get the teams average score per player and calculate the difference
 		*/
-		new Float:Team1_AvgDiff = FloatDiv(float(GetTeamScore(g_aCurrentTeams[Team1])), float(GetTeamClientCount(g_aCurrentTeams[Team1])));
-		new Float:Team2_AvgDiff = FloatDiv(float(GetTeamScore(g_aCurrentTeams[Team2])), float(GetTeamClientCount(g_aCurrentTeams[Team2])));
+		new Float:Team1_AvgDiff = FloatDiv(float(iTeam1_TotalScore), float(GetTeamClientCount(g_aCurrentTeams[Team1])));
+		new Float:Team2_AvgDiff = FloatDiv(float(iTeam2_TotalScore), float(GetTeamClientCount(g_aCurrentTeams[Team2])));
 		new iCurrentDifference = RoundFloat(FloatAbs(Team1_AvgDiff - Team2_AvgDiff));
 		
 		/**

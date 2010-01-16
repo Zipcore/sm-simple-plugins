@@ -77,14 +77,6 @@ enum 	e_TeamData
 	Team_Goal
 };
 
-enum		e_DelayReasons
-{
-	Vote_Success,
-	Vote_Fail,
-	Vote_Initiate,
-	Vote_Scrambled,
-}
-
 /**
 Timers
 */
@@ -109,12 +101,11 @@ new		e_RoundState:g_RoundState;
 
 new		bool:g_bWasFullRound = false,
 			bool:g_bScrambledThisRound = false,
+			bool:g_bScrambleNextRound = false,
 			bool:g_bUseClientprefs = false;
 
 new		g_iRoundCount,
-			g_iRoundStartTime,
-			g_iVotes, 
-			g_iVoteAllowed;
+			g_iRoundStartTime;
 
 /**
 Separate files to include
@@ -187,8 +178,6 @@ public OnPluginStart()
 	RegConsoleCmd("sm_resetscores", Command_ResetScores, "sm_resetscores: Resets the players scores");
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
-	RegConsoleCmd("say", Command_Say);
-	RegConsoleCmd("say_team", Commmand_Say);
 	CreateVoteCommand();
 	
 	if (GetSettingValue("vote_ad_enabled"))
@@ -283,6 +272,8 @@ public OnMapStart()
 	g_bWasFullRound = true;
 	ResetScores();
 	ResetStreaks();
+	ResetVotes();
+	DelayVoting(Reason_MapStart);
 	StartDaemon();
 }
 
@@ -651,6 +642,11 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 		{
 			g_iRoundStartTime = GetTime();
 			g_RoundState = Round_Normal;
+			if (g_bScrambleNextRound)
+			{
+				g_bScrambleNextRound = false;
+				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+			}
 		}
 	}
 }
@@ -779,6 +775,12 @@ public Action:Timer_CheckState(Handle:timer, any:data)
 	{
 		g_iRoundStartTime = GetTime();
 		g_RoundState = Round_Normal;
+	}
+	
+	if (g_bScrambleNextRound)
+	{
+		g_bScrambleNextRound = false;
+		StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
 	}
 	
 	return Plugin_Handled;

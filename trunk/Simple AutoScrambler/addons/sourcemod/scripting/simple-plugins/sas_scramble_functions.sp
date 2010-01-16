@@ -156,7 +156,8 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	ResetScores();
 	ResetStreaks();
-	DelayVoting(Vote_Scrambled);
+	ResetVotes();
+	DelayVoting(Reason_Scrambled);
 	
 	/**
 	Check if we need to restart the round
@@ -319,27 +320,6 @@ stock bool:IsClientTopPlayer(client)
 		}
 	}	
 	return false;
-}
-
-stock GetClientScore(client)
-{
-	switch (g_CurrentMod)
-	{
-		case GameType_TF:
-		{
-			return TF2_GetClientScore(client);
-		}
-		case GameType_DOD:
-		{
-			// something
-		}
-		default:
-		{
-			return g_aPlayers[client][iFrags];
-		}
-	}
-	
-	return 0;
 }
 
 stock ResetScores()
