@@ -19,7 +19,7 @@
 	}
 	"Vote_Added"
 	{
-		"#format"	"{1:s},{2:i},{3:1}"
+		"#format"	"{1:N},{2:i},{3:1}"
 		"en"	"{1} voted to scramble the teams. {2} vote(s) out of {3} needed"
 	}
 	"Vote_Succeeded"
