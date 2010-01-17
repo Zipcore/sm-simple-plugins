@@ -87,7 +87,6 @@ enum 	e_ScrambleReasons
 enum 	e_PlayerData
 {
 	Handle:hForcedTimer,
-	bool:bProtected,
 	bool:bVoted,
 	iFrags,
 	iDeaths
@@ -167,6 +166,10 @@ public Plugin:myinfo =
 
 public OnPluginStart()
 {
+	/**
+	Lets start to load
+	*/
+	LogMessage("[SAS] Simple AutoScrambler is loading...");
 	
 	/**
 	Get game type and load the team numbers
@@ -183,7 +186,7 @@ public OnPluginStart()
 	Hook the game events
 	*/
 	HookEvent("player_death", HookPlayerDeath, EventHookMode_Pre);
-	LogAction(-1, -1, "[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
+	LogMessage("[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
@@ -191,22 +194,22 @@ public OnPluginStart()
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_Post);
 			HookEvent("teamplay_setup_finished", HookSetupFinished, EventHookMode_PostNoCopy);
-			HookEvent("ctf_flag_captured", HookCapture, EventHookMode_Post);
-			HookEvent("teamplay_point_captured", HookCapture, EventHookMode_Post);
+			HookEvent("ctf_flag_captured", HookScored, EventHookMode_Post);
+			HookEvent("teamplay_point_captured", HookScored, EventHookMode_Post);
 		}
 		case GameType_DOD:
 		{
 			HookEvent("dod_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_Post);
-			HookEvent("dod_point_captured", HookCapture, EventHookMode_Post);
+			HookEvent("dod_point_captured", HookScored, EventHookMode_Post);
 		}
 		case GameType_CSS:
 		{
 			HookEvent("round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("round_end", HookRoundEnd, EventHookMode_Post);
-			HookEvent("bomb_exploded", HookCapture, EventHookMode_Post);
-			HookEvent("hostage_rescued", HookCapture, EventHookMode_Post);
-			HookEvent("vip_escaped", HookCapture, EventHookMode_Post);
+			HookEvent("bomb_exploded", HookScored, EventHookMode_Post);
+			HookEvent("hostage_rescued", HookScored, EventHookMode_Post);
+			HookEvent("vip_escaped", HookScored, EventHookMode_Post);
 		}
 		default:
 		{
@@ -230,16 +233,13 @@ public OnPluginStart()
 	CreateVoteCommand();
 	
 	/**
-	Initiate The menu
-	*/
-	InitiateAdminMenu();
-	
-	/**
 	Load translations and .cfg file
 	*/
-	LoadTranslations ("sas.phrases");
+	LoadTranslations ("core.phrases");
 	LoadTranslations ("common.phrases");
-	LogAction(-1, -1, "[SAS] Simple AutoScrambler is loading...");
+	LoadTranslations ("basevotes.phrases");
+	LoadTranslations ("rockthevote.phrases");
+	LoadTranslations ("sas.phrases");
 }
 
 public OnAllPluginsLoaded()
@@ -252,30 +252,30 @@ public OnAllPluginsLoaded()
 	new iExtStatus = GetExtensionFileStatus("clientprefs.ext", sExtError, sizeof(sExtError));
 	if (iExtStatus == -2)
 	{
-		LogAction(-1, -1, "[SAS] Client Preferences extension was not found.");
-		LogAction(-1, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		LogMessage("[SAS] Client Preferences extension was not found.");
+		LogMessage("[SAS] Plugin continued to load, but that feature will not be used.");
 		g_bUseClientprefs = false;
 	}
 	if (iExtStatus == -1 || iExtStatus == 0)
 	{
-		LogAction(-1, -1, "[SAS] Client Preferences extension is loaded with errors.");
-		LogAction(-1, -1, "[SAS] Status reported was [%s].", sExtError);
-		LogAction(-1, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		LogMessage("[SAS] Client Preferences extension is loaded with errors.");
+		LogMessage("[SAS] Status reported was [%s].", sExtError);
+		LogMessage("[SAS] Plugin continued to load, but that feature will not be used.");
 		g_bUseClientprefs = false;
 	}
 	if (iExtStatus == 1)
 	{
-		LogAction(-1, -1, "[SAS] Client Preferences extension is loaded, checking database.");
+		LogMessage("[SAS] Client Preferences extension is loaded, checking database.");
 		if (!SQL_CheckConfig("clientprefs"))
 		{
-			LogAction(-1, -1, "[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
-			LogAction(-1, -1, "[SAS] Plugin continued to load, but Client Preferences will not be used.");
+			LogMessage("[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
+			LogMessage("[SAS] Plugin continued to load, but Client Preferences will not be used.");
 			g_bUseClientprefs = false;
 		}
 		else
 		{
-			LogAction(-1, -1, "[SAS] Database config 'clientprefs' was found.");
-			LogAction(-1, -1, "[SAS] Plugin will use Client Preferences.");
+			LogMessage("[SAS] Database config 'clientprefs' was found.");
+			LogMessage("[SAS] Plugin will use Client Preferences.");
 			g_bUseClientprefs = true;
 		}
 		
@@ -288,6 +288,11 @@ public OnAllPluginsLoaded()
 			g_hCookie_LastTeam = RegClientCookie("sas_lastteam", "Last team you were on.", CookieAccess_Protected);
 		}
 	}
+	
+	/**
+	Initiate The menu
+	*/
+	InitiateAdminMenu();
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -295,6 +300,10 @@ public OnLibraryRemoved(const String:name[])
 	if (StrEqual(name, "simpleplugins", false))
 	{
 		SetFailState("Core was unloaded and is required to run.");
+	}
+	else if (StrEqual(name, "adminmenu", false))
+	{
+		g_hAdminMenu = INVALID_HANDLE;
 	}
 }
 
@@ -306,14 +315,14 @@ public OnConfigsExecuted()
 	*/
 	if (GetSettingValue("enabled"))
 	{
-		LogAction(-1, -1, "[SAS] Simple AutoScrambler is ENABLED");
+		LogMessage("[SAS] Simple AutoScrambler is set to be ENABLED");
 	}
 	else
 	{
-		LogAction(-1, -1, "[SAS] Simple AutoScrambler is DISABLED");
+		LogMessage("[SAS] Simple AutoScrambler is set to be DISABLED");
 	}
 	
-	if (GetSettingValue("vote_ad_enabled") && GetSettingValue("vote_enabled"))
+	if (GetSettingValue("vote_enabled") && GetSettingValue("vote_ad_enabled"))
 	{
 		new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
 		g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
@@ -324,13 +333,13 @@ public OnMapStart()
 {
 	g_eRoundState = Map_Start;
 	g_eScrambleReason = ScrambleReason_Invalid;
+	DelayVoting(DelayReason_MapStart);
 	g_bWasFullRound = true;
 	g_bScrambledThisRound = false;
 	g_bScrambleNextRound = false;
 	ResetScores();
 	ResetStreaks();
 	ResetVotes();
-	DelayVoting(DelayReason_MapStart);
 	StartDaemon();
 }
 
@@ -414,7 +423,6 @@ public OnClientDisconnect(client)
 	Cleanup
 	*/
 	ClearTimer(g_aPlayers[client][hForcedTimer]);
-	g_aPlayers[client][bProtected] = false;
 	g_aPlayers[client][iFrags] = 0;
 	g_aPlayers[client][iDeaths] = 0;
 	
@@ -469,7 +477,7 @@ public Action:Command_Scramble(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_scramble"))
 	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "No Access");
 		return Plugin_Handled;
 	}
 	
@@ -505,7 +513,7 @@ public Action:Command_ResetScores(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_reset_scores"))
 	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "No Access");
 		return Plugin_Handled;
 	}
 	
@@ -535,7 +543,7 @@ public Action:Command_SetSetting(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_settings"))
 	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "No Access");
 		return Plugin_Handled;
 	}
 	
@@ -690,7 +698,7 @@ public Action:Command_Reload(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_settings"))
 	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %T", "RestrictedCmd", LANG_SERVER);
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "No Access");
 		return Plugin_Handled;
 	}
 	
@@ -739,20 +747,41 @@ public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
 	g_eRoundState = Round_Normal;
 }
 
-public HookCapture(Handle:event, const String:name[], bool:dontBroadCast)
+public HookScored(Handle:event, const String:name[], bool:dontBroadCast)
 {
-	new e_Teams:CappingTeam = e_Teams:GetEventInt(event, "capping_team");
-	g_aTeamInfo[CappingTeam][Team_Goal] = 1;
+	
+	/**
+	TODO: Need to deal with all the different mod point methods
+	ctf, cp, hostage, vip, etc...
+	*/
+	
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			new e_Teams:CappingTeam = e_Teams:GetEventInt(event, "capping_team");
+			g_aTeamInfo[CappingTeam][Team_Goal] = 1;
+		}
+		case GameType_DOD:
+		{
+			//something
+		}
+		case GameType_CSS:
+		{
+			//something
+		}
+	}
 }
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-
+	
+	g_eRoundState = Round_Ended;
+	
 	new iRoundWinner;
 	g_iRoundCount++;
 	AddTeamStreak(e_Teams:iRoundWinner);
-	g_eRoundState = Round_Ended;
-	
+
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
@@ -941,7 +970,7 @@ public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
 
 public Action:Timer_VoteAdvertisement(Handle:timer, any:data)
 {
-	if (!GetSettingValue("vote_ad_enabled"))
+	if (!GetSettingValue("vote_ad_enabled") || !GetSettingValue("vote_enabled"))
 	{
 		g_hAdTimer = INVALID_HANDLE;
 		return Plugin_Stop;
