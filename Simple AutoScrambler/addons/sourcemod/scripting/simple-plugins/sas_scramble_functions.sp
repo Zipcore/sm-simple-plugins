@@ -62,7 +62,7 @@ stock StartScramble(e_ScrambleMode:mode)
 	Start a timer and log the action
 	*/
 	g_hScrambleTimer = CreateTimer(15.0, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
-	LogAction(0, -1, "[SAS] A scamble timer was started");
+	LogAction(-1, -1, "[SAS] A scamble timer was started");
 }
 
 stock StopScramble()
@@ -149,7 +149,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 			iTeam = iTeam ==  g_aCurrentTeams[Team2] ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
 		}			
 	}
-
+	
 	/**
 	Global Reset Functions
 	*/
@@ -283,6 +283,7 @@ stock bool:CanScrambleTarget(client)
 			if (GetSettingValue("tf2_engineers"))
 			{
 				if ((GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client, "obj_*"))
+					//This is tricky, what if they have two and we swap them both?  Needs tweaking
 					|| (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer)))
 				{
 					return false;
@@ -292,6 +293,7 @@ stock bool:CanScrambleTarget(client)
 			if (GetSettingValue("tf2_medics"))
 			{
 				if (TF2_IsClientUberCharged(client)
+					//This is tricky, what if they have two and we swap them both?  Needs tweaking
 					|| (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic)))
 				{
 					return false;

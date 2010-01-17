@@ -195,7 +195,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 		}
 	}
 	
-	if (FindStringInArray(g_hSettingsList, "key") != -1)
+	if (FindStringInArray(g_hSettingsList, key) == -1)
 	{
 		PushArrayString(g_hSettingsList, key);
 	}
