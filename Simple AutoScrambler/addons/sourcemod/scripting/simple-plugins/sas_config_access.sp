@@ -44,9 +44,20 @@ enum e_ConfigState
 	Reading_Strings
 };
 
+enum e_ConfigSection
+{
+	Section_Normal,
+	Section_Mod,
+	Section_Map
+};
+
 new Handle:g_hSettings = INVALID_HANDLE;
 new Handle:g_hSettingsList = INVALID_HANDLE;
+
 new e_ConfigState:g_eConfigState;
+new e_ConfigSection:g_eConfigSection;
+
+new bool:g_bSkipSection = false;
 
 /**
 Parse the config file
@@ -99,6 +110,20 @@ stock ProcessConfigFile()
 public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:quotes) 
 {
 	PrintToChatAll("In section: %s", section);
+	
+	if (StrEqual(section, "general", false) || StrEqual(section, "voting", false))
+	{
+		g_eConfigSection = Section_Normal;
+	}
+	else if (StrEqual(section, "game_specific", false)
+	{
+		g_eConfigSection = Section_Mod;
+	}
+	else if (StrEqual(section, "map_settings", false)
+	{
+		g_eConfigSection = Section_Map;
+	}
+	
 	if (StrEqual(section, "access", false))
 	{
 		g_eConfigState = Reading_Strings;
@@ -107,13 +132,57 @@ public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:q
 	{
 		g_eConfigState = Reading_Integers;
 	}
+	
+	if (g_eConfigSection == Section_Mod)
+	{
+		if (StrEqual(section, "general", false)
+			|| StrEqual(section, "immunity", false)
+			|| StrEqual(section, "auto_triggers", false))
+		{
+			return SMCParse_Continue;
+		}
+		else
+		{
+			if (IsModSection(section))
+			{
+				g_bSkipSection = false;
+			}
+			else
+			{
+				g_bSkipSection = true;
+			}
+		}
+	}
+	else if (g_eConfigSection == Section_Map)
+	{
+		if (IsMapSection(section))
+		{
+			g_bSkipSection = false;
+		}
+		else
+		{
+			g_bSkipSection = true;
+		}
+	}
+	else
+	{
+		g_bSkipSection = false;
+	}
+	
 	return SMCParse_Continue;
 }
 
 public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
 {
+
+	if (g_bSkipSection)
+	{
+		return SMCParse_Continue;
+	}
+
 	PrintToChatAll("Current key: %s", key);
 	PrintToChatAll("Current value: %s", value);
+	
 	if (StrEqual(key, "vote_trigger", false))
 	{
 		g_eConfigState = Reading_Strings;
@@ -130,6 +199,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 		}
 	}
 	PushArrayString(g_hSettingsList, key);
+	
 	return SMCParse_Continue;
 }
 
@@ -186,5 +256,30 @@ stock bool:IsAuthorized(client, const String:flagkey[])
 	{
 		return true;
 	}
+	return false;
+}
+
+stock bool:IsModSection(const String:section[])
+{
+	new String:sGameFolder[64];
+	GetGameFolderName(sGameFolder, sizeof(sGameFolder));
+	if (StrEqual(section, sGameFolder))
+	{
+		return true;
+	}
+	return false;
+}
+
+stock bool:IsMapSection(const String:section[])
+{
+	new len = strlen(section) - 1;
+	new String:sCurrentMap[64];
+	GetCurrentMap(sCurrentMap, sizeof(sCurrentMap));
+	
+	if (StrContains(sCurrenMap, section) == 0)
+	{
+		return true;
+	}
+	
 	return false;
 }
