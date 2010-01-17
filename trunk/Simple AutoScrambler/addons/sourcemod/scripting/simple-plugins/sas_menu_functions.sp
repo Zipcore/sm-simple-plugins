@@ -39,7 +39,7 @@ new Handle:g_hAdminMenu = INVALID_HANDLE;
 checks for the menu plugin
 and adds options to the admin menu
 */
-stock InitiateMenu()
+stock InitiateAdminMenu()
 {
 	new Handle:hTopMenu = INVALID_HANDLE;
 	if (LibraryExists("adminmenu") && ((hTopMenu = GetAdminTopMenu()) != INVALID_HANDLE))
@@ -79,7 +79,7 @@ public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:objec
 		}
 		case TopMenuAction_DisplayOption:
 		{
-			Format(buffer, maxlength, "Simple-Autoscrambler");
+			Format(buffer, maxlength, "Simple Autoscrambler");
 		}
 	}
 }
@@ -89,7 +89,7 @@ menu scramble callback
 */
 public AdminMenu_Scramble(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
-	if (!IsAuthorized(client, "flag_scramble")
+	if (!IsAuthorized(client, "flag_scramble"))
 	{
 		return;
 	}
@@ -149,7 +149,7 @@ menu cancel scramble callback
 */
 public AdminMenu_Cancel(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
-	swtich (action)
+	switch (action)
 	{
 		case TopMenuAction_DisplayOption:
 		{
@@ -171,24 +171,25 @@ stock ShowScrambleMenu(client)
 	new Handle:hScrambleMenu = INVALID_HANDLE;
 	hScrambleMenu = CreateMenu(Menu_Scramble);
 	
-	SetMenuTitle(scrambleMenu, "Choose a Method");
-	SetMenuExitButton(scrambleMenu, true);
-	SetMenuExitBackButton(scrambleMenu, true);
-	AddMenuItem(scrambleMenu, "", "Scramble Next Round");
-	AddMenuItem(scrambleMenu, "", "Scramble Teams Now");
+	SetMenuTitle(hScrambleMenu, "Choose a Method");
+	SetMenuExitButton(hScrambleMenu, true);
+	SetMenuExitBackButton(hScrambleMenu, true);
+	AddMenuItem(hScrambleMenu, "", "Scramble Next Round");
+	AddMenuItem(hScrambleMenu, "", "Scramble Teams Now");
 	
-	DisplayMenu(scrambleMenu, client, MENU_TIME_FOREVER);
+	DisplayMenu(hScrambleMenu, client, MENU_TIME_FOREVER);
 }
 
 /**
 callback for start-a-scramble menu
 */
-public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2 )
+public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2)
 {
 	switch (action)
 	{
 		case MenuAction_Select:
 		{
+			g_eScrambleReason = ScrambleReason_Command;
 			if (!param2)
 			{
 				g_bScrambleNextRound = true;
@@ -237,7 +238,7 @@ public Menu_ModeSelect(Handle:scrambleMenu, MenuAction:action, client, param2 )
 	{
 		case MenuAction_Select:
 		{
-			new e_ScrambleModes:mode;
+			new e_ScrambleMode:mode;
 			if (!param2)
 			{
 				mode = e_ScrambleMode:GetSettingValue("sort_mode");

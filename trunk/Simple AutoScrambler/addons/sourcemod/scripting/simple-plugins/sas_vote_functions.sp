@@ -34,14 +34,6 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 
-enum 	e_DelayReasons
-{
-	Reason_MapStart,
-	Reason_Success,
-	Reason_Fail,
-	Reason_Scrambled
-};
-
 new 	Handle:g_hVoteMenu;
 
 new		g_iVotes,
@@ -63,7 +55,7 @@ public Action:Command_Vote(client, args)
 	}
 	
 	if (!GetSettingValue("vote_enabled")
-		|| (GetSettingValue("vote_admin_disables") && g_iAdminsPresent)
+		|| (GetSettingValue("vote_admin_disables") && g_iAdminsPresent))
 	{
 		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Disabled");
 		return Plugin_Handled;
@@ -87,16 +79,11 @@ public Action:Command_Vote(client, args)
 		return Plugin_Handled;
 	}
 	
-	/**
-	Block the client from putting in the last vote when there is a vote in progress
-	*/
-	/*  I DONT REALLY GET THIS?!?!
-	if (!GetSettingValue("vote_style") && IsVoteInProgress() && iVotesNeeded - g_iVotes <= 1)
+	if (g_bScrambleNextRound)
 	{
-		ReplyToCommand(client, "\x01\x04[SM]\x01 %t", "Vote in Progress");
+		PrintToChatAll("\x01\x04[SAS]\x01 %t", "Scrambled_Set");
 		return Plugin_Handled;
 	}
-	*/
 	
 	new bool:bDoVoteAction = false;
 	
@@ -109,7 +96,7 @@ public Action:Command_Vote(client, args)
 		/**
 		RTV voting
 		*/
-		new	iMinimum = GetSettingVlaue("vote_min_triggers"),
+		new	iMinimum = GetSettingValue("vote_min_triggers");
 		if (g_iVotes < iMinimum)
 		{
 			
@@ -118,7 +105,7 @@ public Action:Command_Vote(client, args)
 			*/
 			g_iVotes++;
 			g_aPlayers[client][bVoted] = true;
-			PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", client, g_iVotes, iVotesNeeded);
+			PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", client, g_iVotes, iMinimum);
 		}
 		else
 		{
@@ -131,19 +118,19 @@ public Action:Command_Vote(client, args)
 		/**
 		This is basic chat voting
 		*/
-		new	Float:fPercent = GetSettingValue("vote_chat_percentage") / 100;
-		new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent;
-		if (g_iVotes < iVotedNeeded)
+		new	Float:fPercent = float(GetSettingValue("vote_chat_percentage") / 100);
+		new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent);
+		if (g_iVotes < iVotesNeeded)
 		{
 		
 			/**
 			Add the vote to the tally
 			*/
 			g_aPlayers[client][bVoted] = true;
-			if (g_iVotes++ <= iVotedNeeded)
+			if (g_iVotes++ <= iVotesNeeded)
 			{
 				PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Added", client, g_iVotes, iVotesNeeded);
-				if (g_iVotes == iVotedNeeded)
+				if (g_iVotes == iVotesNeeded)
 				{
 					bDoVoteAction = true;
 				}
@@ -156,7 +143,7 @@ public Action:Command_Vote(client, args)
 	*/
 	if (bDoVoteAction)
 	{
-		DelayVoting(Reason_Success);
+		DelayVoting(DelayReason_Success);
 		ResetVotes();
 		if (GetSettingValue("vote_style"))
 		{
@@ -166,7 +153,7 @@ public Action:Command_Vote(client, args)
 		{
 			if (GetSettingValue("vote_action"))
 			{
-				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 			}
 			else
 			{
@@ -196,12 +183,13 @@ public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 				new Float:fSuccess = float(GetSettingValue("vote_menu_percentage")) / 100.0;
 				if ((float(iVotes) / float(iTotalVotes)) >= fSuccess)
 				{
-					PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_Succeeded", iVotes, iTotalVotes);
-					DelayVoting(Reason_Success);
+					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Succeeded", iVotes, iTotalVotes);
+					DelayVoting(DelayReason_Success);
 					ResetVotes();
+					g_eScrambleReason = ScrambleReason_Vote;
 					if (GetSettingValue("vote_action"))
 					{
-						StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+						StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 					}
 					else
 					{
@@ -210,14 +198,14 @@ public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 				}
 				else
 				{
-					PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_Fail_Percent", iVotes, iTotalVotes);
-					DelayVoting(Reason_Fail);
+					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Fail_Percent", iVotes, iTotalVotes);
+					DelayVoting(DelayReason_Fail);
 				}
 			}
 			else
 			{
-				PrintToChatAll("\x01\x04[SAS\x01\%t" "Vote_Failed", iVotes, iTotalVOtes);
-				DelayVoting(Reason_Fail);
+				PrintToChatAll("\x01\x04[SAS\x01\%t", "Vote_Failed", iVotes, iTotalVotes);
+				DelayVoting(DelayReason_Fail);
 			}
 		}
 	}
@@ -227,7 +215,7 @@ stock StartVote()
 {
 	if (IsVoteInProgress())
 	{
-		PrintToChatAll("\x01\x04[SAS]\x01 %t" "Vote_InProgress");
+		PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_InProgress");
 		return;
 	}
 	
@@ -261,19 +249,19 @@ stock DelayVoting(e_DelayReasons:reason)
 {
 	switch (reason)
 	{
-		case Reason_MapStart:
+		case DelayReason_MapStart:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_initial_delay");
 		}
-		case Reason_Success:
+		case DelayReason_Success:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_success_delay");
 		}
-		case Reason_Fail:
+		case DelayReason_Fail:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_fail_delay");
 		}
-		case Reason_Scrambled:
+		case DelayReason_Scrambled:
 		{
 			g_iVoteAllowed = GetTime() + GetSettingValue("vote_scramble_delay");
 		}

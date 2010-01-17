@@ -60,6 +60,30 @@ enum 	e_RoundState
 	Round_Ended
 };
 
+enum 	e_DelayReasons
+{
+	DelayReason_MapStart,
+	DelayReason_Success,
+	DelayReason_Fail,
+	DelayReason_Scrambled
+};
+
+enum 	e_ScrambleReasons
+{
+	ScrambleReason_Invalid,
+	ScrambleReason_Command,
+	ScrambleReason_Vote,
+	ScrambleReason_MapLoad,
+	ScrambleReason_TimeLimit,
+	ScrambleReason_WinStreak,
+	ScrambleReason_Rounds,
+	ScrambleReason_AvgScoreDiff,
+	ScrambleReason_Frag,
+	ScrambleReason_KDRatio,
+	ScrambleReason_Dominations,
+	ScrambleReason_Caps
+};
+
 enum 	e_PlayerData
 {
 	Handle:hForcedTimer,
@@ -97,26 +121,40 @@ new 	Handle:g_hCookie_LastTeam = INVALID_HANDLE;
 /**
 Other globals
 */
-new		e_RoundState:g_RoundState;
+new		e_RoundState:g_eRoundState;
+new		e_ScrambleReasons:g_eScrambleReason;
 
 new		bool:g_bWasFullRound = false,
 			bool:g_bScrambledThisRound = false,
 			bool:g_bScrambleNextRound = false,
-			bool:g_bUseClientprefs = false,
+			bool:g_bUseClientprefs = false;
 
 new		g_iRoundCount,
 			g_iRoundStartTime,
 			g_iAdminsPresent;
+			
+new		String:g_sScrambleReason[e_ScrambleReasons][128] =	{	"Invalid",
+																										"Command",
+																										"Vote",
+																										"Map Load",
+																										"Team Steam Rolled",
+																										"Win Streak",
+																										"Round Limit",
+																										"Unbalanced Score",
+																										"Unbalanced Frags",
+																										"Unbalanced K/D Ratio",
+																										"Unbalanced Dominations",
+																										"Unbalanced Caps"
+																									};
 
 /**
 Separate files to include
 */
 #include "simple-plugins/sas_config_functions.sp"
+#include "simple-plugins/sas_vote_functions.sp"
 #include "simple-plugins/sas_scramble_functions.sp"
 #include "simple-plugins/sas_menu_functions.sp"
-#include "simple-plugins/sas_vote_functions.sp"
 #include "simple-plugins/sas_daemon.sp"
-#include "simple-plugins/sas_menu_functions.sp"
 
 public Plugin:myinfo =
 {
@@ -162,6 +200,14 @@ public OnPluginStart()
 			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_Post);
 			HookEvent("dod_point_captured", HookCapture, EventHookMode_Post);
 		}
+		case GameType_CSS:
+		{
+			HookEvent("round_start", HookRoundStart, EventHookMode_PostNoCopy);
+			HookEvent("round_end", HookRoundEnd, EventHookMode_Post);
+			HookEvent("bomb_exploded", HookCapture, EventHookMode_Post);
+			HookEvent("hostage_rescued", HookCapture, EventHookMode_Post);
+			HookEvent("vip_escaped", HookCapture, EventHookMode_Post);
+		}
 		default:
 		{
 			HookEvent("round_start", HookRoundStart, EventHookMode_PostNoCopy);
@@ -186,13 +232,7 @@ public OnPluginStart()
 	/**
 	Initiate The menu
 	*/
-	InitaiteMenu();
-	
-	if (GetSettingValue("vote_ad_enabled"))
-	{
-		new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
-		g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
-	}
+	InitiateAdminMenu();
 	
 	/**
 	Load translations and .cfg file
@@ -272,19 +312,26 @@ public OnConfigsExecuted()
 	{
 		LogAction(0, -1, "Simple AutoScrambler is DISABLED");
 	}
+	
+	if (GetSettingValue("vote_ad_enabled") && GetSettingValue("vote_enabled"))
+	{
+		new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
+		g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
+	}
 }
 
 public OnMapStart()
 {
-	g_RoundState = Map_Start;
+	g_eRoundState = Map_Start;
+	g_eScrambleReason = ScrambleReason_Invalid;
 	g_bWasFullRound = true;
+	g_bScrambledThisRound = false;
+	g_bScrambleNextRound = false;
 	ResetScores();
 	ResetStreaks();
 	ResetVotes();
-	DelayVoting(Reason_MapStart);
+	DelayVoting(DelayReason_MapStart);
 	StartDaemon();
-	g_bScrambledThisRound = false;
-	g_bScrambleNextRound = false;
 }
 
 public OnMapEnd()
@@ -306,7 +353,8 @@ public OnClientCookiesCached(client)
 {
 	
 	if (GetSettingValue("lock_players")
-		&& (GetSettingValue("lockimmunity") && !IsAuthorized(client, "flag_lockimmunity")))
+		&& (GetSettingValue("lockimmunity") && !IsAuthorized(client, "flag_lockimmunity"))
+		&& IsValidClient(client))
 	{
 		new	String:sLastConnect[32],
 				String:sLastTeam[3];
@@ -379,7 +427,7 @@ public OnClientDisconnect(client)
 		g_aPlayers[client][bVoted] = false;
 	}
 	
-	if (g_bUseClientprefs)
+	if (g_bUseClientprefs && IsValidClient(client))
 	{
 		
 		/**
@@ -609,8 +657,23 @@ public Action:Command_SetSetting(client, args)
 		We didn't have an error
 		Log some activity
 		*/
-		ShowActivityEx(client, "[SAS]", "%N changed the scramble option (%s) to (%s)", client, sArg[1]);
-		LogAction(client, -1, "%N changed the scramble option (%s) to (%s)", client);
+		ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N changed the scramble option (%s) to (%s)", client, sArg[0], sArg[1]);
+		LogAction(client, -1, "%N changed the scramble option (%s) to (%s)", client, sArg[0], sArg[1]);
+		
+		/**
+		Check if the timer settings were changed and restart the timer
+		*/
+		if (StrEqual(sArg[1], "vote_enabled")
+			|| StrEqual(sArg[1], "vote_ad_enabled")
+			|| StrEqual(sArg[1], "vote_ad_interval"))
+		{
+			ClearTimer(g_hAdTimer);
+			if (GetSettingValue("vote_ad_enabled") && GetSettingValue("vote_enabled"))
+			{
+				new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
+				g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
+			}
+		}
 	}
 	
 	/**
@@ -659,11 +722,11 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 		default:
 		{
 			g_iRoundStartTime = GetTime();
-			g_RoundState = Round_Normal;
+			g_eRoundState = Round_Normal;
 			if (g_bScrambleNextRound)
 			{
 				g_bScrambleNextRound = false;
-				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 			}
 		}
 	}
@@ -673,7 +736,7 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
 {
 	g_iRoundStartTime = GetTime();
-	g_RoundState = Round_Normal;
+	g_eRoundState = Round_Normal;
 }
 
 public HookCapture(Handle:event, const String:name[], bool:dontBroadCast)
@@ -684,11 +747,11 @@ public HookCapture(Handle:event, const String:name[], bool:dontBroadCast)
 
 public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	
+
 	new iRoundWinner;
-	
 	g_iRoundCount++;
-	g_bWasFullRound = true;
+	AddTeamStreak(e_Teams:iRoundWinner);
+	g_eRoundState = Round_Ended;
 	
 	switch (g_CurrentMod)
 	{
@@ -697,6 +760,7 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 			if (GetEventBool(event, "full_round"))
 			{
 				iRoundWinner = GetEventInt(event, "team");
+				g_bWasFullRound = true;
 			}
 			else
 			{
@@ -707,26 +771,87 @@ public HookRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 		case GameType_DOD:
 		{
 			iRoundWinner = GetEventInt(event, "team");
+			g_bWasFullRound = true;
 		}
 		default:
 		{
 			iRoundWinner = GetEventInt(event, "winner");
+			g_bWasFullRound = true;
 		}
 	}
-	
-	AddTeamStreak(e_Teams:iRoundWinner);
-	
-	g_RoundState = Round_Ended;
-	
-	if (CanScramble() && RoundEnd_ScrambleCheck())
+
+	if (CanScramble() && !g_bScrambling && !g_bScrambleNextRound)
 	{
-		if (GetSettingValue("auto_action"))
+		if (g_iRoundStartTime - GetTime() <= GetSettingValue("time_limit"))
 		{
-			StartVote();
+			g_eScrambleReason = ScrambleReason_TimeLimit;
+		}
+		else if (GetSettingValue("win_streak") >= g_aTeamInfo[Team1][Team_WinStreak]
+			|| (GetSettingValue("win_streak") >= g_aTeamInfo[Team2][Team_WinStreak]))
+		{
+			g_eScrambleReason = ScrambleReason_WinStreak;
+		}
+		else if (g_iRoundCount > 0 && GetSettingValue("rounds") >= g_iRoundCount)
+		{
+			g_eScrambleReason = ScrambleReason_Rounds;
 		}
 		else
 		{
-			StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+			new iCaps;
+			switch (g_CurrentMod)
+			{
+				case GameType_TF:
+				{
+					new TFGameType:eGameType = TF2_GetGameType();
+					if (eGameType != TFGameMode_ARENA)
+					{
+						switch (eGameType)
+						{
+							case TFGameMode_CTF:
+							{
+								iCaps = GetSettingValue("tf2_intel_cap");
+							}
+							case TFGameMode_PL:
+							{
+								iCaps = GetSettingValue("tf2_pl_cap");
+							}
+							case TFGameMode_PLR:
+							{
+								iCaps = GetSettingValue("tf2_pl_cap");
+							}
+							case TFGameMode_KOTH:
+							{
+								iCaps = GetSettingValue("tf2_koth_cap");
+							}
+						}
+					}
+				}
+				case GameType_DOD:
+				{
+					//somthing
+				}
+				case GameType_CSS:
+				{
+					//somthing
+				}
+			}
+			
+			if (iCaps && (!g_aTeamInfo[Team1][Team_Goal] || !g_aTeamInfo[Team2][Team_Goal]))
+			{
+				g_eScrambleReason = ScrambleReason_Caps;
+			}
+		}
+		
+		if (g_eScrambleReason != ScrambleReason_Invalid)
+		{
+			if (GetSettingValue("auto_action"))
+			{
+				StartVote();
+			}
+			else
+			{
+				StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
+			}
 		}
 	}
 }
@@ -760,7 +885,7 @@ public Action:HookPlayerDeath(Handle:event, const String:name[], bool:dontBroadc
 	/**
 	Check the round state and count the kills and deaths if round is active
 	*/
-	if (g_RoundState == Round_Normal)
+	if (g_eRoundState == Round_Normal)
 	{
 		new iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"));
 		new iVictim = GetClientOfUserId(GetEventInt(event, "userid"));
@@ -788,18 +913,18 @@ public Action:Timer_CheckState(Handle:timer, any:data)
 	
 	if (TF2_InSetup())
 	{
-		g_RoundState = Round_Setup;
+		g_eRoundState = Round_Setup;
 	}
 	else
 	{
 		g_iRoundStartTime = GetTime();
-		g_RoundState = Round_Normal;
+		g_eRoundState = Round_Normal;
 	}
 	
 	if (g_bScrambleNextRound)
 	{
 		g_bScrambleNextRound = false;
-		StartScramble(e_ScrambleMode:GetSettingValue("sort_mode");
+		StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 	}
 	
 	return Plugin_Handled;
@@ -822,6 +947,9 @@ public Action:Timer_VoteAdvertisement(Handle:timer, any:data)
 		return Plugin_Stop;
 	}
 	
-	PrintToChatAll("\x01\x04[SAS]\x01 %T", "Vote_Advertisement", LANG_SERVER);
+	new String:sBuffer[64], String:sVoteCommand[64];
+	GetTrieString(g_hSettings, "vote_trigger", sBuffer, sizeof(sBuffer));
+	Format(sVoteCommand, sizeof(sVoteCommand), "!%s", sBuffer);
+	PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Advertisement", sVoteCommand);
 	return Plugin_Handled;
 }
