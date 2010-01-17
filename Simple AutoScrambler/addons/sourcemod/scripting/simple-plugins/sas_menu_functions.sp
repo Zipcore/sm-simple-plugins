@@ -33,11 +33,236 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 **********
 */
+new Handle:g_hAdminMenu = INVALID_HANDLE;
+
+/**
+checks for the menu plugin
+and adds options to the admin menu
+*/
 stock InitiateMenu()
 {
-	new Handle:hTopMenu;
+	new Handle:hTopMenu = INVALID_HANDLE;
 	if (LibraryExists("adminmenu") && ((hTopMenu = GetAdminTopMenu()) != INVALID_HANDLE))
 	{
 		OnAdminMenuReady(hTopMenu);
 	}
 }
+
+/** 
+adds options to the main admin menu
+*/
+public OnAdminMenuReady(Handle:hMenu)
+{
+	if (hMenu == g_hAdminMenu)
+	{
+		return;
+	}
+	g_hAdminMenu = hMenu;
+	new TopMenuObject:menu_category = AddToTopMenu(hMenu, "Simple-Autoscrambler", TopMenuObject_Category, Handle_Category, INVALID_TOPMENUOBJECT);
+
+	AddToTopMenu(hMenu, "Start a Scramble", TopMenuObject_Item, AdminMenu_Scramble, menu_category, "sm_scramble", ADMFLAG_BAN);
+	AddToTopMenu(hMenu, "Reset Scores", TopMenuObject_Item, AdminMenu_ResetScores, menu_category, "sm_resetscores", ADMFLAG_BAN);
+	AddToTopMenu(hMenu, "Reload SAS Config File", TopMenuObject_Item, AdminMenu_Reload, menu_category, "sm_scramblereload", ADMFLAG_BAN);
+	AddToTopMenu(hMenu, "Cancel a Pending Scramble", TopMenuObject_Item, AdminMenu_Cancel, menu_category, "sm_scramble", ADMFLAG_BAN);
+}
+
+/**
+formats the titles for the sas category
+*/
+public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+{
+	switch (action)
+	{
+		case TopMenuAction_DisplayTitle:
+		{
+			Format( buffer, maxlength, "Select a function below" );
+		}
+		case TopMenuAction_DisplayOption:
+		{
+			Format(buffer, maxlength, "Simple-Autoscrambler");
+		}
+	}
+}
+
+/**
+menu scramble callback
+*/
+public AdminMenu_Scramble(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
+{
+	if (!IsAuthorized(client, "flag_scramble")
+	{
+		return;
+	}
+	switch (action)
+	{
+		case TopMenuAction_DisplayOption:
+		{
+			Format( buffer, maxlength, "Start a Scramble");
+		}
+		case TopMenuAction_SelectOption:
+		{
+			ShowScrambleMenu(client);
+		}
+	}
+}
+
+/**
+menu score_rest callback
+*/
+public AdminMenu_ResetScores(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
+{
+	switch (action)
+	{
+		case TopMenuAction_DisplayOption:
+		{
+			Format(buffer, maxlength, "Reset players' scores");
+		}
+		case TopMenuAction_SelectOption:
+		{
+			ResetScores();
+			ResetStreaks();
+		}
+	}
+}
+
+/**
+menu reload config file callback
+*/
+public AdminMenu_Reload(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
+{
+	switch (action)
+	{
+		case TopMenuAction_DisplayOption:
+		{
+			Format(buffer, maxlength, "Reload the SAS config file");
+		}
+		case TopMenuAction_SelectOption:
+		{
+			ProcessConfigFile();
+			// something
+		}
+	}
+}
+
+/**
+menu cancel scramble callback
+*/
+public AdminMenu_Cancel(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
+{
+	swtich (action)
+	{
+		case TopMenuAction_DisplayOption:
+		{
+			Format(buffer, maxlength, "Cancel any pending scramble");
+		}
+		case TopMenuAction_SelectOption:
+		{
+			g_bScrambledThisRound = false;
+			StopScramble();
+		}
+	}
+}
+
+/** 
+Second scramble menu
+*/
+stock ShowScrambleMenu(client)
+{
+	new Handle:hScrambleMenu = INVALID_HANDLE;
+	hScrambleMenu = CreateMenu(Menu_Scramble);
+	
+	SetMenuTitle(scrambleMenu, "Choose a Method");
+	SetMenuExitButton(scrambleMenu, true);
+	SetMenuExitBackButton(scrambleMenu, true);
+	AddMenuItem(scrambleMenu, "", "Scramble Next Round");
+	AddMenuItem(scrambleMenu, "", "Scramble Teams Now");
+	
+	DisplayMenu(scrambleMenu, client, MENU_TIME_FOREVER);
+}
+
+/**
+callback for start-a-scramble menu
+*/
+public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2 )
+{
+	switch (action)
+	{
+		case MenuAction_Select:
+		{
+			if (!param2)
+			{
+				g_bScrambleNextRound = true;
+			}
+			else
+			{
+				/**
+				show mode selection menu
+				*/
+				new Handle:hModeMenu = INVALID_HANDLE;
+				hModeMenu = CreateMenu(Menu_ModeSelect);
+				
+				SetMenuTitle(hModeMenu, "Choose a Sorting Mode");
+				SetMenuExitButton(hModeMenu, true);
+				SetMenuExitBackButton(hModeMenu, true);
+				AddMenuItem(hModeMenu, "", "Default Mode");
+				AddMenuItem(hModeMenu, "", "Random");
+				AddMenuItem(hModeMenu, "", "Swap Top Players");
+				AddMenuItem(hModeMenu, "", "Sort Teams By Player Score");
+				AddMenuItem(hModeMenu, "", "Sort Teams By Player Kill Ratios");
+				DisplayMenu(hModeMenu, client, MENU_TIME_FOREVER);	
+			}
+		}
+		
+		case MenuAction_Cancel:
+		{
+			if (param2 == MenuCancel_ExitBack )
+			{
+				RedisplayAdminMenu(g_hAdminMenu, client);
+			}
+		}
+		
+		case MenuAction_End:
+		{
+			CloseHandle(scrambleMenu);
+		}
+	}
+}
+
+/**
+callback for scramble-now mode selection
+*/
+public Menu_ModeSelect(Handle:scrambleMenu, MenuAction:action, client, param2 )
+{
+	switch (action)
+	{
+		case MenuAction_Select:
+		{
+			new e_ScrambleModes:mode;
+			if (!param2)
+			{
+				mode = e_ScrambleMode:GetSettingValue("sort_mode");
+			}
+			else
+			{
+				mode = e_ScrambleMode:param2;
+			}
+			StartScramble(mode);
+		}
+		
+		case MenuAction_Cancel:
+		{
+			if (param2 == MenuCancel_ExitBack )
+			{
+				RedisplayAdminMenu(g_hAdminMenu, client);
+			}
+		}
+		
+		case MenuAction_End:
+		{
+			CloseHandle(scrambleMenu);
+		}
+	}
+}
+
+
+

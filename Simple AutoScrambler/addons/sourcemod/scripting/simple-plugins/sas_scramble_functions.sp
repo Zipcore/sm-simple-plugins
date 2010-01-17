@@ -150,6 +150,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	*/
 	g_hScrambleTimer = INVALID_HANDLE;
 	g_bScrambling = false;
+	g_bScrambledThisRound = true;
 	
 	/**
 	Global Reset Functions

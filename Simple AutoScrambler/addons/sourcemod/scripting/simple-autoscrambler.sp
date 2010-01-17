@@ -116,6 +116,7 @@ Separate files to include
 #include "simple-plugins/sas_menu_functions.sp"
 #include "simple-plugins/sas_vote_functions.sp"
 #include "simple-plugins/sas_daemon.sp"
+#include "simple-plugins/sas_menu_functions.sp"
 
 public Plugin:myinfo =
 {
@@ -181,6 +182,11 @@ public OnPluginStart()
 	RegConsoleCmd("sm_scramblesetting", Command_SetSetting, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 	RegConsoleCmd("sm_scramblereload", Command_Reload, "sm_scramblereload: Reloads the config file");
 	CreateVoteCommand();
+	
+	/**
+	Initiate The menu
+	*/
+	InitaiteMenu();
 	
 	if (GetSettingValue("vote_ad_enabled"))
 	{
@@ -277,6 +283,8 @@ public OnMapStart()
 	ResetVotes();
 	DelayVoting(Reason_MapStart);
 	StartDaemon();
+	g_bScrambledThisRound = false;
+	g_bScrambleNextRound = false;
 }
 
 public OnMapEnd()
@@ -659,6 +667,7 @@ public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 			}
 		}
 	}
+	g_bScrambledThisRound = false;
 }
 
 public HookSetupFinished(Handle:event, const String:name[], bool: dontBroadcast)
