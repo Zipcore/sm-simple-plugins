@@ -54,6 +54,7 @@ public Action:Command_Vote(client, args)
 		return Plugin_Handled;
 	}
 	
+	//Need to still allow admins with vote flag to start a vote
 	if (!GetSettingValue("vote_enabled")
 		|| (GetSettingValue("vote_admin_disables") && g_iAdminsPresent))
 	{

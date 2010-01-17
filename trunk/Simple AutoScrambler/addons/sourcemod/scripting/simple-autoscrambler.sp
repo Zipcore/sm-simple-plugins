@@ -183,7 +183,7 @@ public OnPluginStart()
 	Hook the game events
 	*/
 	HookEvent("player_death", HookPlayerDeath, EventHookMode_Pre);
-	LogAction(0, -1, "[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
+	LogAction(-1, -1, "[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
@@ -239,7 +239,7 @@ public OnPluginStart()
 	*/
 	LoadTranslations ("sas.phrases");
 	LoadTranslations ("common.phrases");
-	LogAction(0, -1, "[SAS] Simple AutoScrambler is loaded.");
+	LogAction(-1, -1, "[SAS] Simple AutoScrambler is loading...");
 }
 
 public OnAllPluginsLoaded()
@@ -252,30 +252,30 @@ public OnAllPluginsLoaded()
 	new iExtStatus = GetExtensionFileStatus("clientprefs.ext", sExtError, sizeof(sExtError));
 	if (iExtStatus == -2)
 	{
-		LogAction(0, -1, "[SAS] Client Preferences extension was not found.");
-		LogAction(0, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		LogAction(-1, -1, "[SAS] Client Preferences extension was not found.");
+		LogAction(-1, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
 		g_bUseClientprefs = false;
 	}
 	if (iExtStatus == -1 || iExtStatus == 0)
 	{
-		LogAction(0, -1, "[SAS] Client Preferences extension is loaded with errors.");
-		LogAction(0, -1, "[SAS] Status reported was [%s].", sExtError);
-		LogAction(0, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
+		LogAction(-1, -1, "[SAS] Client Preferences extension is loaded with errors.");
+		LogAction(-1, -1, "[SAS] Status reported was [%s].", sExtError);
+		LogAction(-1, -1, "[SAS] Plugin continued to load, but that feature will not be used.");
 		g_bUseClientprefs = false;
 	}
 	if (iExtStatus == 1)
 	{
-		LogAction(0, -1, "[SAS] Client Preferences extension is loaded, checking database.");
+		LogAction(-1, -1, "[SAS] Client Preferences extension is loaded, checking database.");
 		if (!SQL_CheckConfig("clientprefs"))
 		{
-			LogAction(0, -1, "[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
-			LogAction(0, -1, "[SAS] Plugin continued to load, but Client Preferences will not be used.");
+			LogAction(-1, -1, "[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
+			LogAction(-1, -1, "[SAS] Plugin continued to load, but Client Preferences will not be used.");
 			g_bUseClientprefs = false;
 		}
 		else
 		{
-			LogAction(0, -1, "[SAS] Database config 'clientprefs' was found.");
-			LogAction(0, -1, "[SAS] Plugin will use Client Preferences.");
+			LogAction(-1, -1, "[SAS] Database config 'clientprefs' was found.");
+			LogAction(-1, -1, "[SAS] Plugin will use Client Preferences.");
 			g_bUseClientprefs = true;
 		}
 		
@@ -306,11 +306,11 @@ public OnConfigsExecuted()
 	*/
 	if (GetSettingValue("enabled"))
 	{
-		LogAction(0, -1, "Simple AutoScrambler is ENABLED");
+		LogAction(-1, -1, "[SAS] Simple AutoScrambler is ENABLED");
 	}
 	else
 	{
-		LogAction(0, -1, "Simple AutoScrambler is DISABLED");
+		LogAction(-1, -1, "[SAS] Simple AutoScrambler is DISABLED");
 	}
 	
 	if (GetSettingValue("vote_ad_enabled") && GetSettingValue("vote_enabled"))
@@ -482,14 +482,14 @@ public Action:Command_Scramble(client, args)
 	}
 	
 	/**
+	TODO: Check for command arguments and show the menu if we dont have any or they are not right
+	*/
+	
+	/**
 	Log some activity
 	TODO: Add ShowActivity and maybe do this at the end of the scramble, add client, and more info
 	*/
-	LogAction(0, -1, "[SAS] The scramble command was used");
-	
-	/**
-	TODO: Check for command arguments and show the menu if we dont have any or they are not right
-	*/
+	LogAction(-1, -1, "[SAS] The scramble command was used");
 	
 	/**
 	We are done, bug out.
@@ -518,7 +518,7 @@ public Action:Command_ResetScores(client, args)
 	/**
 	Log some activity
 	*/
-	ShowActivityEx(client, "[SAS]", "%N reset the score tracking for the scrambler", client);
+	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reset the score tracking for the scrambler", client);
 	LogAction(client, -1, "%N reset the score tracking for the scrambler", client);
 	
 	/**
@@ -702,7 +702,7 @@ public Action:Command_Reload(client, args)
 	/**
 	Log some activity
 	*/
-	ShowActivityEx(client, "[SAS]", "%N reloaded the scrambler config file", client);
+	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reloaded the scrambler config file", client);
 	LogAction(client, -1, "%N reloaded the config file", client);
 	
 	/**
