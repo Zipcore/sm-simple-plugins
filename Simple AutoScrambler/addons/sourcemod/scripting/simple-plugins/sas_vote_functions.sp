@@ -54,7 +54,9 @@ public Action:Command_Vote(client, args)
 		return Plugin_Handled;
 	}
 	
-	//Need to still allow admins with vote flag to start a vote
+	/**
+	TODO: Need to still allow admins with vote flag to start a vote
+	*/
 	if (!GetSettingValue("vote_enabled")
 		|| (GetSettingValue("vote_admin_disables") && g_iAdminsPresent))
 	{
@@ -64,13 +66,13 @@ public Action:Command_Vote(client, args)
 	
 	if (GetClientCount() < GetSettingValue("vote_min_players"))
 	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Min_Players");
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Minimal Players Not Met");
 		return Plugin_Handled;
 	}
 	
 	if (g_iVoteAllowed > GetTime())
 	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Delayed");
+		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote Delay Seconds", g_iVoteAllowed - GetTime());
 		return Plugin_Handled;
 	}
 	
@@ -179,12 +181,13 @@ public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 		{
 			new iVotes, iTotalVotes;
 			GetMenuVoteInfo(param2, iVotes, iTotalVotes);
+			new	Float:fSuccess = float(GetSettingValue("vote_menu_percentage") / 100);
+			new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent);
 			if (param1 == 0)
 			{
-				new Float:fSuccess = float(GetSettingValue("vote_menu_percentage")) / 100.0;
-				if ((float(iVotes) / float(iTotalVotes)) >= fSuccess)
+				if (iVotes >= iVotesNeeded)
 				{
-					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Succeeded", iVotes, iTotalVotes);
+					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote Successful", iVotes, iTotalVotes);
 					DelayVoting(DelayReason_Success);
 					ResetVotes();
 					g_eScrambleReason = ScrambleReason_Vote;
@@ -199,13 +202,13 @@ public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 				}
 				else
 				{
-					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_Fail_Percent", iVotes, iTotalVotes);
+					PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote Failed", iVotesNeeded, iVotes, iTotalVotes);
 					DelayVoting(DelayReason_Fail);
 				}
 			}
 			else
 			{
-				PrintToChatAll("\x01\x04[SAS\x01\%t", "Vote_Failed", iVotes, iTotalVotes);
+				PrintToChatAll("\x01\x04[SAS\x01\%t", "Vote Failed", iVotesNeeded, iVotes, iTotalVotes);
 				DelayVoting(DelayReason_Fail);
 			}
 		}
@@ -216,7 +219,7 @@ stock StartVote()
 {
 	if (IsVoteInProgress())
 	{
-		PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote_InProgress");
+		PrintToChatAll("\x01\x04[SAS]\x01 %t", "Vote in Progress");
 		return;
 	}
 	

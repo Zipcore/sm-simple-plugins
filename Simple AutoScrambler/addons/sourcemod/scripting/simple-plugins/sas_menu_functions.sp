@@ -58,12 +58,12 @@ public OnAdminMenuReady(Handle:hMenu)
 		return;
 	}
 	g_hAdminMenu = hMenu;
-	new TopMenuObject:menu_category = AddToTopMenu(hMenu, "Simple-Autoscrambler", TopMenuObject_Category, Handle_Category, INVALID_TOPMENUOBJECT);
+	new TopMenuObject:menu_category = AddToTopMenu(hMenu, "Simple Autoscrambler", TopMenuObject_Category, Handle_Category, INVALID_TOPMENUOBJECT);
 
-	AddToTopMenu(hMenu, "Start a Scramble", TopMenuObject_Item, AdminMenu_Scramble, menu_category, "sm_scramble", ADMFLAG_BAN);
-	AddToTopMenu(hMenu, "Reset Scores", TopMenuObject_Item, AdminMenu_ResetScores, menu_category, "sm_resetscores", ADMFLAG_BAN);
-	AddToTopMenu(hMenu, "Reload SAS Config File", TopMenuObject_Item, AdminMenu_Reload, menu_category, "sm_scramblereload", ADMFLAG_BAN);
-	AddToTopMenu(hMenu, "Cancel a Pending Scramble", TopMenuObject_Item, AdminMenu_Cancel, menu_category, "sm_scramble", ADMFLAG_BAN);
+	AddToTopMenu(hMenu, "Start a Scramble", TopMenuObject_Item, AdminMenu_Scramble, menu_category, "sm_scramble", ADMFLAG_GENERIC);
+	AddToTopMenu(hMenu, "Reset Scores", TopMenuObject_Item, AdminMenu_ResetScores, menu_category, "sm_resetscores", ADMFLAG_GENERIC);
+	AddToTopMenu(hMenu, "Reload SAS Config File", TopMenuObject_Item, AdminMenu_Reload, menu_category, "sm_scramblereload", ADMFLAG_GENERIC);
+	AddToTopMenu(hMenu, "Cancel a Pending Scramble", TopMenuObject_Item, AdminMenu_Cancel, menu_category, "sm_scramble", ADMFLAG_GENERIC);
 }
 
 /**
@@ -75,7 +75,7 @@ public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:objec
 	{
 		case TopMenuAction_DisplayTitle:
 		{
-			Format( buffer, maxlength, "Select a function below" );
+			Format(buffer, maxlength, "Select a function below" );
 		}
 		case TopMenuAction_DisplayOption:
 		{
@@ -91,13 +91,14 @@ public AdminMenu_Scramble(Handle:topmenu, TopMenuAction:action, TopMenuObject:ob
 {
 	if (!IsAuthorized(client, "flag_scramble"))
 	{
+		PrintToChat(client, "\x01\x04[SAS]\x01 %t", "No Access");
 		return;
 	}
 	switch (action)
 	{
 		case TopMenuAction_DisplayOption:
 		{
-			Format( buffer, maxlength, "Start a Scramble");
+			Format(buffer, maxlength, "Start a Scramble");
 		}
 		case TopMenuAction_SelectOption:
 		{
@@ -111,6 +112,11 @@ menu score_rest callback
 */
 public AdminMenu_ResetScores(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
+	if (!IsAuthorized(client, "flag_reset_scores"))
+	{
+		PrintToChat(client, "\x01\x04[SAS]\x01 %t", "No Access");
+		return;
+	}
 	switch (action)
 	{
 		case TopMenuAction_DisplayOption:
@@ -121,6 +127,12 @@ public AdminMenu_ResetScores(Handle:topmenu, TopMenuAction:action, TopMenuObject
 		{
 			ResetScores();
 			ResetStreaks();
+			
+			/**
+			Log some activity
+			*/
+			ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reset the score tracking for the scrambler", client);
+			LogAction(client, -1, "%N reset the score tracking for the scrambler", client);
 		}
 	}
 }
@@ -130,6 +142,11 @@ menu reload config file callback
 */
 public AdminMenu_Reload(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
+	if (!IsAuthorized(client, "flag_settings"))
+	{
+		PrintToChat(client, "\x01\x04[SAS]\x01 %t", "No Access");
+		return;
+	}
 	switch (action)
 	{
 		case TopMenuAction_DisplayOption:
@@ -139,7 +156,12 @@ public AdminMenu_Reload(Handle:topmenu, TopMenuAction:action, TopMenuObject:obje
 		case TopMenuAction_SelectOption:
 		{
 			ProcessConfigFile();
-			// something
+			
+			/**
+			Log some activity
+			*/
+			ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reloaded the scrambler config file", client);
+			LogAction(client, -1, "%N reloaded the config file", client);
 		}
 	}
 }
@@ -149,6 +171,11 @@ menu cancel scramble callback
 */
 public AdminMenu_Cancel(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
+	if (!IsAuthorized(client, "flag_scramble"))
+	{
+		PrintToChat(client, "\x01\x04[SAS]\x01 %t", "No Access");
+		return;
+	}
 	switch (action)
 	{
 		case TopMenuAction_DisplayOption:
@@ -159,6 +186,13 @@ public AdminMenu_Cancel(Handle:topmenu, TopMenuAction:action, TopMenuObject:obje
 		{
 			g_bScrambledThisRound = false;
 			StopScramble();
+			StopVote();
+			
+			/**
+			Log some activity
+			*/
+			ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N canceled all pending actions", client);
+			LogAction(client, -1, "%N canceled all pending actions", client);
 		}
 	}
 }
@@ -247,6 +281,7 @@ public Menu_ModeSelect(Handle:scrambleMenu, MenuAction:action, client, param2 )
 			{
 				mode = e_ScrambleMode:param2;
 			}
+			
 			StartScramble(mode);
 		}
 		

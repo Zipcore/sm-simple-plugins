@@ -62,18 +62,23 @@ stock StartScramble(e_ScrambleMode:mode)
 	Start a timer and log the action
 	*/
 	g_hScrambleTimer = CreateTimer(15.0, Timer_ScrambleTeams, mode, TIMER_FLAG_NO_MAPCHANGE);
-	LogAction(-1, -1, "[SAS] A scamble timer was started");
+	LogMessage("[SAS] A scamble timer was started because of [%s]", g_sScrambleReason[g_eScrambleReason]);
 }
 
 stock StopScramble()
 {
 	ClearTimer(g_hScrambleTimer);
-	g_bScrambling = false;
 	g_eScrambleReason = ScrambleReason_Invalid;
+	g_bScrambling = false;
 }
 
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 {
+
+	/**
+	Set the scramble bool
+	*/
+	g_bScrambling = true;
 	
 	/**
 	Make sure it's still ok to scramble
@@ -85,78 +90,103 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		Not ok, bug out
 		*/
 		g_hScrambleTimer = INVALID_HANDLE;
+		g_eScrambleReason = ScrambleReason_Invalid;
 		g_bScrambling = false;
 		return Plugin_Handled;
 	}
 	
+	/**
+	Check the scramble mode and error out if it can't be done
+	*/
 	if (mode == Mode_Invalid)
 	{		
 		mode = GetSettingValue("sort_mode");
 		if (mode == Mode_Invalid)
 		{
 			LogError("Invalid sort mode detected, stopping scramble");
+			g_hScrambleTimer = INVALID_HANDLE;
+			g_eScrambleReason = ScrambleReason_Invalid;
+			g_bScrambling = false;
+			return Plugin_Handled;
 		}
 	}
 	
-	g_bScrambling = true;
+	/**
+	Now we actually start to scramble
+	*/
+	new	iSwapped,
+			iCounter,
+			iProtected;
+	
 	if (mode == Mode_TopSwap)
 	{
-		SwapTopPlayers();
+		SwapTopPlayers(iSwapped);
 	}
 	else
 	{
-	/**
-	get the valid scramble targets, put them into an array for sorting
-	*/
-		new	iClients[GetClientCount()],
-				iCounter, 
-				iTeam;
 		
-		if (!iTeam)
+		/**
+		Get the valid scramble targets, put them into an array for sorting
+		*/
+		new	iPlayers_Indexes[GetClientCount()],
+				iPlayers_Teams[GetClientCount()];
+				
+		for (new x = 1; x <= MaxClients; x++)
 		{
-			iTeam = GetRandomInt(0,1) ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
-		}
-		
-		for (new i = 1; i <= MaxClients; i++)
-		{
-			if (IsValidClient(i) && CanScrambleTarget(i))
+			if (IsValidClient(x))
 			{
-				iClients[iCounter++] = i;
+				if (CanScrambleTarget(x))
+				{
+					iPlayers_Indexes[iCounter] = x;
+					iPlayers_Teams[iCounter++] = GetClientTeam(x);
+				}
+				else
+				{
+					iProtected++;
+				}
 			}
 		}
 		
+		/**
+		Scramble according to the mode
+		*/
 		switch (mode)
 		{
 			case Mode_Random:
 			{
-				SortIntegers(iClients, iCounter, Sort_Random);
+				SortIntegers(iPlayers_Indexes, iCounter, Sort_Random);
 			}
 			case Mode_Scores:
 			{
-				SortByScores(iClients, iCounter);
+				SortByScores(iPlayers_Indexes, iCounter);
 			}
 			case Mode_KillRatios:
 			{
-				SortByKillRatios(iClients, iCounter);
+				SortByKillRatios(iPlayers_Indexes, iCounter);
 			}
 		}
 		
-		// start swapping
-		for (new i; i < iCounter; i++)
+		/**
+		Start swaping the teams
+		*/
+		new iTeam = GetRandomInt(0, 1) ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
+		
+		for (new x; x < iCounter; x++)
 		{
-			new client = iClients[i];
+			new client = iPlayers_Indexes[x];
 			SM_MovePlayer(client, iTeam);
+			if (iPlayers_Teams[client] != iTeam)
+			{
+				iSwapped++;
+			}
 			iTeam = iTeam ==  g_aCurrentTeams[Team2] ? g_aCurrentTeams[Team1] : g_aCurrentTeams[Team2];
-		}			
+		}
 	}
 	
 	/**
-	Global Reset Functions
+	Log the result
 	*/
-	ResetScores();
-	ResetStreaks();
-	ResetVotes();
-	DelayVoting(DelayReason_Scrambled);
+	LogMessage("[SAS] Scrambled completed.  Changed [%d] players team out of [%d] with [%d] protected", iSwapped, GetClientCount(), iProtected);
 	
 	/**
 	Check if we need to restart the round
@@ -165,19 +195,29 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		|| (GetSettingValue("mid_game_restart") && g_eRoundState == Round_Normal)
 		|| (g_eRoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart")))
 	{
+		LogMessage("[SAS] The round was set to restart");
 		RestartRound(g_CurrentMod);
 		if (GetSettingValue("reset_scores"))
 		{
-			ResetScores();
+			/**
+			TODO:  Need to actually edit this function in core-sm.inc
+			*/
+			LogMessage("[SAS] The game scores were set to be reset");
+			ResetGameScores(g_CurrentMod);
 		}
 	}
 	
 	/**
-	Reset the handle because the timer is over and the callback is done
+	Reset the variables
 	*/
+	ResetScores();
+	ResetStreaks();
+	ResetVotes();
+	DelayVoting(DelayReason_Scrambled);
 	g_hScrambleTimer = INVALID_HANDLE;
-	g_bScrambling = false;
 	g_eScrambleReason = ScrambleReason_Invalid;
+	g_bScrambling = false;
+	LogMessage("[SAS] Scramble completed");
 	
 	/**
 	We are done, bug out.
@@ -185,7 +225,7 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	return Plugin_Handled;
 }
 
-stock SwapTopPlayers()
+stock SwapTopPlayers(iSwapped)
 {
 	new	aTeamOne[GetTeamClientCount(g_aCurrentTeams[Team1])][2],
 			aTeamTwo[GetTeamClientCount(g_aCurrentTeams[Team2])][2],
@@ -230,7 +270,7 @@ stock SwapTopPlayers()
 		}
 		if (!iSwaps)
 		{
-			LogMessage("[SAS] not enough valid players to do a top-swap");
+			LogMessage("[SAS] Not enough valid players to do a top-swap");
 			return;
 		}
 	}
@@ -240,6 +280,8 @@ stock SwapTopPlayers()
 		SM_MovePlayer(aTeamOne[i][0], g_aCurrentTeams[Team2]);
 		SM_MovePlayer(aTeamTwo[i][0], g_aCurrentTeams[Team1]);
 	}
+	
+	iSwapped = iSwaps;
 }
 
 stock bool:CanScrambleTarget(client)
@@ -283,7 +325,9 @@ stock bool:CanScrambleTarget(client)
 			if (GetSettingValue("tf2_engineers"))
 			{
 				if ((GetSettingValue("tf2_buildings") && TF2_DoesClientHaveBuilding(client, "obj_*"))
-					//This is tricky, what if they have two and we swap them both?  Needs tweaking
+					/**
+					TODO: This is tricky, what if they have two and we swap them both?  Needs tweaking
+					*/
 					|| (GetSettingValue("tf2_lone_engineer") && TF2_IsClientOnlyClass(client, TFClass_Engineer)))
 				{
 					return false;
@@ -293,7 +337,9 @@ stock bool:CanScrambleTarget(client)
 			if (GetSettingValue("tf2_medics"))
 			{
 				if (TF2_IsClientUberCharged(client)
-					//This is tricky, what if they have two and we swap them both?  Needs tweaking
+					/**
+					TODO: This is tricky, what if they have two and we swap them both?  Needs tweaking
+					*/
 					|| (GetSettingValue("tf2_lone_medic") && TF2_IsClientOnlyClass(client, TFClass_Medic)))
 				{
 					return false;
