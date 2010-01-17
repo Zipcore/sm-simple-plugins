@@ -27,4 +27,60 @@
 		"#format"	"{1:N},{2:i},{3:1}"
 		"en"	"{1} voted to scramble the teams. {2} vote(s) out of {3} needed"
 	}
+	"Start a Scramble"
+	{
+		"en"	"Start a Scramble"
+	}
+	"Reset Scores"
+	{
+		"en"	"Reset Players' Scores"
+	}
+	"Reload Config"
+	{
+		"en"	"Reload the SAS Config File"
+	}
+	"Cancel Actions"
+	{
+		"en"	"Cancel Pending Scrambles or Votes"
+	}
+	"Menu Subtitle"
+	{
+		"en"	"Select a Function Below"
+	}
+	"ScrambleMenu When"
+	{
+		"en"	"Please Select When to Scramble"
+	}
+	"Scramble Next Round"
+	{
+		"en"	"Scramble Next Round"
+	}
+	"Scramble Now"
+	{
+		"en"	"Scramble Teams Now"
+	}
+	"Choose Mode"
+	{
+		"en"	"Please Choose a Sort-Mode"
+	}
+	"Default Mode"
+	{
+		"en"	"Default Mode"
+	}
+	"Random Mode"
+	{
+		"en"	"Random Mode"
+	}
+	"Swap Top"
+	{
+		"en"	"Swap Top Players"
+	}
+	"Score Sort"
+	{
+		"en"	"Sort by Player Scores"
+	}
+	"Ratio Sort"
+	{
+		"en"	"Sort by Player Kill Ratios"
+	}
 }

@@ -58,12 +58,20 @@ public OnAdminMenuReady(Handle:hMenu)
 		return;
 	}
 	g_hAdminMenu = hMenu;
+	new String:sBuffer[255];
 	new TopMenuObject:menu_category = AddToTopMenu(hMenu, "Simple Autoscrambler", TopMenuObject_Category, Handle_Category, INVALID_TOPMENUOBJECT);
-
-	AddToTopMenu(hMenu, "Start a Scramble", TopMenuObject_Item, AdminMenu_Scramble, menu_category, "sm_scramble", ADMFLAG_GENERIC);
-	AddToTopMenu(hMenu, "Reset Scores", TopMenuObject_Item, AdminMenu_ResetScores, menu_category, "sm_resetscores", ADMFLAG_GENERIC);
-	AddToTopMenu(hMenu, "Reload SAS Config File", TopMenuObject_Item, AdminMenu_Reload, menu_category, "sm_scramblereload", ADMFLAG_GENERIC);
-	AddToTopMenu(hMenu, "Cancel a Pending Scramble", TopMenuObject_Item, AdminMenu_Cancel, menu_category, "sm_scramble", ADMFLAG_GENERIC);
+	
+	Format(sBuffer, sizeof(sBuffer), "%T", "Start a Scramble", LANG_SERVER);
+	AddToTopMenu(hMenu, sBuffer, TopMenuObject_Item, AdminMenu_Scramble, menu_category, "sm_scramble", ADMFLAG_GENERIC);
+	
+	Format(sBuffer, sizeof(sBuffer), "%T", "Reset Scores", LANG_SERVER);
+	AddToTopMenu(hMenu, sBuffer, TopMenuObject_Item, AdminMenu_ResetScores, menu_category, "sm_resetscores", ADMFLAG_GENERIC);
+	
+	Format(sBuffer, sizeof(sBuffer), "%T", "Reload Config", LANG_SERVER);
+	AddToTopMenu(hMenu, sBuffer, TopMenuObject_Item, AdminMenu_Reload, menu_category, "sm_scramblereload", ADMFLAG_GENERIC);
+	
+	Format(sBuffer, sizeof(sBuffer), "%T", "Cancel Actions", LANG_SERVER);
+	AddToTopMenu(hMenu, sBuffer, TopMenuObject_Item, AdminMenu_Cancel, menu_category, "sm_scramble", ADMFLAG_GENERIC);
 }
 
 /**
@@ -75,7 +83,7 @@ public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:objec
 	{
 		case TopMenuAction_DisplayTitle:
 		{
-			Format(buffer, maxlength, "Select a function below" );
+			Format(buffer, maxlength, "%T", "Menu Subtitle", LANG_SERVER);
 		}
 		case TopMenuAction_DisplayOption:
 		{
@@ -98,7 +106,7 @@ public AdminMenu_Scramble(Handle:topmenu, TopMenuAction:action, TopMenuObject:ob
 	{
 		case TopMenuAction_DisplayOption:
 		{
-			Format(buffer, maxlength, "Start a Scramble");
+			Format(buffer, maxlength, "%T", "Start a Scramble", LANG_SERVER);
 		}
 		case TopMenuAction_SelectOption:
 		{
@@ -121,7 +129,7 @@ public AdminMenu_ResetScores(Handle:topmenu, TopMenuAction:action, TopMenuObject
 	{
 		case TopMenuAction_DisplayOption:
 		{
-			Format(buffer, maxlength, "Reset players' scores");
+			Format(buffer, maxlength, "%T", "Reset Scores", LANG_SERVER);
 		}
 		case TopMenuAction_SelectOption:
 		{
@@ -151,7 +159,7 @@ public AdminMenu_Reload(Handle:topmenu, TopMenuAction:action, TopMenuObject:obje
 	{
 		case TopMenuAction_DisplayOption:
 		{
-			Format(buffer, maxlength, "Reload the SAS config file");
+			Format(buffer, maxlength, "%T", "Reload Config", LANG_SERVER);
 		}
 		case TopMenuAction_SelectOption:
 		{
@@ -180,7 +188,7 @@ public AdminMenu_Cancel(Handle:topmenu, TopMenuAction:action, TopMenuObject:obje
 	{
 		case TopMenuAction_DisplayOption:
 		{
-			Format(buffer, maxlength, "Cancel any pending scramble");
+			Format(buffer, maxlength, "%T", "Cancel Actions", LANG_SERVER);
 		}
 		case TopMenuAction_SelectOption:
 		{
@@ -202,14 +210,21 @@ Second scramble menu
 */
 stock ShowScrambleMenu(client)
 {
-	new Handle:hScrambleMenu = INVALID_HANDLE;
+	new Handle:hScrambleMenu = INVALID_HANDLE,
+			String:sBuffer[255];
 	hScrambleMenu = CreateMenu(Menu_Scramble);
 	
-	SetMenuTitle(hScrambleMenu, "Choose a Method");
+	Format(sBuffer, sizeof(sBuffer), "%T", "ScrambleMenu When", LANG_SERVER);
+	SetMenuTitle(hScrambleMenu, sBuffer);
+	
 	SetMenuExitButton(hScrambleMenu, true);
 	SetMenuExitBackButton(hScrambleMenu, true);
-	AddMenuItem(hScrambleMenu, "", "Scramble Next Round");
-	AddMenuItem(hScrambleMenu, "", "Scramble Teams Now");
+	
+	Format(sBuffer, sizeof(sbuffer), "%T", "Scramble Next Round", LANG_SERVER);
+	AddMenuItem(hScrambleMenu, "", sBuffer);
+	
+	Format(sBuffer, sizeof(sBuffer), "%T", "Scramble Now", LANG_SERVER);
+	AddMenuItem(hScrambleMenu, "", sBuffer);
 	
 	DisplayMenu(hScrambleMenu, client, MENU_TIME_FOREVER);
 }
@@ -236,14 +251,27 @@ public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2)
 				new Handle:hModeMenu = INVALID_HANDLE;
 				hModeMenu = CreateMenu(Menu_ModeSelect);
 				
-				SetMenuTitle(hModeMenu, "Choose a Sorting Mode");
+				Format(sBuffer, sizeof(sBuffer), "%T", "Choose Mode", LANG_SERVER);
+				SetMenuTitle(hModeMenu, sBuffer);
+				
 				SetMenuExitButton(hModeMenu, true);
 				SetMenuExitBackButton(hModeMenu, true);
-				AddMenuItem(hModeMenu, "", "Default Mode");
-				AddMenuItem(hModeMenu, "", "Random");
-				AddMenuItem(hModeMenu, "", "Swap Top Players");
-				AddMenuItem(hModeMenu, "", "Sort Teams By Player Score");
-				AddMenuItem(hModeMenu, "", "Sort Teams By Player Kill Ratios");
+				
+				Format(sBuffer, sizeof(sBuffer), "%T", "Default Mode", LANG_SERVER);
+				AddMenuItem(hModeMenu, "", sBuffer);
+				
+				Format(sBuffer, sizeof(sBuffer), "%T", "Random Mode", LANG_SERVER);
+				AddMenuItem(hModeMenu, "", sBuffer);
+				
+				Format(sBuffer, sizeof(sBuffer), "%T", "Swap Top", LANG_SERVER);
+				AddMenuItem(hModeMenu, "", sBuffer);
+				
+				Format(sBuffer, sizeof(sBuffer), "%T", "Score Sort", LANG_SERVER);
+				AddMenuItem(hModeMenu, "", sBuffer);
+				
+				Format(sBuffer, sizeof(sBuffer), "%T", "Ratio Sort", LANG_SERVER);
+				AddMenuItem(hModeMenu, "", sBuffer);
+				
 				DisplayMenu(hModeMenu, client, MENU_TIME_FOREVER);	
 			}
 		}
