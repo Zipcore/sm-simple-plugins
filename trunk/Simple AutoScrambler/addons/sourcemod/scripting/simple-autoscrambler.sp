@@ -64,9 +64,9 @@ enum 	e_PlayerData
 {
 	Handle:hForcedTimer,
 	bool:bProtected,
+	bool:bVoted,
 	iFrags,
-	iDeaths,
-	bool:bVoted
+	iDeaths
 };
 
 enum 	e_TeamData
@@ -102,10 +102,11 @@ new		e_RoundState:g_RoundState;
 new		bool:g_bWasFullRound = false,
 			bool:g_bScrambledThisRound = false,
 			bool:g_bScrambleNextRound = false,
-			bool:g_bUseClientprefs = false;
+			bool:g_bUseClientprefs = false,
 
 new		g_iRoundCount,
-			g_iRoundStartTime;
+			g_iRoundStartTime,
+			g_iAdminsPresent;
 
 /**
 Separate files to include
@@ -286,7 +287,10 @@ public OnMapEnd()
 
 public OnClientPostAdminCheck(client)
 {
-	
+	if (GetUserFlagBits(client) & (ADMFLAG_VOTE|ADMFLAG_ROOT))
+	{
+		g_iAdminsPresent++;
+	}
 }
 
 public OnClientCookiesCached(client)
@@ -364,7 +368,7 @@ public OnClientDisconnect(client)
 	{
 		g_iVotes--;
 		g_aPlayers[client][bVoted] = false;
-	}	
+	}
 	
 	if (g_bUseClientprefs)
 	{
@@ -384,6 +388,11 @@ public OnClientDisconnect(client)
 		
 		SetClientCookie(client, g_hCookie_LastConnect, sTimeStamp);
 		SetClientCookie(client, g_hCookie_LastTeam, sTeam);
+	}
+	
+	if (GetUserFlagBits(client) & (ADMFLAG_VOTE|ADMFLAG_ROOT))
+	{
+		g_iAdminsPresent--;
 	}
 }
 

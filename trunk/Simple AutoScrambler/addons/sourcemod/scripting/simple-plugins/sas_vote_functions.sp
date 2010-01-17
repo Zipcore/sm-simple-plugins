@@ -62,7 +62,8 @@ public Action:Command_Vote(client, args)
 		return Plugin_Handled;
 	}
 	
-	if (!GetSettingValue("vote_enabled"))
+	if (!GetSettingValue("vote_enabled")
+		|| (GetSettingValue("vote_admin_disables") && g_iAdminsPresent)
 	{
 		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "Vote_Disabled");
 		return Plugin_Handled;
