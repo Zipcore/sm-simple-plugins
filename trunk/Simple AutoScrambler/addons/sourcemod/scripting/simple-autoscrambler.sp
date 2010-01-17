@@ -111,9 +111,10 @@ new		g_iRoundCount,
 /**
 Separate files to include
 */
-#include "simple-plugins/sas_config_access.sp"
-#include "simple-plugins/sas_vote_functions.sp"
+#include "simple-plugins/sas_config_functions.sp"
 #include "simple-plugins/sas_scramble_functions.sp"
+#include "simple-plugins/sas_menu_functions.sp"
+#include "simple-plugins/sas_vote_functions.sp"
 #include "simple-plugins/sas_daemon.sp"
 
 public Plugin:myinfo =
