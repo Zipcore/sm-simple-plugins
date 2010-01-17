@@ -46,7 +46,7 @@ enum e_ConfigState
 
 enum e_ConfigSection
 {
-	Section_Normal,
+	Section_Global,
 	Section_Mod,
 	Section_Map
 };
@@ -109,17 +109,16 @@ stock ProcessConfigFile()
 
 public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:quotes) 
 {
-	PrintToChatAll("In section: %s", section);
-	
-	if (StrEqual(section, "general", false) || StrEqual(section, "voting", false))
+
+	if (StrEqual(section, "global", false) || StrEqual(section, "voting", false))
 	{
-		g_eConfigSection = Section_Normal;
+		g_eConfigSection = Section_Global;
 	}
-	else if (StrEqual(section, "game_specific", false)
+	else if (StrEqual(section, "game_specific", false))
 	{
 		g_eConfigSection = Section_Mod;
 	}
-	else if (StrEqual(section, "map_settings", false)
+	else if (StrEqual(section, "map_settings", false))
 	{
 		g_eConfigSection = Section_Map;
 	}
@@ -179,9 +178,6 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 	{
 		return SMCParse_Continue;
 	}
-
-	PrintToChatAll("Current key: %s", key);
-	PrintToChatAll("Current value: %s", value);
 	
 	if (StrEqual(key, "vote_trigger", false))
 	{
@@ -198,15 +194,17 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 			SetTrieString(g_hSettings, key, value);
 		}
 	}
-	PushArrayString(g_hSettingsList, key);
+	
+	if (FindStringInArray(g_hSettingsList, "key") != -1)
+	{
+		PushArrayString(g_hSettingsList, key);
+	}
 	
 	return SMCParse_Continue;
 }
 
 public SMCResult:Config_EndSection(Handle:parser) 
-{
-	PrintToChatAll("Leaving section");
-	
+{	
 	return SMCParse_Continue;
 }
 
@@ -272,11 +270,10 @@ stock bool:IsModSection(const String:section[])
 
 stock bool:IsMapSection(const String:section[])
 {
-	new len = strlen(section) - 1;
 	new String:sCurrentMap[64];
 	GetCurrentMap(sCurrentMap, sizeof(sCurrentMap));
 	
-	if (StrContains(sCurrenMap, section) == 0)
+	if (StrContains(sCurrentMap, section) == 0)
 	{
 		return true;
 	}

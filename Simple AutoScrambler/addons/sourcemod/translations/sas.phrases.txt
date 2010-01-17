@@ -1,5 +1,10 @@
 ﻿"Phrases"
 {
+	"Scramble"
+	{
+		"#format"	"{1:s}"
+		"en" "A scramble was started because [{1}]: Scrambling Soon!"
+	}
 	"Vote_Advertisement"
 	{
 		"#format"	"{1:s}"

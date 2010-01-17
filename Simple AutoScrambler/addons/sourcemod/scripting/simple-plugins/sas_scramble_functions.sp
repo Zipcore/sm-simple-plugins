@@ -56,7 +56,7 @@ stock StartScramble(e_ScrambleMode:mode)
 	/**
 	Report that a scramble is about to start
 	*/
-	PrintCenterTextAll("%T", "Scramble", LANG_SERVER);
+	PrintCenterTextAll("%t", "Scramble", g_sScrambleReason[g_eScrambleReason]);
 	
 	/**
 	Start a timer and log the action
@@ -69,6 +69,7 @@ stock StopScramble()
 {
 	ClearTimer(g_hScrambleTimer);
 	g_bScrambling = false;
+	g_eScrambleReason = ScrambleReason_Invalid;
 }
 
 public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
@@ -91,7 +92,12 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 	if (mode == Mode_Invalid)
 	{		
 		mode = GetSettingValue("sort_mode");
-	}	
+		if (mode == Mode_Invalid)
+		{
+			LogError("Invalid sort mode detected, stopping scramble");
+		}
+	}
+	
 	g_bScrambling = true;
 	if (mode == Mode_TopSwap)
 	{
@@ -144,28 +150,20 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 		}			
 	}
 
-
-	/**
-	Reset the handle because the timer is over and the callback is done
-	*/
-	g_hScrambleTimer = INVALID_HANDLE;
-	g_bScrambling = false;
-	g_bScrambledThisRound = true;
-	
 	/**
 	Global Reset Functions
 	*/
 	ResetScores();
 	ResetStreaks();
 	ResetVotes();
-	DelayVoting(Reason_Scrambled);
+	DelayVoting(DelayReason_Scrambled);
 	
 	/**
 	Check if we need to restart the round
 	*/
 	if (GetSettingValue("restart_round")
-		|| (GetSettingValue("mid_game_restart") && g_RoundState == Round_Normal)
-		|| (g_RoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart")))
+		|| (GetSettingValue("mid_game_restart") && g_eRoundState == Round_Normal)
+		|| (g_eRoundState == Round_Normal && g_iRoundStartTime - GetTime() <= GetSettingValue("time_restart")))
 	{
 		RestartRound(g_CurrentMod);
 		if (GetSettingValue("reset_scores"))
@@ -173,6 +171,13 @@ public Action:Timer_ScrambleTeams(Handle:timer, any:mode)
 			ResetScores();
 		}
 	}
+	
+	/**
+	Reset the handle because the timer is over and the callback is done
+	*/
+	g_hScrambleTimer = INVALID_HANDLE;
+	g_bScrambling = false;
+	g_eScrambleReason = ScrambleReason_Invalid;
 	
 	/**
 	We are done, bug out.
@@ -270,7 +275,7 @@ stock bool:CanScrambleTarget(client)
 		case GameType_TF:
 		{
 			
-			if (g_RoundState == Round_Normal && TF2_IsClientUbered(client))
+			if (g_eRoundState == Round_Normal && TF2_IsClientUbered(client))
 			{
 				return false;
 			}

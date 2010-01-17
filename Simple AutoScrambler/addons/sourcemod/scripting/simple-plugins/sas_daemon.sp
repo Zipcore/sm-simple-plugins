@@ -60,12 +60,13 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 	/**
 	Run through a series of checks
 	*/
-	switch (g_RoundState)
+	switch (g_eRoundState)
 	{
 		case Map_Start:
 		{
 			if (GetSettingValue("map_load") && g_hTimer_MapStart == INVALID_HANDLE)
 			{
+				g_eScrambleReason = ScrambleReason_MapLoad;
 				g_hTimer_MapStart = CreateTimer(10.0, Timer_MapStart, _, TIMER_FLAG_NO_MAPCHANGE);
 			}
 		}
@@ -146,7 +147,7 @@ stock bool:ActiveScan()
 				{
 					iTeam1_TotalScore = GetClientScore(x);
 				}
-				else if GetClientTeam(x) == g_aCurrentTeams[Team2])
+				else if (GetClientTeam(x) == g_aCurrentTeams[Team2])
 				{
 					iTeam2_TotalScore = GetClientScore(x);
 				}
@@ -165,6 +166,7 @@ stock bool:ActiveScan()
 		*/
 		if (iCurrentDifference > iMaxScoreDifference)
 		{
+			g_eScrambleReason = ScrambleReason_AvgScoreDiff;
 			return true;
 		}
 	}
@@ -186,6 +188,7 @@ stock bool:ActiveScan()
 		*/
 		if (iCurrentDifference > iMaxFragDifference)
 		{
+			g_eScrambleReason = ScrambleReason_Frag;
 			return true;
 		}
 	}
@@ -215,6 +218,7 @@ stock bool:ActiveScan()
 			*/
 			if (iCurrentDifference > iRatioDifference)
 			{
+				g_eScrambleReason = ScrambleReason_KDRatio;
 				return true;
 			}
 		}
@@ -245,59 +249,8 @@ stock bool:ActiveScan()
 			*/
 			if (iCurrentDifference > iRatioDifference)
 			{
+				g_eScrambleReason = ScrambleReason_Dominations;
 				return true;
-			}
-		}
-	}
-	
-	return false;
-}
-
-stock bool:RoundEnd_ScrambleCheck()
-{
-
-	if ((g_iRoundCount > 0 && GetSettingValue("rounds") >= g_iRoundCount)
-		|| (GetSettingValue("win_streak") >= g_aTeamInfo[Team1][Team_WinStreak])
-		|| (GetSettingValue("win_streak") >= g_aTeamInfo[Team2][Team_WinStreak])
-		|| (g_iRoundStartTime - GetTime() <= GetSettingValue("time_limit")))
-//		I have no idea how you are gonna track this, figure it out and then use it
-//		|| (GetSettingValue("spam_protection") && g_bScrambledThisRound)
-	{
-		return true;
-	}
-	
-	if (g_CurrentMod == GameType_TF)
-	{
-		new TFGameType:eGameType = TF2_GetGameType();
-		if (eGameType != TFGameMode_ARENA)
-		{
-			new iCaps;
-			switch (eGameType)
-			{
-				case TFGameMode_CTF:
-				{
-					iCaps = GetSettingValue("tf2_intel_cap");
-				}
-				case TFGameMode_PL:
-				{
-					iCaps = GetSettingValue("tf2_pl_cap");
-				}
-				case TFGameMode_PLR:
-				{
-					iCaps = GetSettingValue("tf2_pl_cap");
-				}
-				case TFGameMode_KOTH:
-				{
-					iCaps = GetSettingValue("tf2_koth_cap");
-				}
-			}
-			
-			if (iCaps)
-			{
-				if (!g_aTeamInfo[Team1][Team_Goal] || !g_aTeamInfo[Team2][Team_Goal])
-				{
-					return true;
-				}
 			}
 		}
 	}
