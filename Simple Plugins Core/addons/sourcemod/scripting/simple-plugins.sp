@@ -38,7 +38,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <simple-plugins>
 
-enum e_PlayerInfo
+enum	e_PlayerInfo
 {
 	Handle:hForcedTeamPlugin = INVALID_HANDLE,
 	iForcedTeam = 0,
@@ -46,9 +46,15 @@ enum e_PlayerInfo
 	bool:bBuddyLocked = false
 };
 
-new Handle:g_fwdPlayerMoved;
-new g_aPlayers[MAXPLAYERS + 1][e_PlayerInfo];
-new bool:g_bTeamsSwitched = false;
+new 	Handle:g_fwdPlayerMoved;
+
+new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerInfo];
+
+new 	bool:g_bTeamsSwitched = false;
+new 	bool:g_bBuddyEnabled = true;
+new 	bool:g_bBuddyRestriction = false;
+
+new		String:g_sAdminFlag[16];
 
 /**
 Setting our plugin information.
@@ -85,9 +91,12 @@ public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
 public OnPluginStart()
 {
 	
-	CreateConVar("ssm_core_pl_ver", CORE_PLUGIN_VERSION, "Simple SourceMod Plugins Core Plugin Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_inc_ver", CORE_INC_VERSION, "Simple SourceMod Plugins Core Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-
+	CreateConVar("ssm_core_pl_ver", CORE_PLUGIN_VERSION, "Simple Plugins Core Plugin Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_inc_ver", CORE_INC_VERSION, "Simple Plugins Core Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_l4d_ver", CORE_SM_INC_VERSION, "Simple Plugins Core SM Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_tf2_ver", CORE_TF2_INC_VERSION, "Simple Plugins Core TF2 Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_l4d_ver", CORE_L4D_INC_VERSION, "Simple Plugins Core L4D Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	
 	/**
 	Get game type and load the team numbers
 	*/
@@ -98,7 +107,7 @@ public OnPluginStart()
 	Hook some events to control forced players and check extensions
 	*/
 	decl String:sExtError[256];
-	LogAction(0, -1, "[SSM] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
+	LogMessage("[SSM] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	HookEvent("player_team", HookPlayerChangeTeam, EventHookMode_Pre);
 	switch (g_CurrentMod)
 	{
@@ -109,20 +118,20 @@ public OnPluginStart()
 			new iExtStatus = GetExtensionFileStatus("game.cstrike.ext", sExtError, sizeof(sExtError));
 			if (iExtStatus == -2)
 			{
-				LogAction(0, -1, "[SSM] Required extension was not found.");
-				LogAction(0, -1, "[SSM] Plugin FAILED TO LOAD.");
+				LogMessage("[SSM] Required extension was not found.");
+				LogMessage("[SSM] Plugin FAILED TO LOAD.");
 				SetFailState("Required extension was not found.");
 			}
 			if (iExtStatus == -1 || iExtStatus == 0)
 			{
-				LogAction(0, -1, "[SSM] Required extension is loaded with errors.");
-				LogAction(0, -1, "[SSM] Status reported was [%s].", sExtError);
-				LogAction(0, -1, "[SSM] Plugin FAILED TO LOAD.");
+				LogMessage("[SSM] Required extension is loaded with errors.");
+				LogMessage("[SSM] Status reported was [%s].", sExtError);
+				LogMessage("[SSM] Plugin FAILED TO LOAD.");
 				SetFailState("Required extension is loaded with errors.");
 			}
 			if (iExtStatus == 1)
 			{
-				LogAction(0, -1, "[SSM] Required extension is loaded.");
+				LogMessage("[SSM] Required extension is loaded.");
 			}
 		}
 		case GameType_TF:
@@ -133,20 +142,20 @@ public OnPluginStart()
 			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
 			if (iExtStatus == -2)
 			{
-				LogAction(0, -1, "[SSM] Required extension was not found.");
-				LogAction(0, -1, "[SSM] Plugin FAILED TO LOAD.");
+				LogMessage("[SSM] Required extension was not found.");
+				LogMessage("[SSM] Plugin FAILED TO LOAD.");
 				SetFailState("Required extension was not found.");
 			}
 			if (iExtStatus == -1 || iExtStatus == 0)
 			{
-				LogAction(0, -1, "[SSM] Required extension is loaded with errors.");
-				LogAction(0, -1, "[SSM] Status reported was [%s].", sExtError);
-				LogAction(0, -1, "[SSM] Plugin FAILED TO LOAD.");
+				LogMessage("[SSM] Required extension is loaded with errors.");
+				LogMessage("[SSM] Status reported was [%s].", sExtError);
+				LogMessage("[SSM] Plugin FAILED TO LOAD.");
 				SetFailState("Required extension is loaded with errors.");
 			}
 			if (iExtStatus == 1)
 			{
-				LogAction(0, -1, "[SSM] Required extension is loaded.");
+				LogMessage("[SSM] Required extension is loaded.");
 			}
 		}
 		case GameType_DOD:
@@ -223,8 +232,7 @@ public Action:Command_AddBalanceBuddy(client, args)
 			PrintHintText(client, "%T", "SelectSelf", LANG_SERVER);
 		}
 		ReplyToCommand(client, "[SM] Usage: buddy <userid>");
-		new Handle:playermenu = BuildPlayerMenu();
-		DisplayMenu(playermenu, client, MENU_TIME_FOREVER);	
+		DisplayPlayerMenu(client);
 	} 
 	else 
 	{
@@ -786,6 +794,55 @@ public Action:Timer_ForcePlayerMove(Handle:timer, any:iClient)
 	PrintToChat(iClient, "\x01\x04----------------------------------");
 	
 	return Plugin_Handled;
+}
+
+stock DisplayPlayerMenu(client, time = MENU_TIME_FOREVER)
+{
+	new Handle:hMenu = CreateMenu(Menu_SelectPlayer);
+	AddTargetsToMenu(hMenu, 0, true, false);
+	SetMenuTitle(hMenu, "Select A Player:");
+	SetMenuExitButton(hMenu, true);
+	DisplayMenu(hMenu, client, time);
+}
+
+public Menu_SelectPlayer(Handle:menu, MenuAction:action, param1, param2)
+{
+	if (action == MenuAction_Select)
+	{
+		new String:sSelection[24];
+		GetMenuItem(menu, param2, sSelection, sizeof(sSelection));
+		new buddy = GetClientOfUserId(StringToInt(sSelection));
+		new client = param1;
+		if (client == buddy) 
+		{
+			PrintHintText(client, "%t", "SelectSelf");
+		}
+		else if (!IsClientInGame(buddy)) 
+		{
+			PrintHintText(client, "%t", "BuddyGone");
+		}
+		else 
+		{
+			decl String:cName[128];
+			decl String:bName[128];
+			GetClientName(client, cName, sizeof(cName));
+			GetClientName(buddy, bName, sizeof(bName));
+			if (!SM_IsBuddyLocked(buddy)) 
+			{
+				SM_AssignBuddy(client, buddy);
+				PrintHintText(client, "%t", "BuddyMsg", bName);
+				PrintHintText(buddy, "%t", "BuddyMsg", cName);
+			} 
+			else
+			{
+				PrintHintText(client, "%t", "PlayerLockedBuddyMsg", bName);
+			}
+		}
+	} 
+	else if (action == MenuAction_End) 
+	{
+		CloseHandle(menu);
+	}
 }
 
 stock MovePlayer(iClient, iTeam)

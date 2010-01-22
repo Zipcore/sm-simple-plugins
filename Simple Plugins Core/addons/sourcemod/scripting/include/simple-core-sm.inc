@@ -36,15 +36,60 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #if defined _simple_core_sm_included
 	#endinput
 #endif
+#define _simple_core_sm_included
+
 
 #include <sdktools>
-
-#define _simple_core_sm_included
+#include <simple-plugins>
 
 #define CORE_SM_INC_VERSION "1.0.$Rev$"
 
 #define IN  (0x0001 | 0x0010)
 #define OUT (0x0002 | 0x0008)
+
+enum e_SupportedMods
+{
+	GameType_Unknown,
+	GameType_AOC,
+	GameType_CSS,
+	GameType_DOD,
+	GameType_FF,
+	GameType_HIDDEN,
+	GameType_HL2DM,
+	GameType_INS,
+	GameType_L4D,
+	GameType_L4D2,
+	GameType_NEO,
+	GameType_SGTLS,
+	GameType_TF,
+	GameType_ZPS
+};
+
+enum e_Teams
+{
+	Unknown,
+	Spectator,
+	Team1,
+	Team2
+};
+
+new g_aCurrentTeams[e_Teams];
+new e_SupportedMods:g_CurrentMod;
+new String:g_sGameName[e_SupportedMods][32] = {	"Unknown",
+																							"Age of Chivalry",
+																							"Counter Strike",
+																							"Day Of Defeat",
+																							"Fortress Forever",
+																							"Hidden: Source",
+																							"Half Life 2: Deathmatch",
+																							"Insurgency",
+																							"Left 4 Dead",
+																							"Left 4 Dead 2",
+																							"Neotokyo",
+																							"Stargate TLS",
+																							"Team Fortress 2",
+																							"Zombie Panic: Source"
+																						};
 
 new g_FilteredEntity = -1;
 
@@ -66,9 +111,9 @@ stock bool:RemovePunctuation(String:input[], String:buffer[], maxlength)
 	return found;
 }
 
-stock bool:IsValidClient(client) 
+stock bool:IsValidClient(client, bool:nobots = true)
 { 
-    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client)) 
+    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client)))
     { 
       return false; 
     } 
@@ -98,6 +143,27 @@ stock ClearTimer(&Handle:timer)
 	timer = INVALID_HANDLE;
 }
 
+stock GetClientScore(client)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_TF:
+		{
+			return TF2_GetClientScore(client);
+		}
+		case GameType_DOD:
+		{
+			// something
+		}
+		default:
+		{
+			return 0;  //need to find basic frags
+		}
+	}
+	
+	return 0;
+}
+
 stock RestartRound(e_SupportedMods:mod)
 {
 	switch (mod)
@@ -105,6 +171,17 @@ stock RestartRound(e_SupportedMods:mod)
 		default:
 		{
 			ServerCommand("mp_restartgame 1");
+		}
+	}
+}
+
+stock ResetGameScores(e_SupportedMods:mod)
+{
+	switch (mod)
+	{
+		default:
+		{
+			//something
 		}
 	}
 }
@@ -496,4 +573,85 @@ stock FindRandomPlayer()
 		client = GetRandomInt(1, MAXPLAYERS + 1); 
 	} while (!IsValidClient(client)); 
 	return client; 
+}
+
+public e_SupportedMods:GetCurrentMod()
+{
+	new String:sGameType[64];
+	GetGameFolderName(sGameType, sizeof(sGameType));
+	
+	if (StrEqual(sGameType, "aoc", false))
+	{
+		return GameType_AOC;
+	}
+	if (StrEqual(sGameType, "cstrike", false))
+	{
+		return GameType_CSS;
+	}
+	if (StrEqual(sGameType, "dod", false))
+	{
+		return GameType_DOD;
+	}
+	if (StrEqual(sGameType, "ff", false))
+	{
+		return GameType_FF;
+	}
+	if (StrEqual(sGameType, "hidden", false))
+	{
+		return GameType_HIDDEN;
+	}
+	if (StrEqual(sGameType, "hl2mp", false))
+	{
+		return GameType_FF;
+	}
+	if (StrEqual(sGameType, "insurgency", false) || StrEqual(sGameType, "ins", false))
+	{
+		return GameType_INS;
+	}
+	if (StrEqual(sGameType, "left4dead", false) || StrEqual(sGameType, "l4d", false))
+	{
+		return GameType_L4D;
+	}
+	if (StrEqual(sGameType, "left4dead2", false) || StrEqual(sGameType, "l4d2", false))
+	{
+		return GameType_L4D2;
+	}
+	if (StrEqual(sGameType, "nts", false))
+	{
+		return GameType_NEO;
+	}
+	if (StrEqual(sGameType, "sgtls", false))
+	{
+		return GameType_SGTLS;
+	}
+	if (StrEqual(sGameType, "tf", false))
+	{
+		return GameType_TF;
+	}
+	if (StrEqual(sGameType, "zps", false))
+	{
+		return GameType_ZPS;
+	}
+	return GameType_Unknown;
+}
+
+public LoadCurrentTeams()
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_INS:
+		{
+			g_aCurrentTeams[Unknown] = 0;
+			g_aCurrentTeams[Spectator] = 3;
+			g_aCurrentTeams[Team1] = 1;
+			g_aCurrentTeams[Team2] = 2;
+		}
+		default:
+		{
+			g_aCurrentTeams[Unknown] = 0;
+			g_aCurrentTeams[Spectator] = 1;
+			g_aCurrentTeams[Team1] = 2;
+			g_aCurrentTeams[Team2] = 3;
+		}
+	}
 }
