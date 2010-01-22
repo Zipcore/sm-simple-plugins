@@ -182,7 +182,7 @@ public Menu_VoteEnded(Handle:menu, MenuAction:action, param1, param2)
 			new iVotes, iTotalVotes;
 			GetMenuVoteInfo(param2, iVotes, iTotalVotes);
 			new	Float:fSuccess = float(GetSettingValue("vote_menu_percentage") / 100);
-			new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fPercent);
+			new	iVotesNeeded = RoundToFloor(float(GetClientCount()) * fSuccess);
 			if (param1 == 0)
 			{
 				if (iVotes >= iVotesNeeded)
