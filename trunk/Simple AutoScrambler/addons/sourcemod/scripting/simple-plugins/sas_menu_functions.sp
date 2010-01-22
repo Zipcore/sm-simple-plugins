@@ -212,17 +212,18 @@ stock ShowScrambleMenu(client)
 	new Handle:hScrambleMenu = INVALID_HANDLE,
 			String:sBuffer[255];
 	hScrambleMenu = CreateMenu(Menu_Scramble);
-	SetGlobalTransTarget(client);
-	
+	SetGlobalTransTarget(client);	
 	Format(sBuffer, sizeof(sBuffer), "%t", "ScrambleMenu When");
 	SetMenuTitle(hScrambleMenu, sBuffer);
 	
 	SetMenuExitButton(hScrambleMenu, true);
 	SetMenuExitBackButton(hScrambleMenu, true);
 	
+	SetGlobalTransTarget(client);	
 	Format(sBuffer, sizeof(sbuffer), "%t", "Scramble Next Round");
 	AddMenuItem(hScrambleMenu, "", sBuffer);
 	
+	SetGlobalTransTarget(client);	
 	Format(sBuffer, sizeof(sBuffer), "%t", "Scramble Now");
 	AddMenuItem(hScrambleMenu, "", sBuffer);
 	
@@ -248,28 +249,34 @@ public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2)
 				/**
 				show mode selection menu
 				*/
-				SetGlobalTransTarget(client);
+				
 				new Handle:hModeMenu = INVALID_HANDLE;
 				hModeMenu = CreateMenu(Menu_ModeSelect);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Choose Mode");
 				SetMenuTitle(hModeMenu, sBuffer);
 				
 				SetMenuExitButton(hModeMenu, true);
 				SetMenuExitBackButton(hModeMenu, true);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Default Mode");
 				AddMenuItem(hModeMenu, "", sBuffer);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Random Mode");
 				AddMenuItem(hModeMenu, "", sBuffer);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Swap Top");
 				AddMenuItem(hModeMenu, "", sBuffer);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Score Sort");
 				AddMenuItem(hModeMenu, "", sBuffer);
 				
+				SetGlobalTransTarget(client);
 				Format(sBuffer, sizeof(sBuffer), "%t", "Ratio Sort");
 				AddMenuItem(hModeMenu, "", sBuffer);
 				
