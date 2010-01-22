@@ -83,4 +83,23 @@
 	{
 		"en"	"Sort by Player Kill Ratios"
 	}
+	"CheckConsoleForList"
+	{
+		"en" "Check console for a list of settings"
+	}
+	"Reset Score Tracking"
+	{
+		"#format" "{1:N}"
+		"en"	"{1} reset the score tracking for the scrambler"
+	}
+	"Changed Setting"
+	{
+		"#format"	"{1:N},{2:s},{3:s}"
+		"en"	"{1} changed the scramble option ({2}) to ({3})"
+	}
+	"Reloaded Config"
+	{
+		"#format"	"{1:N}"
+		"en"	"{1} reloaded the scrambler config file"
+	}
 }
