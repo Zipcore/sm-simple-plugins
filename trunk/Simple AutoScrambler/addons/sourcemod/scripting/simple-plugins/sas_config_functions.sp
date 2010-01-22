@@ -100,7 +100,7 @@ stock ProcessConfigFile()
 		if (result != SMCError_Okay) 
 		{
 			SMC_GetErrorString(result, error, sizeof(error));
-			LogError("%s on line %d, col %d of %s", error, line, col, sConfigFile);
+			LogError("[SAS] %s on line %d, col %d of %s", error, line, col, sConfigFile);
 			LogError("[SAS] Simple AutoScrambler is not running! Failed to parse %s", sConfigFile);
 			SetFailState("Could not parse file %s", sConfigFile);
 		}
@@ -183,6 +183,32 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 	{
 		g_eConfigState = Reading_Strings;
 	}
+	
+	if (g_eConfigSection == Section_Map)
+	{
+		switch (g_eConfigState)
+		{
+			case Reading_Integers:
+			{
+				new iBuffer;
+				if (!GetTrieValue(g_hSettings, key, iBuffer))
+				{
+					LogError("[SAS] Invalid key used in map section.");
+					return SMCParse_Continue;
+				}
+			}
+			case Reading_Strings:
+			{
+				new String:sBuffer[64];
+				if (!GetTrieString(g_hSettings, key, sBuffer, sizeof(sBuffer)))
+				{
+					LogError("[SAS] Invalid key used in map section.");
+					return SMCParse_Continue;
+				}
+			}
+		}
+	}
+	
 	switch (g_eConfigState)
 	{
 		case Reading_Integers:
@@ -257,6 +283,9 @@ stock bool:IsAuthorized(client, const String:flagkey[])
 	return false;
 }
 
+/**
+Stocks for the parser
+*/
 stock bool:IsModSection(const String:section[])
 {
 	new String:sGameFolder[64];

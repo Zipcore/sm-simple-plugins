@@ -133,18 +133,18 @@ new		g_iRoundCount,
 			g_iAdminsPresent;
 			
 new		String:g_sScrambleReason[e_ScrambleReasons][128] =	{	"Invalid",
-																										"Command",
-																										"Vote",
-																										"Map Load",
-																										"Team Steam Rolled",
-																										"Win Streak",
-																										"Round Limit",
-																										"Unbalanced Score",
-																										"Unbalanced Frags",
-																										"Unbalanced K/D Ratio",
-																										"Unbalanced Dominations",
-																										"Unbalanced Caps"
-																									};
+																											"Command",
+																											"Vote",
+																											"Map Load",
+																											"Team Steam Rolled",
+																											"Win Streak",
+																											"Round Limit",
+																											"Unbalanced Score",
+																											"Unbalanced Frags",
+																											"Unbalanced K/D Ratio",
+																											"Unbalanced Dominations",
+																											"Unbalanced Caps"
+																										};
 
 /**
 Separate files to include
