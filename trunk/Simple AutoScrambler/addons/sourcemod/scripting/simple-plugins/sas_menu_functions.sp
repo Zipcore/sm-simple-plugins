@@ -71,7 +71,7 @@ public OnAdminMenuReady(Handle:hMenu)
 /**
 formats the titles for the sas category
 */
-public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, param, String:buffer[], maxlength)
+public Handle_Category(Handle:topmenu, TopMenuAction:action, TopMenuObject:object_id, client, String:buffer[], maxlength)
 {
 	switch (action)
 	{
@@ -220,7 +220,7 @@ stock ShowScrambleMenu(client)
 	SetMenuExitBackButton(hScrambleMenu, true);
 	
 	SetGlobalTransTarget(client);	
-	Format(sBuffer, sizeof(sbuffer), "%t", "Scramble Next Round");
+	Format(sBuffer, sizeof(sBuffer), "%t", "Scramble Next Round");
 	AddMenuItem(hScrambleMenu, "", sBuffer);
 	
 	SetGlobalTransTarget(client);	
@@ -250,7 +250,8 @@ public Menu_Scramble(Handle:scrambleMenu, MenuAction:action, client, param2)
 				show mode selection menu
 				*/
 				
-				new Handle:hModeMenu = INVALID_HANDLE;
+				new Handle:hModeMenu = INVALID_HANDLE,
+						String:sBufer[64];
 				hModeMenu = CreateMenu(Menu_ModeSelect);
 				
 				SetGlobalTransTarget(client);
