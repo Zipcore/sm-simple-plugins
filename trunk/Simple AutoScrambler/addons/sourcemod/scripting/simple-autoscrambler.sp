@@ -526,8 +526,8 @@ public Action:Command_ResetScores(client, args)
 	/**
 	Log some activity
 	*/
-	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reset the score tracking for the scrambler", client);
-	LogAction(client, -1, "%N reset the score tracking for the scrambler", client);
+	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%t", "Reset Score Tracking", client);
+	LogAction(client, -1, "%T", "Reset Score Tracking", LANG_SERVER, client);
 	
 	/**
 	We are done, bug out.
@@ -560,7 +560,7 @@ public Action:Command_SetSetting(client, args)
 		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 		if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
 		{
-			ReplyToCommand(client, "Check console for a list of settings");
+			ReplyToCommand(client, "%t", "CheckConsoleForList");
 		}
 		PrintSettings(client);
 		
@@ -649,7 +649,7 @@ public Action:Command_SetSetting(client, args)
 		ReplyToCommand(client, "sm_scramblesetting <setting> <value>: Sets a plugin setting");
 		if (GetCmdReplySource() == SM_REPLY_TO_CHAT)
 		{
-			ReplyToCommand(client, "Check console for a list of settings");
+			ReplyToCommand(client, "%t", "CheckConsoleForList");
 		}
 		PrintSettings(client);
 		
@@ -665,8 +665,8 @@ public Action:Command_SetSetting(client, args)
 		We didn't have an error
 		Log some activity
 		*/
-		ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N changed the scramble option (%s) to (%s)", client, sArg[0], sArg[1]);
-		LogAction(client, -1, "%N changed the scramble option (%s) to (%s)", client, sArg[0], sArg[1]);
+		ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%t", "Changed Setting", client, sArg[0], sArg[1]);
+		LogAction(client, -1, "%T", "Changed Setting", LANG_SERVER, client, sArg[0], sArg[1]);
 		
 		/**
 		Check if the timer settings were changed and restart the timer
@@ -710,8 +710,8 @@ public Action:Command_Reload(client, args)
 	/**
 	Log some activity
 	*/
-	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%N reloaded the scrambler config file", client);
-	LogAction(client, -1, "%N reloaded the config file", client);
+	ShowActivityEx(client, "\x01\x04[SAS]\x01 ", "%t", "Reloaded Config", client);
+	LogAction(client, -1, "%T", "Reloaded Config", LANG_SERVER, client);
 	
 	/**
 	We are done, bug out.
