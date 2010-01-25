@@ -33,32 +33,23 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
 */
-#if defined _simple_core_l4d_included
+#if defined _simple_core_css_included
 	#endinput
 #endif
 
-#define _simple_core_l4d_included
+#define _simple_core_css_included
 
-#define CORE_L4D_INC_VERSION "0.1.$Rev$"
+#tryinclude <cstrike>
 
-enum e_L4DGameType
+#define CORE_CSS_INC_VERSION "0.1.$Rev$"
+
+enum e_CSSGameType
 {
-	L4DGameMode_Unknown,
-	L4DGameMode_Coop,
-	L4DGameMode_Versus,
-	L4DGameMode_TeamVersus,
-	L4DGameMode_Scavenge,
-	L4DGameMode_TeamScavenge,
-	L4DGameMode_Survial,
-	L4DGameMode_Realism
+	CSSGameMode_Unknown,
+
 };
 
-enum e_L4DGameDifficulty
-{
-	
-}
-
-stock e_L4DGameType:L4D_GetGameType()
+stock e_CSSGameType:CSS_GetGameType()
 {	
 	new Handle:hGameMode = FindConVar("mp_gamemode");
 	new String:sGameMode[32];
@@ -72,26 +63,6 @@ stock e_L4DGameType:L4D_GetGameType()
 	{
 		return L4DGameMode_Versus;
 	}
-	else if (StrEqual(sGameMode, "teamversus", false))
-	{
-		return L4DGameMode_TeamVersus;
-	}
-	else if (StrEqual(sGameMode, "scavenge", false))
-	{
-		return L4DGameMode_Scavenge;
-	}
-	else if (StrEqual(sGameMode, "teamscavenge", false))
-	{
-		return L4DGameMode_TeamScavenge;
-	}
-	else if (StrEqual(sGameMode, "survival", false))
-	{
-		return L4DGameMode_Survial;
-	}
-	else if (StrEqual(sGameMode, "realism", false))
-	{
-		return L4DGameMode_Realism;
-	}
 	
-	return L4DGameMode_Unknown;
+	return CSSGameMode_Unknown;
 }

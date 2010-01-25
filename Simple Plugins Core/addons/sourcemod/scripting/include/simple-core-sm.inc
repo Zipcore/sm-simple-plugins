@@ -38,11 +38,17 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #endif
 #define _simple_core_sm_included
 
-
 #include <sdktools>
-#include <simple-plugins>
+#tryinclude <simple-core-l4d>
+#tryinclude <simple-core-css>
+#tryinclude <simple-core-ins>
+#tryinclude <simple-core-tf2>
+#tryinclude <simple-core-css>
+#undef REQUIRE_PLUGIN
+#include <adminmenu>
+#define REQUIRE_PLUGIN
 
-#define CORE_SM_INC_VERSION "1.0.$Rev$"
+#define CORE_SM_INC_VERSION "0.1.$Rev$"
 
 #define IN  (0x0001 | 0x0010)
 #define OUT (0x0002 | 0x0008)
@@ -164,9 +170,9 @@ stock GetClientScore(client)
 	return 0;
 }
 
-stock RestartRound(e_SupportedMods:mod)
+stock RestartRound()
 {
-	switch (mod)
+	switch (g_CurrentMod)
 	{
 		default:
 		{
@@ -184,6 +190,82 @@ stock ResetGameScores(e_SupportedMods:mod)
 			//something
 		}
 	}
+}
+
+stock MovePlayer(client, team)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_CSS:
+		{
+			CS_SwitchTeam(client, team);
+		}
+		default:
+		{
+			ChangeClientTeam(client, team);
+		}
+	}
+}
+
+stock RespawnPlayer(client)
+{
+	switch (g_CurrentMod)
+	{
+		case GameType_CSS:
+		{
+			CS_RespawnPlayer(client);
+		}
+		case GameType_TF:
+		{
+			TF2_RespawnPlayer(client);
+		}
+		case GameType_INS:
+		{
+			FakeClientCommand(client, "kill");
+		}
+		default:
+		{
+			//
+		}
+	}
+}
+
+stock bool:CheckExtStatus(const String:extension[], bool:required = false, bool:logerrors = true)
+{
+	decl String:sExtError[256];
+	new iExtStatus = GetExtensionFileStatus(extension, sExtError, sizeof(sExtError));
+	if (iExtStatus == -2)
+	{
+		if (logerrors)
+		{
+			LogMessage("%s extension was not found.", extension);
+		}
+		if (logerrors && required)
+		{
+			LogMessage("Plugin FAILED TO LOAD.");
+			SetFailState("Required extension was not found.");
+		}
+		return false;
+	}
+	if (iExtStatus == -1 || iExtStatus == 0)
+	{
+		if (logerrors)
+		{
+			LogMessage("%s extension is loaded with errors.", extension);
+			LogMessage("Status reported was [%s].", sExtError);
+		}
+		if (logerrors && required)
+		{
+			LogMessage("Plugin FAILED TO LOAD.");
+			SetFailState("Required extension is loaded with errors.");
+		}
+		return false;
+	}
+	if (iExtStatus == 1)
+	{
+		LogMessage("%s extension is loaded.", extension);
+	}
+	return true;
 }
 
 stock bool:EdictEqual(ent, const String:name[])
@@ -575,7 +657,7 @@ stock FindRandomPlayer()
 	return client; 
 }
 
-public e_SupportedMods:GetCurrentMod()
+stock e_SupportedMods:GetCurrentMod()
 {
 	new String:sGameType[64];
 	GetGameFolderName(sGameType, sizeof(sGameType));
@@ -635,7 +717,53 @@ public e_SupportedMods:GetCurrentMod()
 	return GameType_Unknown;
 }
 
-public LoadCurrentTeams()
+stock GetSmallerTeam()
+{
+	
+	/**
+	Get the count of players on each team
+	*/
+	new iCountT1 = GetTeamClientCount(g_aCurrentTeams[Team1]);
+	new iCountT2 = GetTeamClientCount(g_aCurrentTeams[Team2]);
+	
+	/**
+	Return the smaller team
+	*/
+	if (iCountT1 < iCountT2)
+	{
+		return g_aCurrentTeams[Team1];
+	}
+	else if (iCountT1 > iCountT2)
+	{
+		return g_aCurrentTeams[Team2];
+	}
+	return 0;
+}
+
+stock GetBiggerTeam()
+{
+
+	/**
+	Get the count of players on each team
+	*/
+	new iCountT1 = GetTeamClientCount(g_aCurrentTeams[Team1]);
+	new iCountT2 = GetTeamClientCount(g_aCurrentTeams[Team2]);
+	
+	/**
+	Return the bigger team
+	*/
+	if (iCountT1 > iCountT2)
+	{
+		return g_aCurrentTeams[Team1];
+	}
+	else if (iCountT1 < iCountT2)
+	{
+		return g_aCurrentTeams[Team2];
+	}
+	return 0;
+}
+
+stock LoadCurrentTeams()
 {
 	switch (g_CurrentMod)
 	{

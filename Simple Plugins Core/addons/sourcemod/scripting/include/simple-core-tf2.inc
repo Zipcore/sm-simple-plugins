@@ -39,7 +39,10 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define _simple_core_tf2_included
 
-#define CORE_TF2_INC_VERSION "1.0.$Rev$"
+#tryinclude <tf2>
+#tryinclude <tf2_stocks>
+
+#define CORE_TF2_INC_VERSION "0.1.$Rev$"
 
 //m_nPlayerCond Values
 #define TF2_PLAYERCOND_SLOWED    		(1<<0)    //Zoomed / Arrow drawn / minigun spinning
@@ -557,8 +560,7 @@ stock TF2_GetRandomClass()
 stock TF2_GetClassPlayers(team, cls) 
 {
 	new numPlayers = 0;
-	new maxclients = GetMaxClients();
-	for (new i = 1; i <= maxclients; i++)
+	for (new i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i) && IsClientConnected(i))
 		{
@@ -736,6 +738,31 @@ stock bool:TF2_DoesClientHaveBuilding(client, const String:building[])
 	{
 		if (GetEntDataEnt2(iEnt, FindSendPropInfo("CBaseObject", "m_hBuilder")) == client)
 			return true;
+	}
+	return false;
+}
+
+stock bool:TF2_DoesClientHaveBuildings(client)
+{
+	new iMaxEntities = GetMaxEntities();
+	new iOwnerOffset = FindSendPropInfo("CBaseObject", "m_hBuilder");
+	for (new x = MaxClients + 1; x <= iMaxEntities; x++)
+	{
+		if (!IsValidEntity(x))
+		{
+			continue;
+		}
+		decl String:sNetClass[32];
+		GetEntityNetClass(x, sNetClass, sizeof(sNetClass));
+		if (strcmp(sNetClass, "CObjectSentrygun") == 0 
+		|| strcmp(sNetClass, "CObjectTeleporter") == 0 
+		|| strcmp(sNetClass, "CObjectDispenser") == 0) 
+		{
+			if (GetEntDataEnt2(x, iOwnerOffset) == client)
+			{
+				return true;
+			}
+		}
 	}
 	return false;
 }
