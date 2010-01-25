@@ -7,20 +7,6 @@
 		"de"		"Die Teams sind ungleich und werden in Kürze ausgeglichen"
 		"hu"		"A csapatok nem kiegyenlitettek! Egyensuly beallitas kovetkezik!"
 	}
-	"Enabled"
-	{
-		"en"		"Simple Team Balancer is ENABLED"
-		"fr"		"Simple Team Balancer est ACTIVE"
-		"de"		"Simple Team Balancer ist AKTIV"
-		"hu"		"Az Egyszeru Csapat Egyensulytarto AKTIV!"
-	}
-	"Disabled"
-	{
-		"en"		"Simple Team Balancer is DISABLED"
-		"fr"		"Simple Team Balancer est DESACTIVE"
-		"de"		"Simple Team Balancer ist INAKTIV"
-		"hu"		"Az Egyszeru Csapat Egyensulytarto INAKTIV!"
-	}
 	"PlayerMessage"
 	{
 		"#format"	"{1:i}"
@@ -31,32 +17,11 @@
 	}
 	"BalanceMessage"
 	{
-		"#format"	"{1:s}"
+		"#format"	"{1:N}"
 		"en"		"{1} was moved to the other team for game balance"
 		"fr"		"{1} est passé dans l'autre équipe pour équilibrer la partie"
 		"de"		"{1} wurde zum anderen Team verschoben um das Spiel auszugleichen"
 		"hu"		"{1} at lett helyezve az egyensuly megtartasa erdekeben."
-	}
-	"PlayerLevelCmd"
-	{
-		"en"		"Command must be run at the player level"
-		"fr"		"La commande doit être lancée au niveau du joueur"
-		"de"		"Das Kommando muss auf Spieler Ebene ausgeführt werden"
-		"hu"		"Jatekosi szinten kell futtatni ezt a parancsot!"
-	}
-	"CmdDisabled"
-	{
-		"en"		"Command is currently disabled"
-		"fr"		"La commande est actuellement désactivée"
-		"de"		"Das Kommando ist momentan inaktiv"
-		"hu"		"A parancs jelenleg inaktiv"
-	}
-	"RestrictedBuddy"
-	{
-		"en"		"You must be a donator or admin to add a balance buddy"
-		"fr"		"Vous devez être un donateur ou un admin pour choisir un partenaire"
-		"de"		"Du musst ein Spender oder Admin sein um einen Partner wählen zu können"
-		"hu"		"Tamogato vagy admin kell hogy legyel, hogy 'Tarsat' jelolhess meg"
 	}
 	"SelectSelf"
 	{
@@ -74,7 +39,7 @@
 	}
 	"BuddyMsg"
 	{
-		"#format"	"{1:s}"
+		"#format"	"{1:N}"
 		"en"		"You and {1} are now buddies"
 		"fr"		"Vous et {1} êtes maintenant partenaires"
 		"de"		"Du und {1} seid jetzt Partner"
@@ -96,32 +61,25 @@
 	}
 	"PlayerLockedBuddyMsg"
 	{
-		"#format"	"{1:s}"
+		"#format"	"{1:N}"
 		"en"		"{1} has locked his buddy selection. Try again"
 		"fr"		"{1} a bloqué sa sélection de partenaire. Essayez de nouveau."
 		"de"		"{1} hat seine Wahl des Partners gesperrt. Versuche es erneut"
 		"hu"		"{1} lezarta a Tars-listajat. Probald kesobb!"
 	}
-	"BuddyWelcomeMsg1"
+	"CheckConsoleForList"
 	{
-		"en"		"Select a balance buddy and stay together during an autobalance!"
-		"fr"		"Choisissez un partenaire et restez ensemble durant l'équilibrage automatique!"
-		"de"		"Wähle einen Partner und bleibt zusammen während eines Ausgleichs"
-		"hu"		"Valasz ki egy 'Tarsat' akivel egyuttmaradhatsz a csapatkiegyenlites alatt!" 
+		"en" "Check console for a list of settings"
 	}
-	"BuddyWelcomeMsg2"
+	"Changed Setting"
 	{
-		"en"		"/buddy or !buddy to select a balance buddy"
-		"fr"		"/buddy or !buddy pour choisir un partenaire"
-		"de"		"/buddy oder !buddy um einen Partner zu wählen"
-		"hu"		"Hasznald a /buddy vagy !buddy parancsokat a 'Tars' kijelolesehez"
+		"#format"	"{1:N},{2:s},{3:s}"
+		"en"	"{1} changed the scramble option ({2}) to ({3})"
 	}
-	"BuddyWelcomeMsg3"
+	"Reloaded Config"
 	{
-		"en"		"/lockbuddy or !lockbuddy to lock your selection"
-		"fr"		"/lockbuddy or !lockbuddy pour bloquer votre sélection"
-		"de"		"/lockbuddy oder !lockbuddy um deine Auswahl zu sperren"
-		"hu"		"Hasznald a /lockbuddy vagy a !lockbuddy parancsokat a Tars-listad lezarasahoz"
+		"#format"	"{1:N}"
+		"en"	"{1} reloaded the scrambler config file"
 	}
 }
 
