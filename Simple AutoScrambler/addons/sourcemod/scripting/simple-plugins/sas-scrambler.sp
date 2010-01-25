@@ -357,11 +357,11 @@ stock bool:CanScrambleTarget(client)
 
 stock bool:IsClientTopPlayer(client)
 {
-	new	iScores[GetTeamClientCount(GetClientTeam(client))][2],
+	new iTeam = GetClientTeam(client),	iScores[GetTeamClientCount(iTeam)][2],
 			iCount, iProtection = GetSettingValue("top_protection");
 	for (new i = 1; i < MaxClients; i++)
 	{
-		if (IsValidClient(i, !GetSettingValue("bots_included"))
+		if (IsValidClient(i, !GetSettingValue("bots_included") && GetClientTeam(i) == iTeam)
 		{
 			iScores[count++][0] = i;
 			iScores[count][1] = GetClientScore(i);
