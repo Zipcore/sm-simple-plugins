@@ -42,16 +42,10 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #pragma semicolon 1
 #include <sourcemod>
-#include <simple-core-sm>
-#undef REQUIRE_PLUGIN
-#include <adminmenu>
-#define REQUIRE_PLUGIN
+#include <sdktools>
 #undef REQUIRE_EXTENSIONS
 #undef AUTOLOAD_EXTENSIONS
-#tryinclude <cstrike>
-#tryinclude <tf2>
-#tryinclude <tf2_stocks>
-#tryinclude <simple-core-tf2>
+#include <simple-core-sm>
 #define AUTOLOAD_EXTENSIONS
 #define REQUIRE_EXTENSIONS
 
@@ -73,12 +67,12 @@ public _pl_simpleplugin_SetNTVOptional()
 	MarkNativeAsOptional("SM_SetForcedTeam");
 	MarkNativeAsOptional("SM_GetForcedTeam");
 	MarkNativeAsOptional("SM_ClearForcedTeam");
-	MarkNativeAsOptional("SM_GetForcedPlayer");
+	MarkNativeAsOptional("SM_ClearAllForcedTeams");
 	MarkNativeAsOptional("SM_AssignBuddy");
 	MarkNativeAsOptional("SM_LockBuddy");
 	MarkNativeAsOptional("SM_IsBuddyLocked");
+	MarkNativeAsOptional("SM_IsBuddyTeamed");
 	MarkNativeAsOptional("SM_ClearBuddy");
-	MarkNativeAsOptional("SM_IsValidTeam");
 }
 #endif
 
@@ -87,10 +81,31 @@ public _pl_simpleplugin_SetNTVOptional()
  *
  * @param 		plugin		Plugin that initiated the move
  * @param 		client		The client index of the player that was moved
- * @param 		team		The team index the player was moved to
+ * @param 		oldteam	The team index the player was on
+ * @param 		newteam	The team index the player was moved to
  * @noreturn		
  **********************************************************************/
-forward SM_OnPlayerMoved(Handle:plugin, client, team);
+forward SM_OnPlayerMoved(Handle:plugin, client, oldteam, newteam);
+
+/**********************************************************************
+ * When a player has to moved
+ *
+ * @param 		plugin		Plugin that initiated the force
+ * @param 		client		The client index of the player
+ * @param 		team		The team index the player was forced to
+ * @param 		time			The amount of time (seconds) the player was forced
+ * @noreturn		
+ **********************************************************************/
+forward SM_OnClientTeamForced(Handle:plugin, client, team, Float:time);
+
+/**********************************************************************
+ * When a player has to moved
+ *
+ * @param 		plugin		Plugin that initiated the clear
+ * @param 		client		The client index of the player
+ * @noreturn		
+ **********************************************************************/
+forward SM_OnClientTeamForceCleared(Handle:plugin, client);
 
 /**********************************************************************
  * Move a player to the supplied team
@@ -108,11 +123,12 @@ native SM_MovePlayer(client, team, bool:respawn = true);
  *
  * @param 		client		The client index of the player to set
  * @param 		team		The team to move the to set
+ * @param 		time			The seconds to force the players team
  * @param 		override	Whether or not to override another plugin
  * @return						True if successful, false if not
  * @error							Invalid client or team index
  **********************************************************************/
-native SM_SetForcedTeam(client, team, bool:override = false);
+native bool:SM_SetForcedTeam(client, team, Float:time, bool:override = false);
 
 /**********************************************************************
  * Gets the client's forced team index
@@ -130,21 +146,19 @@ native SM_GetForcedTeam(client, &Handle:plugin = INVALID_HANDLE);
  * Clears a client's forced team
  *
  * @param 		client		The client index of the player to check
+ * @param 		override	Whether or not to override another plugin
  * @return						True if successful, false if not
  * @error							Invalid client index
  **********************************************************************/
-native SM_ClearForcedTeam(client);
+native SM_ClearForcedTeam(client, bool:override = false);
 
 /**********************************************************************
- * Gets a forced player on the wrong that is currently on the wrong team
- * This will only return a player if the calling plugin assigned the team
+ * Clears a client's forced team
  *
- * @param 		team		The team index the player should be on
- * @return						The client index of the player
-										Zero if no player found
+ * @return						True if successful, false if not
  * @error							Invalid client index
  **********************************************************************/
-native SM_GetForcedPlayer(team);
+native SM_ClearAllForcedTeams();
 
 /**********************************************************************
  * Assign a players buddy
@@ -187,6 +201,15 @@ native bool:SM_LockBuddy(client, bool:setting);
 native bool:SM_IsBuddyLocked(client);
 
 /**********************************************************************
+ * Returns if the client is on the same team as his buddy
+ *
+ * @param 		client		The client index of the player to check
+ * @return						True if on same team, false if not or no buddy assigned
+ * @error							Invalid client index
+ **********************************************************************/
+native bool:SM_IsBuddyTeamed(client);
+
+/**********************************************************************
  * Clear a players buddy
  *
  * @param 		client		The client index of the player to clear
@@ -195,12 +218,3 @@ native bool:SM_IsBuddyLocked(client);
  * @error							Invalid client index
  **********************************************************************/
 native bool:SM_ClearBuddy(client, bool:override = false);
-
-/**********************************************************************
- * Determine if the team is a valid team
- *
- * @param 		team		The team index to determine if valid for
-										currently installed/supported mod
- * @return						True if valid, false if not
- **********************************************************************/
-native bool:SM_IsValidTeam(team);

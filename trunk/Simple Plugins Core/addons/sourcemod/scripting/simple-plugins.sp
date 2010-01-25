@@ -3,6 +3,7 @@
 Simple Plugins
 Description:
 	Core plugin for Simple Plugins project
+	This plugin is designed to manage a players team across multipule plugins
 *************************************************************************
 *************************************************************************
 This file is part of Simple Plugins project.
@@ -38,23 +39,23 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <simple-plugins>
 
-enum	e_PlayerInfo
+enum	e_PlayerStruct
 {
-	Handle:hForcedTeamPlugin = INVALID_HANDLE,
-	iForcedTeam = 0,
-	iBuddy = 0,
-	bool:bBuddyLocked = false
+	Handle:	hForcedTeamPlugin,
+					iForcedTeam,
+	Handle:	hForcedTeamTimer,
+	Float:		fForcedTime,
+					iBuddyPair,
+	bool:		bBuddyLocked
 };
 
 new 	Handle:g_fwdPlayerMoved;
+new 	Handle:g_fwdOnClientTeamForced;
+new 	Handle:g_fwdOnClientTeamForceCleared;
 
-new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerInfo];
+new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerStruct];
 
 new 	bool:g_bTeamsSwitched = false;
-new 	bool:g_bBuddyEnabled = true;
-new 	bool:g_bBuddyRestriction = false;
-
-new		String:g_sAdminFlag[16];
 
 /**
 Setting our plugin information.
@@ -68,7 +69,7 @@ public Plugin:myinfo =
 	url = "http://www.simple-plugins.com"
 };
 
-public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
+public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
 
 	/**
@@ -78,14 +79,15 @@ public bool:AskPluginLoad(Handle:myself, bool:late, String:error[], err_max)
 	CreateNative("SM_SetForcedTeam", Native_SM_SetForcedTeam);
 	CreateNative("SM_GetForcedTeam", Native_SM_GetForcedTeam);
 	CreateNative("SM_ClearForcedTeam", Native_SM_ClearForcedTeam);
-	CreateNative("SM_GetForcedPlayer", Native_SM_GetForcedPlayer);
+	CreateNative("SM_ClearAllForcedTeams", Native_SM_ClearAllForcedTeams);
 	CreateNative("SM_AssignBuddy", Native_SM_AssignBuddy);
 	CreateNative("SM_GetClientBuddy", Native_SM_GetClientBuddy);
 	CreateNative("SM_LockBuddy", Native_SM_LockBuddy);
 	CreateNative("SM_IsBuddyLocked", Native_SM_IsBuddyLocked);
+	CreateNative("SM_IsBuddyTeamed", Native_SM_IsBuddyTeamed);
 	CreateNative("SM_ClearBuddy", Native_SM_ClearBuddy);
 	RegPluginLibrary("simpleplugins");
-	return true;
+	return APLRes_Success;
 }
 
 public OnPluginStart()
@@ -93,7 +95,7 @@ public OnPluginStart()
 	
 	CreateConVar("ssm_core_pl_ver", CORE_PLUGIN_VERSION, "Simple Plugins Core Plugin Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	CreateConVar("ssm_core_inc_ver", CORE_INC_VERSION, "Simple Plugins Core Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_l4d_ver", CORE_SM_INC_VERSION, "Simple Plugins Core SM Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_sm_ver", CORE_SM_INC_VERSION, "Simple Plugins Core SM Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	CreateConVar("ssm_core_tf2_ver", CORE_TF2_INC_VERSION, "Simple Plugins Core TF2 Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	CreateConVar("ssm_core_l4d_ver", CORE_L4D_INC_VERSION, "Simple Plugins Core L4D Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	
@@ -106,8 +108,7 @@ public OnPluginStart()
 	/**
 	Hook some events to control forced players and check extensions
 	*/
-	decl String:sExtError[256];
-	LogMessage("[SSM] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
+	LogMessage("[SPC] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	HookEvent("player_team", HookPlayerChangeTeam, EventHookMode_Pre);
 	switch (g_CurrentMod)
 	{
@@ -115,52 +116,22 @@ public OnPluginStart()
 		{
 			HookEvent("round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("round_end", HookRoundEnd, EventHookMode_PostNoCopy);
-			new iExtStatus = GetExtensionFileStatus("game.cstrike.ext", sExtError, sizeof(sExtError));
-			if (iExtStatus == -2)
-			{
-				LogMessage("[SSM] Required extension was not found.");
-				LogMessage("[SSM] Plugin FAILED TO LOAD.");
-				SetFailState("Required extension was not found.");
-			}
-			if (iExtStatus == -1 || iExtStatus == 0)
-			{
-				LogMessage("[SSM] Required extension is loaded with errors.");
-				LogMessage("[SSM] Status reported was [%s].", sExtError);
-				LogMessage("[SSM] Plugin FAILED TO LOAD.");
-				SetFailState("Required extension is loaded with errors.");
-			}
-			if (iExtStatus == 1)
-			{
-				LogMessage("[SSM] Required extension is loaded.");
-			}
+			CheckExtStatus("game.cstrike.ext", true, true);
 		}
 		case GameType_TF:
 		{
 			HookEvent("teamplay_round_start", HookRoundStart, EventHookMode_PostNoCopy);
 			HookEvent("teamplay_round_win", HookRoundEnd, EventHookMode_PostNoCopy);
 			HookUserMessage(GetUserMessageId("TextMsg"), UserMessageHook_Class, true);
-			new iExtStatus = GetExtensionFileStatus("game.tf2.ext", sExtError, sizeof(sExtError));
-			if (iExtStatus == -2)
-			{
-				LogMessage("[SSM] Required extension was not found.");
-				LogMessage("[SSM] Plugin FAILED TO LOAD.");
-				SetFailState("Required extension was not found.");
-			}
-			if (iExtStatus == -1 || iExtStatus == 0)
-			{
-				LogMessage("[SSM] Required extension is loaded with errors.");
-				LogMessage("[SSM] Status reported was [%s].", sExtError);
-				LogMessage("[SSM] Plugin FAILED TO LOAD.");
-				SetFailState("Required extension is loaded with errors.");
-			}
-			if (iExtStatus == 1)
-			{
-				LogMessage("[SSM] Required extension is loaded.");
-			}
+			CheckExtStatus("game.tf2.ext", true, true);
 		}
 		case GameType_DOD:
 		{
 			HookEvent("dod_round_start", HookRoundStart, EventHookMode_PostNoCopy);
+			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_PostNoCopy);
+		}
+		case GameType_INS:
+		{
 			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_PostNoCopy);
 		}
 		default:
@@ -184,7 +155,9 @@ public OnPluginStart()
 	/**
 	Create the global forward
 	*/
-	g_fwdPlayerMoved = CreateGlobalForward("SM_OnPlayerMoved", ET_Event, Param_Cell, Param_Cell, Param_Cell);
+	g_fwdPlayerMoved = CreateGlobalForward("SM_OnPlayerMoved", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
+	g_fwdOnClientTeamForced = CreateGlobalForward("SM_OnClientTeamForced", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Float);
+	g_fwdOnClientTeamForceCleared = CreateGlobalForward("SM_OnClientTeamForceCleared", ET_Ignore, Param_Cell, Param_Cell);
 }
 
 public OnClientDisconnect(client)
@@ -196,31 +169,18 @@ public OnClientDisconnect(client)
 	if (!IsFakeClient(client))
 	{
 		SM_ClearBuddy(client, true);
-		SM_LockBuddy(client, false);
+		SM_LockBuddy(client, true);
 	}
 	SM_ClearForcedTeam(client);
 }
-
 
 public Action:Command_AddBalanceBuddy(client, args)
 {
 	if (client == 0)
 	{
-		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
+		SetGlobalTransTarget(client);
+		ReplyToCommand(client, "%t", "Command is in-game only");
 		return Plugin_Handled;
-	}
-	if (!g_bBuddyEnabled) 
-	{
-		ReplyToCommand(client, "[SM] %T", "CmdDisabled", LANG_SERVER);
-		return Plugin_Handled;
-	}
-	if (g_bBuddyRestriction) 
-	{
-		if (!IsValidAdmin(client, g_sAdminFlag)) 
-		{
-			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
-			return Plugin_Handled;
-		}
 	}
 	decl String:sPlayerUserId[24];
 	GetCmdArg(1, sPlayerUserId, sizeof(sPlayerUserId));
@@ -229,7 +189,8 @@ public Action:Command_AddBalanceBuddy(client, args)
 	{
 		if (client == iPlayer) 
 		{
-			PrintHintText(client, "%T", "SelectSelf", LANG_SERVER);
+			SetGlobalTransTarget(client);
+			PrintHintText(client, "%t", "SelectSelf");
 		}
 		ReplyToCommand(client, "[SM] Usage: buddy <userid>");
 		DisplayPlayerMenu(client);
@@ -242,12 +203,15 @@ public Action:Command_AddBalanceBuddy(client, args)
 		GetClientName(iPlayer, bName, sizeof(bName));
 		if (SM_IsBuddyLocked(iPlayer)) 
 		{
-			ReplyToCommand(client, "[SM] %T", "PlayerLockedBuddyMsg", LANG_SERVER, bName);
+			SetGlobalTransTarget(client);
+			ReplyToCommand(client, "%t", "PlayerLockedBuddyMsg", bName);
 			return Plugin_Handled;
 		}
 		SM_AssignBuddy(client, iPlayer);
-		PrintHintText(client, "%T", "BuddyMsg", LANG_SERVER, bName);
-		PrintHintText(iPlayer, "%T", "BuddyMsg", LANG_SERVER, cName);
+		SetGlobalTransTarget(client);
+		PrintHintText(client, "%t", "BuddyMsg", bName);
+		SetGlobalTransTarget(iPlayer);
+		PrintHintText(iPlayer, "%t", "BuddyMsg", cName);
 	}
 	return Plugin_Handled;	
 }
@@ -256,30 +220,24 @@ public Action:Command_LockBuddy(client, args)
 {
 	if (client == 0) 
 	{
-		ReplyToCommand(client, "[SM] %T", "PlayerLevelCmd", LANG_SERVER);
+		SetGlobalTransTarget(client);
+		ReplyToCommand(client, "%t", "Command is in-game only");
 		return Plugin_Handled;
-	}
-	if (g_bBuddyRestriction)
-	{
-		if (!IsValidAdmin(client, g_sAdminFlag)) 
-		{
-			ReplyToCommand(client, "[SM] %T", "RestrictedBuddy", LANG_SERVER);
-			return Plugin_Handled;
-		}
 	}
 	if (SM_IsBuddyLocked(client)) 
 	{
 		SM_LockBuddy(client, false);
-		PrintHintText(client, "%T", "BuddyLockMsgDisabled", LANG_SERVER);
+		SetGlobalTransTarget(client);
+		PrintHintText(client, "%t", "BuddyLockMsgDisabled");
 	} 
 	else 
 	{
 		SM_LockBuddy(client, true);
-		PrintHintText(client, "%T", "BuddyLockMsgEnabled", LANG_SERVER);
+		SetGlobalTransTarget(client);
+		PrintHintText(client, "%t", "BuddyLockMsgEnabled");
 	}
 	return Plugin_Handled;
 }
-
 
 public HookRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
@@ -321,45 +279,26 @@ public Action:HookPlayerChangeTeam(Handle:event, const String:name[], bool:dontB
 	/**
 	Get our event variables
 	*/
-	new iClient = GetClientOfUserId(GetEventInt(event, "userid"));
+	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	new iTeam = GetEventInt(event, "team");
 	
 	/**
 	See if the player is on the wrong team
 	*/
-	if (g_aPlayers[iClient][iForcedTeam] != 0 && g_aPlayers[iClient][iForcedTeam] != iTeam)
+	if (g_aPlayers[client][iForcedTeam] != 0 && g_aPlayers[client][iForcedTeam] != iTeam)
 	{
 	
 		/**
 		Move the player back to the forced team
 		*/
-		CreateTimer(1.0, Timer_ForcePlayerMove, iClient, TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(1.0, Timer_ForcePlayerBack, client, TIMER_FLAG_NO_MAPCHANGE);
 		
 		/**
 		If the event was going to be broadcasted, we refire it so it is not broadcasted and stop this one
 		*/
 		if (!dontBroadcast)
 		{
-			new Handle:hEvent = CreateEvent("player_team");
-			SetEventInt(hEvent, "userid", GetEventInt(event, "userid"));
-			SetEventInt(hEvent, "team", GetEventInt(event, "team"));
-			SetEventInt(hEvent, "oldteam", GetEventInt(event, "oldteam"));
-			SetEventBool(hEvent, "disconnect", GetEventBool(event, "disconnect"));
-		
-			if (g_CurrentMod == GameType_DOD || g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_TF)
-			{
-				new String:sClientName[MAX_NAME_LENGTH + 1];
-				GetClientName(iClient, sClientName, sizeof(sClientName));
-				SetEventBool(hEvent, "autoteam", GetEventBool(event, "autoteam"));
-				SetEventBool(hEvent, "silent", true);
-				SetEventString(hEvent, "name", sClientName);
-				FireEvent(hEvent, true);
-			}
-			else
-			{
-				FireEvent(hEvent, true);
-			}
-			return Plugin_Handled;
+			SetEventBroadcast(event, true);
 		}
 	}
 	return Plugin_Continue;
@@ -382,37 +321,37 @@ public Native_SM_MovePlayer(Handle:plugin, numParams)
 	/**
 	Get and check the client and team
 	*/
-	new iClient = GetNativeCell(1);
+	new client = GetNativeCell(1);
 	new iTeam = GetNativeCell(2);
 	new bool:bRespawn = GetNativeCell(3) ? true : false;
-	if (iClient < 1 || iClient > MaxClients)
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
 	if (iTeam != g_aCurrentTeams[Spectator] && iTeam != g_aCurrentTeams[Team1] && iTeam != g_aCurrentTeams[Team2])
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid team %d", iTeam);
 	}
 	
-	MovePlayer(iClient, iTeam);
-	if (!IsClientObserver(iClient) && bRespawn)
+	MovePlayer(client, iTeam);
+	if (!IsClientObserver(client) && bRespawn)
 	{
-		RespawnPlayer(iClient);
+		RespawnPlayer(client);
 	}
 	
 	new fResult;
 	
 	Call_StartForward(g_fwdPlayerMoved);
 	Call_PushCell(plugin);
-	Call_PushCell(iClient);
+	Call_PushCell(client);
 	Call_PushCell(iTeam);
 	Call_Finish(fResult);
 	
@@ -430,34 +369,61 @@ public Native_SM_SetForcedTeam(Handle:plugin, numParams)
 	/**
 	Get and check the client and team
 	*/
-	new iClient = GetNativeCell(1);
+	new client = GetNativeCell(1);
 	new iTeam = GetNativeCell(2);
-	if (iClient < 1 || iClient > MaxClients)
+	new Float:fTime = Float:GetNativeCell(3);
+	
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
 	if (iTeam != g_aCurrentTeams[Spectator] && iTeam != g_aCurrentTeams[Team1] && iTeam != g_aCurrentTeams[Team2] && iTeam != g_aCurrentTeams[Unknown])
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Invalid team %d", iTeam);
 	}
 	
-	new bool:bOverRide = GetNativeCell(3) ? true : false;
+	new bool:bOverRide = GetNativeCell(4) ? true : false;
 	
-	if (!bOverRide && g_aPlayers[iClient][hForcedTeamPlugin] != INVALID_HANDLE && plugin != g_aPlayers[iClient][hForcedTeamPlugin])
+	if (!bOverRide && g_aPlayers[client][hForcedTeamPlugin] != INVALID_HANDLE && plugin != g_aPlayers[client][hForcedTeamPlugin])
 	{
 		return false;
 	}
 	
-	g_aPlayers[iClient][hForcedTeamPlugin] = plugin;
-	g_aPlayers[iClient][iForcedTeam] = iTeam;
+	if (fTime < 1.0)
+	{
+		fTime = 1.0;
+	}
+	
+	g_aPlayers[client][hForcedTeamPlugin] = plugin;
+	g_aPlayers[client][iForcedTeam] = iTeam;
+	g_aPlayers[client][fForcedTime] = fTime;
+	ClearTimer(g_aPlayers[client][hForcedTeamTimer]);
+	g_aPlayers[client][hForcedTeamTimer] = CreateTimer(fTime, Timer_ForcePlayerOver, client, TIMER_FLAG_NO_MAPCHANGE);
+	if (iTeam != GetClientTeam(client))
+	{
+		MovePlayer(client, iTeam);
+	}
+	
+	new fResult;
+	Call_StartForward(g_fwdOnClientTeamForced);
+	Call_PushCell(plugin);
+	Call_PushCell(client);
+	Call_PushCell(iTeam);
+	Call_PushFloat(fTime);
+	Call_Finish(fResult);
+	if (fResult != SP_ERROR_NONE)
+	{
+		return ThrowNativeError(fResult, "Forward failed");
+	}
+
 	return true;
 }
 
@@ -467,18 +433,18 @@ public Native_SM_GetForcedTeam(Handle:plugin, numParams)
 	/**
 	Get and check the client
 	*/
-	new iClient = GetNativeCell(1);
-	if (iClient < 1 || iClient > MaxClients)
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
 	
 	/**
@@ -487,13 +453,13 @@ public Native_SM_GetForcedTeam(Handle:plugin, numParams)
 	new Handle:hPlugin = GetNativeCell(2);
 	if (hPlugin != INVALID_HANDLE)
 	{
-		SetNativeCellRef(2, g_aPlayers[iClient][hForcedTeamPlugin]);
+		SetNativeCellRef(2, g_aPlayers[client][hForcedTeamPlugin]);
 	}
 	
 	/**
 	Return the forced team, this could be 0
 	*/
-	return g_aPlayers[iClient][iForcedTeam];
+	return g_aPlayers[client][iForcedTeam];
 }
 
 public Native_SM_ClearForcedTeam(Handle:plugin, numParams)
@@ -502,55 +468,44 @@ public Native_SM_ClearForcedTeam(Handle:plugin, numParams)
 	/**
 	Get and check the client and team
 	*/
-	new iClient = GetNativeCell(1);
-	if (iClient < 1 || iClient > MaxClients)
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
 	
-	g_aPlayers[iClient][hForcedTeamPlugin] = INVALID_HANDLE;
-	g_aPlayers[iClient][iForcedTeam] = 0;
+	g_aPlayers[client][hForcedTeamPlugin] = INVALID_HANDLE;
+	g_aPlayers[client][iForcedTeam] = 0;
+	g_aPlayers[client][fForcedTime] = 0.0;
+	ClearTimer(g_aPlayers[client][hForcedTeamTimer]);
+	
+	new fResult;
+	Call_StartForward(g_fwdOnClientTeamForceCleared);
+	Call_PushCell(plugin);
+	Call_PushCell(client);
+	Call_Finish(fResult);
+	
+	if (fResult != SP_ERROR_NONE)
+	{
+		return ThrowNativeError(fResult, "Forward failed");
+	}
 	
 	return true;
 }
 
-public Native_SM_GetForcedPlayer(Handle:plugin, numParams)
+public Native_SM_ClearAllForcedTeams(Handle:plugin, numParams)
 {
-	
-	/**
-	Get and check the team
-	*/
-	new iTeam = GetNativeCell(1);
-	if (iTeam != g_aCurrentTeams[Spectator] && iTeam != g_aCurrentTeams[Team1] && iTeam != g_aCurrentTeams[Team2])
+	for (new x = 1; x <= MaxClients; x++)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid team %d", iTeam);
-	}
-	
-	/**
-	Start a loop to check for a player on the wrong team
-	Also make sure the plugin that set the forced team is the plugin that asked
-	*/
-	new iPlayer = 0;
-	for (new i = 1; i <= MaxClients; i++)
-	{
-		if (IsClientInGame(i) 
-		&& GetClientTeam(i) != g_aPlayers[i][iForcedTeam] 
-		&& g_aPlayers[i][iForcedTeam] == iTeam
-		&& g_aPlayers[i][hForcedTeamPlugin] == plugin)
+		if (IsValidClient(x, false))
 		{
-			iPlayer = i;
-			break;
+			SM_ClearForcedTeam(x, true);
 		}
 	}
-	
-	/**
-	Return the player we found, this could be 0
-	*/
-	return iPlayer;
 }
 
 public Native_SM_AssignBuddy(Handle:plugin, numParams)
@@ -559,19 +514,19 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 	/**
 	Get and check the client and player
 	*/
-	new iClient = GetNativeCell(1);
+	new client = GetNativeCell(1);
 	new iPlayer = GetNativeCell(2);
-	if (iClient < 1 || iClient > MaxClients)
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
 	if (iPlayer < 0 || iPlayer > MaxClients)
 	{
@@ -583,9 +538,9 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 	}
 	if (!IsClientInGame(iPlayer))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Player %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Player %d is not in the game", client);
 	}
-	if (IsFakeClient(iClient))
+	if (IsFakeClient(client))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Bots are not supported");
 	}
@@ -600,7 +555,7 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 		/**
 		We can't override, so check if they are locked
 		*/
-		if (g_aPlayers[iClient][bBuddyLocked] || g_aPlayers[iPlayer][bBuddyLocked])
+		if (g_aPlayers[client][bBuddyLocked] || g_aPlayers[iPlayer][bBuddyLocked])
 		{
 		
 			/**
@@ -613,8 +568,8 @@ public Native_SM_AssignBuddy(Handle:plugin, numParams)
 	/**
 	Ready to set the buddies
 	*/
-	g_aPlayers[iClient][iBuddy] = iPlayer;
-	g_aPlayers[iPlayer][iBuddy] = iClient;
+	g_aPlayers[client][iBuddyPair] = iPlayer;
+	g_aPlayers[iPlayer][iBuddyPair] = client;
 	return true;
 }
 
@@ -624,20 +579,20 @@ public Native_SM_GetClientBuddy(Handle:plugin, numParams)
 	/**
 	Get and check the client 
 	*/
-	new iClient = GetNativeCell(1);
-	if (iClient < 1 || iClient > MaxClients)
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
-	if (IsFakeClient(iClient))
+	if (IsFakeClient(client))
 	{
 		return ThrowNativeError(SP_ERROR_INDEX, "Bots are not supported");
 	}
@@ -645,7 +600,7 @@ public Native_SM_GetClientBuddy(Handle:plugin, numParams)
 	/**
 	Return the players buddy, this could be 0
 	*/
-	return g_aPlayers[iClient][iBuddy];	
+	return g_aPlayers[client][iBuddyPair];	
 }
 
 public Native_SM_LockBuddy(Handle:plugin, numParams)
@@ -654,22 +609,22 @@ public Native_SM_LockBuddy(Handle:plugin, numParams)
 	/**
 	Get and check the client 
 	*/
-	new iClient = GetNativeCell(1);
+	new client = GetNativeCell(1);
 	new bool:bSetting = GetNativeCell(2) ? true : false;
-	if (iClient < 1 || iClient > MaxClients)
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (IsFakeClient(iClient))
+	if (IsFakeClient(client))
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
 	
-	g_aPlayers[iClient][bBuddyLocked] = bSetting;
+	g_aPlayers[client][bBuddyLocked] = bSetting;
 	return true;
 }
 
@@ -679,25 +634,58 @@ public Native_SM_IsBuddyLocked(Handle:plugin, numParams)
 	/**
 	Get and check the client 
 	*/
-	new iClient = GetNativeCell(1);
-	if (iClient < 1 || iClient > MaxClients)
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
 	}
-	if (!IsClientInGame(iClient))
+	if (!IsClientInGame(client))
 	{
-		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", iClient);
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
 	}
-	if (IsFakeClient(iClient))
+	if (IsFakeClient(client))
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
 	
-	return g_aPlayers[iClient][bBuddyLocked];
+	return g_aPlayers[client][bBuddyLocked];
+}
+
+public Native_SM_IsBuddyTeamed(Handle:plugin, numParams)
+{
+	/**
+	Get and check the client 
+	*/
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
+	{
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index (%d)", client);
+	}
+	if (!IsClientConnected(client))
+	{
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not connected", client);
+	}
+	if (!IsClientInGame(client))
+	{
+		return ThrowNativeError(SP_ERROR_INDEX, "Client %d is not in the game", client);
+	}
+	if (IsFakeClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
+	}
+	
+	new iBuddy = g_aPlayers[client][iBuddyPair];
+	
+	if (iBuddy && (GetClientTeam(client) == GetClientTeam(iBuddy)))
+	{
+		return true;
+	}
+	
+	return false;
 }
 
 public Native_SM_ClearBuddy(Handle:plugin, numParams)
@@ -706,16 +694,16 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	/**
 	Get and check the client
 	*/
-	new iClient = GetNativeCell(1);
-	if (iClient < 1 || iClient > MaxClients)
+	new client = GetNativeCell(1);
+	if (client < 1 || client > MaxClients)
 	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%d)", iClient);
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%d)", client);
 	}
-	if (!IsClientConnected(iClient))
+	if (!IsClientConnected(client))
 	{
-		return ThrowNativeError(SP_ERROR_NATIVE, "Client (%d) is not connected", iClient);
+		return ThrowNativeError(SP_ERROR_NATIVE, "Client (%d) is not connected", client);
 	}
-	if (IsFakeClient(iClient))
+	if (IsFakeClient(client))
 	{
 		return ThrowNativeError(SP_ERROR_NATIVE, "Bots are not supported");
 	}
@@ -724,7 +712,7 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	Get the clients buddy and see if we can override his setting
 	*/
 	new bool:bOverRide = GetNativeCell(2) ? true : false;
-	new iPlayer = g_aPlayers[iClient][iBuddy];
+	new iPlayer = g_aPlayers[client][iBuddyPair];
 	
 	/**
 	There is no buddy, we don't care about anything else so bug out
@@ -743,7 +731,7 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 		/**
 		We can't override, so check if they are locked
 		*/
-		if (g_aPlayers[iClient][bBuddyLocked] || g_aPlayers[iPlayer][bBuddyLocked])
+		if (g_aPlayers[client][bBuddyLocked] || g_aPlayers[iPlayer][bBuddyLocked])
 		{
 		
 			/**
@@ -756,43 +744,39 @@ public Native_SM_ClearBuddy(Handle:plugin, numParams)
 	/**
 	Ready to clear the buddies
 	*/
-	g_aPlayers[iClient][iBuddy] = 0;
-	g_aPlayers[iPlayer][iBuddy] = 0;
+	g_aPlayers[client][iBuddyPair] = 0;
+	g_aPlayers[iPlayer][iBuddyPair] = 0;
 	return true;
 }
 
-public Native_SM_IsValidTeam(Handle:plugin, numParams)
+public Action:Timer_ForcePlayerBack(Handle:timer, any:client)
 {
 
-	/**
-	Get the team
-	*/
-	new iTeam = GetNativeCell(1);
+	MovePlayer(client, g_aPlayers[client][iForcedTeam]);
 	
 	/**
-	Check the team
-	*/
-	if (iTeam == g_aCurrentTeams[Spectator] || iTeam == g_aCurrentTeams[Team1] || iTeam == g_aCurrentTeams[Team2])
+	if (g_aPlayers[client][iForcedTeam] != g_aCurrentTeams[Spectator])
 	{
-		return true;
+		RespawnPlayer(client);
 	}
-	return false;
+	*/
+	
+	PrintToChat(client, "\x01\x04----------------------------------");
+	PrintToChat(client, "\x01\x04You have been forced to this team.");
+	PrintToChat(client, "\x01\x04----------------------------------");
+	
+	return Plugin_Handled;
 }
 
-public Action:Timer_ForcePlayerMove(Handle:timer, any:iClient)
+public Action:Timer_ForcePlayerOver(Handle:timer, any:client)
 {
-
-	MovePlayer(iClient, g_aPlayers[iClient][iForcedTeam]);
-	
-	if (g_aPlayers[iClient][iForcedTeam] != g_aCurrentTeams[Spectator])
-	{
-		RespawnPlayer(iClient);
-	}
-	
-	PrintToChat(iClient, "\x01\x04----------------------------------");
-	PrintToChat(iClient, "\x01\x04You have been forced to this team.");
-	PrintToChat(iClient, "\x01\x04----------------------------------");
-	
+	g_aPlayers[client][hForcedTeamPlugin] = INVALID_HANDLE;
+	g_aPlayers[client][iForcedTeam] = 0;
+	g_aPlayers[client][fForcedTime] = 0.0;
+	g_aPlayers[client][hForcedTeamTimer] = INVALID_HANDLE;
+	PrintToChat(client, "\x01\x04----------------------------------");
+	PrintToChat(client, "\x01\x04You're forced team has been cleared.");
+	PrintToChat(client, "\x01\x04----------------------------------");
 	return Plugin_Handled;
 }
 
@@ -842,51 +826,5 @@ public Menu_SelectPlayer(Handle:menu, MenuAction:action, param1, param2)
 	else if (action == MenuAction_End) 
 	{
 		CloseHandle(menu);
-	}
-}
-
-stock MovePlayer(iClient, iTeam)
-{
-
-	/**
-	Change the client's team based on the mod
-	*/
-	switch (g_CurrentMod)
-	{
-		case GameType_CSS:
-		{
-			CS_SwitchTeam(iClient, iTeam);
-		}
-		default:
-		{
-			ChangeClientTeam(iClient, iTeam);
-		}
-	}
-}
-
-stock RespawnPlayer(iClient)
-{
-
-	/**
-	Respawn the client based on the mod
-	*/
-	switch (g_CurrentMod)
-	{
-		case GameType_CSS:
-		{
-			CS_RespawnPlayer(iClient);
-		}
-		case GameType_TF:
-		{
-			TF2_RespawnPlayer(iClient);
-		}
-		case GameType_INS:
-		{
-			FakeClientCommand(iClient, "kill");
-		}
-		default:
-		{
-			//
-		}
 	}
 }
