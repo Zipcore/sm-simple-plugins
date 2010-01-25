@@ -84,15 +84,15 @@ enum 	e_ScrambleReasons
 	ScrambleReason_Caps
 };
 
-enum 	e_PlayerData
+enum 	e_PlayerStruct
 {
-	Handle:hForcedTimer,
-	bool:bVoted,
-	iFrags,
-	iDeaths
+	Handle:	hForcedTimer,
+	bool:		bVoted,
+					iFrags,
+					iDeaths
 };
 
-enum 	e_TeamData
+enum 	e_TeamStruct
 {
 	Team_WinStreak,
 	Team_Frags,
@@ -108,14 +108,15 @@ new		Handle:g_hAdTimer = INVALID_HANDLE;
 /**
 Arrays 
 */
-new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerData];
-new 	g_aTeamInfo[e_Teams][e_TeamData];
+new 	g_aPlayers[MAXPLAYERS + 1][e_PlayerStruct];
+new 	g_aTeamInfo[e_Teams][e_TeamStruct];
 
 /**
 Cookies
 */
 new 	Handle:g_hCookie_LastConnect = INVALID_HANDLE;
 new 	Handle:g_hCookie_LastTeam = INVALID_HANDLE;
+new 	Handle:g_hCookie_WasForced = INVALID_HANDLE;
 
 /**
 Other globals
@@ -149,11 +150,11 @@ new		String:g_sScrambleReason[e_ScrambleReasons][128] =	{	"Invalid",
 /**
 Separate files to include
 */
-#include "simple-plugins/sas_config_functions.sp"
-#include "simple-plugins/sas_vote_functions.sp"
-#include "simple-plugins/sas_scramble_functions.sp"
-#include "simple-plugins/sas_menu_functions.sp"
-#include "simple-plugins/sas_daemon.sp"
+#include "simple-plugins/sas-config.sp"
+#include "simple-plugins/sas-vote.sp"
+#include "simple-plugins/sas-scrambler.sp"
+#include "simple-plugins/sas-menu.sp"
+#include "simple-plugins/sas-daemon.sp"
 
 public Plugin:myinfo =
 {
@@ -169,7 +170,7 @@ public OnPluginStart()
 	/**
 	Lets start to load
 	*/
-	LogMessage("[SAS] Simple AutoScrambler is loading...");
+	LogMessage("Simple AutoScrambler is loading...");
 	
 	/**
 	Get game type and load the team numbers
@@ -186,7 +187,7 @@ public OnPluginStart()
 	Hook the game events
 	*/
 	HookEvent("player_death", HookPlayerDeath, EventHookMode_Pre);
-	LogMessage("[SAS] Hooking events for [%s].", g_sGameName[g_CurrentMod]);
+	LogMessage("Hooking events for [%s].", g_sGameName[g_CurrentMod]);
 	switch (g_CurrentMod)
 	{
 		case GameType_TF:
@@ -210,6 +211,10 @@ public OnPluginStart()
 			HookEvent("bomb_exploded", HookScored, EventHookMode_Post);
 			HookEvent("hostage_rescued", HookScored, EventHookMode_Post);
 			HookEvent("vip_escaped", HookScored, EventHookMode_Post);
+		}
+		case GameType_INS:
+		{
+			HookEvent("round_end", HookRoundEnd, EventHookMode_Post);
 		}
 		default:
 		{
@@ -248,34 +253,19 @@ public OnAllPluginsLoaded()
 	/**
 	Now lets check for client prefs extension
 	*/
-	new String:sExtError[256];
-	new iExtStatus = GetExtensionFileStatus("clientprefs.ext", sExtError, sizeof(sExtError));
-	if (iExtStatus == -2)
+	if (CheckExtStatus("clientprefs.ext", true))
 	{
-		LogMessage("[SAS] Client Preferences extension was not found.");
-		LogMessage("[SAS] Plugin continued to load, but that feature will not be used.");
-		g_bUseClientprefs = false;
-	}
-	if (iExtStatus == -1 || iExtStatus == 0)
-	{
-		LogMessage("[SAS] Client Preferences extension is loaded with errors.");
-		LogMessage("[SAS] Status reported was [%s].", sExtError);
-		LogMessage("[SAS] Plugin continued to load, but that feature will not be used.");
-		g_bUseClientprefs = false;
-	}
-	if (iExtStatus == 1)
-	{
-		LogMessage("[SAS] Client Preferences extension is loaded, checking database.");
+		LogMessage("Client Preferences extension is loaded, checking database.");
 		if (!SQL_CheckConfig("clientprefs"))
 		{
-			LogMessage("[SAS] No 'clientprefs' database found.  Check your database.cfg file.");
-			LogMessage("[SAS] Plugin continued to load, but Client Preferences will not be used.");
+			LogMessage("No 'clientprefs' database found.  Check your database.cfg file.");
+			LogMessage("Plugin continued to load, but Client Preferences will not be used.");
 			g_bUseClientprefs = false;
 		}
 		else
 		{
-			LogMessage("[SAS] Database config 'clientprefs' was found.");
-			LogMessage("[SAS] Plugin will use Client Preferences.");
+			LogMessage("Database config 'clientprefs' was found.");
+			LogMessage("Plugin will use Client Preferences.");
 			g_bUseClientprefs = true;
 		}
 		
@@ -286,6 +276,7 @@ public OnAllPluginsLoaded()
 		{
 			g_hCookie_LastConnect = RegClientCookie("sas_lastconnect", "Timestamp of your last disconnection.", CookieAccess_Protected);
 			g_hCookie_LastTeam = RegClientCookie("sas_lastteam", "Last team you were on.", CookieAccess_Protected);
+			g_hCookie_WasForced = RegClientCookie("sas_wasforced", "If you were forced to this team", CookieAccess_Protected);
 		}
 	}
 	
@@ -315,11 +306,11 @@ public OnConfigsExecuted()
 	*/
 	if (GetSettingValue("enabled"))
 	{
-		LogMessage("[SAS] Simple AutoScrambler is set to be ENABLED");
+		LogMessage("Simple AutoScrambler is set to be ENABLED");
 	}
 	else
 	{
-		LogMessage("[SAS] Simple AutoScrambler is set to be DISABLED");
+		LogMessage("Simple AutoScrambler is set to be DISABLED");
 	}
 	
 	if (GetSettingValue("vote_enabled") && GetSettingValue("vote_ad_enabled"))
@@ -327,13 +318,8 @@ public OnConfigsExecuted()
 		new Float:fAdInterval = float(GetSettingValue("vote_ad_interval"));
 		g_hAdTimer = CreateTimer(fAdInterval, Timer_VoteAdvertisement, _, TIMER_REPEAT);
 	}
-}
-
-public OnMapStart()
-{
-	g_eRoundState = Map_Start;
+	
 	g_eScrambleReason = ScrambleReason_Invalid;
-	DelayVoting(DelayReason_MapStart);
 	g_bWasFullRound = true;
 	g_bScrambledThisRound = false;
 	g_bScrambleNextRound = false;
@@ -341,6 +327,12 @@ public OnMapStart()
 	ResetStreaks();
 	ResetVotes();
 	StartDaemon();
+}
+
+public OnMapStart()
+{
+	g_eRoundState = Map_Start;
+	DelayVoting(DelayReason_MapStart);
 }
 
 public OnMapEnd()
@@ -362,33 +354,39 @@ public OnClientCookiesCached(client)
 {
 	
 	if (GetSettingValue("lock_players")
+		&& (GetSettingValue("lock_reconnects"))
 		&& (GetSettingValue("lockimmunity") && !IsAuthorized(client, "flag_lockimmunity"))
 		&& IsValidClient(client))
 	{
 		new	String:sLastConnect[32],
-				String:sLastTeam[3];
+				String:sLastTeam[3],
+				String:sWasForced[3];
 	
 		/**
 		Get the client cookies
 		*/
 		GetClientCookie(client, g_hCookie_LastConnect, sLastConnect, sizeof(sLastConnect));
 		GetClientCookie(client, g_hCookie_LastTeam, sLastTeam, sizeof(sLastTeam));
-	
-		new	iCurrentTime = GetTime(),
-				iConnectTime = StringToInt(sLastConnect);
-	
-		if (iCurrentTime - iConnectTime <= GetSettingValue("lock_duration"))
+		GetClientCookie(client, g_hCookie_WasForced, sWasForced, sizeof(sWasForced));
+		
+		if (StringToInt(sWasForced))
 		{
+			new	iCurrentTime = GetTime(),
+					iConnectTime = StringToInt(sLastConnect);
 	
-			/**
-			Bastard tried to reconnect
-			*/
-			SM_MovePlayer(client, StringToInt(sLastTeam));
+			if (iCurrentTime - iConnectTime <= GetSettingValue("lock_duration"))
+			{
+	
+				/**
+				Bastard tried to reconnect
+				*/
+				SM_SetForcedTeam(client, StringToInt(sLastTeam), float(GetSettingValue("lock_duration")));
+			}
 		}
 	}
 }
 
-public SM_OnPlayerMoved(Handle:plugin, client, team)
+public SM_OnPlayerMoved(Handle:plugin, client, oldteam, newteam)
 {
 	
 	/**
@@ -408,11 +406,9 @@ public SM_OnPlayerMoved(Handle:plugin, client, team)
 	{
 		
 		/**
-		We are, set the forced team and start the timer
+		We are, set the forced team
 		*/
-		SM_SetForcedTeam(client, team);
-		new Float:fLockDuration = float(GetSettingValue("lock_duration"));
-		g_aPlayers[client][hForcedTimer] = CreateTimer(fLockDuration, Timer_PlayerTeamLock, client, TIMER_FLAG_NO_MAPCHANGE);
+		SM_SetForcedTeam(client, StringToInt(sLastTeam), float(GetSettingValue("lock_duration")));
 	}
 }
 
@@ -422,7 +418,6 @@ public OnClientDisconnect(client)
 	/**
 	Cleanup
 	*/
-	ClearTimer(g_aPlayers[client][hForcedTimer]);
 	g_aPlayers[client][iFrags] = 0;
 	g_aPlayers[client][iDeaths] = 0;
 	
@@ -442,17 +437,19 @@ public OnClientDisconnect(client)
 		Set the disconnect cookies to prevent lock bypasses
 		*/
 		new	String:sTimeStamp[32],
-				String:sTeam[3];
+				String:sTeam[3],
+				String:sWasForced[3];
 	
-		new	iTeam = GetClientTeam(client),
+		new	iTeam = SM_GetForcedTeam(client),
 				iTime = GetTime();
-	
-		//FormatTime(sTimeStamp, sizeof(sTimeStamp), "%j-%H-%M");
+		
+		Format(sWasForced, sizeof(sWasForced), "%d", iTeam);
 		Format(sTimeStamp, sizeof(sTimeStamp), "%d", iTime);
 		Format(sTeam, sizeof(sTeam), "%d", iTeam);
 		
 		SetClientCookie(client, g_hCookie_LastConnect, sTimeStamp);
 		SetClientCookie(client, g_hCookie_LastTeam, sTeam);
+		SetClientCookie(client, g_hCookie_WasForced, sWasForced);
 	}
 	
 	if (GetUserFlagBits(client) & (ADMFLAG_VOTE|ADMFLAG_ROOT))
@@ -955,15 +952,6 @@ public Action:Timer_CheckState(Handle:timer, any:data)
 		g_bScrambleNextRound = false;
 		StartScramble(e_ScrambleMode:GetSettingValue("sort_mode"));
 	}
-	
-	return Plugin_Handled;
-}
-
-public Action:Timer_PlayerTeamLock(Handle:timer, any:client)
-{
-	
-	SM_ClearForcedTeam(client);
-	g_aPlayers[client][hForcedTimer] = INVALID_HANDLE;
 	
 	return Plugin_Handled;
 }
