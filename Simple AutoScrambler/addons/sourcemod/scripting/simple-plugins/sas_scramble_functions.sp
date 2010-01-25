@@ -306,7 +306,7 @@ stock bool:CanScrambleTarget(client)
 	}
 	
 	// check to see if a client should be protected due to being a leader
-	if (GetSettingValue("top_protection") && IsClientTopPlayer(client))
+	if (IsClientTopPlayer(client))
 	{
 		return false;
 	}
@@ -357,16 +357,18 @@ stock bool:CanScrambleTarget(client)
 
 stock bool:IsClientTopPlayer(client)
 {
-	new	teamSize = GetTeamClientCount(client), 
-			scores[MAXPLAYERS + 1][2],
-			count;
-	for (new i = i; i < teamSize; i++)
+	new	iScores[GetTeamClientCount(GetClientTeam(client))][2],
+			iCount, iProtection = GetSettingValue("top_protection");
+	for (new i = 1; i < MaxClients; i++)
 	{
-		scores[count++][0] = i;
-		scores[count][1] = GetClientScore(i);
+		if (IsValidClient(i, !GetSettingValue("bots_included"))
+		{
+			iScores[count++][0] = i;
+			iScores[count][1] = GetClientScore(i);
+		}
 	}
-	SortCustom2D(scores, count, SortIntsDesc);
-	for (new i; i <= count; i++)
+	SortCustom2D(iScores, count, SortIntsDesc);
+	for (new i; i <= iProtection; i++)
 	{
 		if (i == client)
 		{
