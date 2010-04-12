@@ -720,6 +720,7 @@ stock e_SupportedMods:GetCurrentMod()
 	{
 		return GameType_DM;
 	}
+	LogMessage("Unknown Game Folder: %s", sGameType);
 	return GameType_Unknown;
 }
 
