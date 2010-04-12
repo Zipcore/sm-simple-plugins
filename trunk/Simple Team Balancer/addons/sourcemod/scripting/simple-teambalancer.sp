@@ -459,7 +459,7 @@ public Action:Command_SetSetting(client, args)
 	*/
 	if (!IsAuthorized(client, "flag_settings"))
 	{
-		ReplyToCommand(client, "\x01\x04[SAS]\x01 %t", "No Access");
+		ReplyToCommand(client, "%t", "No Access");
 		return Plugin_Handled;
 	}
 	
