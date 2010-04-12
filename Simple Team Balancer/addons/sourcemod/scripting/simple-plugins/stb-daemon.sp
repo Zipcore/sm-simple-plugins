@@ -68,6 +68,12 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 	/**
 	Run through a series of checks
 	*/
+	
+	if (GetSettingValue("log_detailed"))
+	{
+		LogMessage("Current Round State: %i", g_eRoundState);
+	}
+	
 	switch (g_eRoundState)
 	{
 		case Map_Start:
@@ -104,6 +110,11 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 		{
 			g_eBalanceState = Balance_UnAcceptable;
 		}
+	}
+	
+	if (GetSettingValue("log_detailed"))
+	{
+		LogMessage("Current Balance State: %i", g_eBalanceState);
 	}
 	
 	switch (g_eBalanceState)
