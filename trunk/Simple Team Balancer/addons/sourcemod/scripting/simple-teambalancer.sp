@@ -286,7 +286,7 @@ public OnMapStart()
 	/**
 	No round start in insurgency
 	*/
-	if (g_CurrentMod == GameType_INS)
+	if (g_CurrentMod == GameType_INS || g_CurrentMod == GameType_DM)
 	{
 		CreateTimer(float(GetSettingValue("delay_roundstart")), Timer_RoundStart, _, TIMER_FLAG_NO_MAPCHANGE);
 	}
