@@ -68,6 +68,7 @@ enum e_SupportedMods
 	GameType_NEO,
 	GameType_SGTLS,
 	GameType_TF,
+	GameType_DM,
 	GameType_ZPS
 };
 
@@ -94,6 +95,7 @@ new String:g_sGameName[e_SupportedMods][32] = {	"Unknown",
 																							"Neotokyo",
 																							"Stargate TLS",
 																							"Team Fortress 2",
+																							"Dark Messiah",
 																							"Zombie Panic: Source"
 																						};
 
@@ -713,6 +715,10 @@ stock e_SupportedMods:GetCurrentMod()
 	if (StrEqual(sGameType, "zps", false))
 	{
 		return GameType_ZPS;
+	}
+	if (StrEqual(sGameType, "mmdarkmessiah", false))
+	{
+		return GameType_DM;
 	}
 	return GameType_Unknown;
 }

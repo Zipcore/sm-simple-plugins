@@ -35,6 +35,8 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 
+#define CVAR_FLAGS FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD
+
 #define CORE_PLUGIN_VERSION "1.1.$Rev$"
 
 #include <simple-plugins>
@@ -44,7 +46,7 @@ enum	e_PlayerStruct
 	Handle:	hForcedTeamPlugin,
 					iForcedTeam,
 	Handle:	hForcedTeamTimer,
-	Float:		fForcedTime,
+	Float:	fForcedTime,
 					iBuddyPair,
 	bool:		bBuddyLocked
 };
@@ -93,11 +95,11 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 public OnPluginStart()
 {
 	
-	CreateConVar("ssm_core_pl_ver", CORE_PLUGIN_VERSION, "Simple Plugins Core Plugin Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_inc_ver", CORE_INC_VERSION, "Simple Plugins Core Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_sm_ver", CORE_SM_INC_VERSION, "Simple Plugins Core SM Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_tf2_ver", CORE_TF2_INC_VERSION, "Simple Plugins Core TF2 Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("ssm_core_l4d_ver", CORE_L4D_INC_VERSION, "Simple Plugins Core L4D Include Version", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("ssm_core_pl_ver", CORE_PLUGIN_VERSION, "Simple Plugins Core Plugin Version", CVAR_FLAGS);
+	CreateConVar("ssm_core_inc_ver", CORE_INC_VERSION, "Simple Plugins Core Include Version", CVAR_FLAGS);
+	CreateConVar("ssm_core_sm_ver", CORE_SM_INC_VERSION, "Simple Plugins Core SM Include Version", CVAR_FLAGS);
+	CreateConVar("ssm_core_tf2_ver", CORE_TF2_INC_VERSION, "Simple Plugins Core TF2 Include Version", CVAR_FLAGS);
+	CreateConVar("ssm_core_l4d_ver", CORE_L4D_INC_VERSION, "Simple Plugins Core L4D Include Version", CVAR_FLAGS);
 	
 	/**
 	Get game type and load the team numbers
@@ -132,7 +134,7 @@ public OnPluginStart()
 		}
 		case GameType_INS:
 		{
-			HookEvent("dod_round_win", HookRoundEnd, EventHookMode_PostNoCopy);
+			HookEvent("round_end", HookRoundEnd, EventHookMode_PostNoCopy);
 		}
 		default:
 		{
