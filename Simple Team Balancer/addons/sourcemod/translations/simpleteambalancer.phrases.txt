@@ -69,17 +69,17 @@
 	}
 	"CheckConsoleForList"
 	{
-		"en" "Check console for a list of settings"
+		"en" 		"Check console for a list of settings"
 	}
 	"Changed Setting"
 	{
 		"#format"	"{1:N},{2:s},{3:s}"
-		"en"	"{1} changed the scramble option ({2}) to ({3})"
+		"en"		"{1} changed the balance option ({2}) to ({3})"
 	}
 	"Reloaded Config"
 	{
 		"#format"	"{1:N}"
-		"en"	"{1} reloaded the scrambler config file"
+		"en"	"{1} reloaded the balancer config file"
 	}
 }
 
