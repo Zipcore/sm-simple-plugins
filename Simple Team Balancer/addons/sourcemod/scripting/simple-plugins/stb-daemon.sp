@@ -180,7 +180,7 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 							do
 							{
 								iRandomPlayer = GetRandomInt(1, MaxClients);
-							} while (IsSwitchablePlayer(iRandomPlayer, iLargerTeam, false);
+							} while (IsSwitchablePlayer(iRandomPlayer, iLargerTeam, false));
 							BalancePlayer(iRandomPlayer, iSmallerTeam);
 						}
 					}
@@ -381,7 +381,7 @@ public Action:Timer_BalancePlayer(Handle:timer, Handle:pack)
 	return Plugin_Handled;
 }
 
-public Action:Timer_BalancePlayer(Handle:timer, Handle:pack)
+public Action:Timer_PlayerSwitchCleared(Handle:timer, any:client)
 {
 	g_aPlayers[client][bSwitched] = false;
 	g_aPlayers[client][hSwitchTimer] = INVALID_HANDLE;
