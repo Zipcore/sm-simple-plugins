@@ -60,6 +60,7 @@ enum 	e_RoundState
 
 enum	e_PlayerStruct
 {
+	Handle:	hSwitchTimer,
 	bool:		bSwitched,
 	bool:		bFlagCarrier
 };
@@ -716,6 +717,7 @@ stock CleanUp(client)
 {
 	g_aPlayers[client][bFlagCarrier] = false;
 	g_aPlayers[client][bSwitched] = false;
+	ClearTimer(g_aPlayers[client][hSwitchTimer]);
 }
 
 stock SetGameCvars()
