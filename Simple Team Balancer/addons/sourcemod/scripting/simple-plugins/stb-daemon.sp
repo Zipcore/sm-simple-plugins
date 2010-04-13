@@ -174,6 +174,15 @@ public Action:Timer_Daemon(Handle:timer, any:data)
 							BalancePlayer(x, iSmallerTeam);
 							break;
 						}
+						if (x == MaxClients)
+						{
+							new iRandomPlayer;
+							do
+							{
+								iRandomPlayer = GetRandomInt(1, MaxClients);
+							} while (IsSwitchablePlayer(iRandomPlayer, iLargerTeam, false);
+							BalancePlayer(iRandomPlayer, iSmallerTeam);
+						}
 					}
 				}
 			}
@@ -367,11 +376,19 @@ public Action:Timer_BalancePlayer(Handle:timer, Handle:pack)
 	Use our core function to change the clients team
 	*/
 	SM_MovePlayer(client, iUnBalancedTeam);
+	g_aPlayers[client][hSwitchTimer] = CreateTimer(float(GetSettingValue("delay_switchagain")), Timer_PlayerSwitchCleared, client, TIMER_FLAG_NO_MAPCHANGE);
 	
 	return Plugin_Handled;
 }
 
-stock bool:IsSwitchablePlayer(client, biggerteam)
+public Action:Timer_BalancePlayer(Handle:timer, Handle:pack)
+{
+	g_aPlayers[client][bSwitched] = false;
+	g_aPlayers[client][hSwitchTimer] = INVALID_HANDLE;
+	return Plugin_Handled;
+}
+
+stock bool:IsSwitchablePlayer(client, biggerteam, bool:switchcheck = true)
 {
 
 	/**
@@ -380,7 +397,7 @@ stock bool:IsSwitchablePlayer(client, biggerteam)
 	if (!IsValidClient(client, !GetSettingValue("bots_included"))
 		|| IsAuthorized(client, "flag_immunity")
 		|| GetClientTeam(client) != biggerteam
-		|| g_aPlayers[client][bSwitched]
+		|| (switchcheck && g_aPlayers[client][bSwitched])
 		|| (GetSettingValue("dead_only") && IsPlayerAlive(client))
 		|| (GetSettingValue("buddy_enabled") && SM_IsBuddyTeamed(client))
 		|| (GetSettingValue("top_players") && IsClientTopTeamPlayer(client)))
