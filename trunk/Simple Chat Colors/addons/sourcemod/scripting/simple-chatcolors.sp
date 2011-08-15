@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.1.$Rev$"
+#define PLUGIN_VERSION "1.2.0"
 
 #define CHAT_SYMBOL_ADMIN '@'
 #define CHAT_SYMBOL_CLAN '#'
@@ -64,7 +64,8 @@ enum e_ChatType
 {
 	ChatType_All,
 	ChatType_Team,
-	ChatType_Clan
+	ChatType_Clan,
+	ChatType_Spectator
 };
 
 enum e_DeadChat
@@ -92,6 +93,7 @@ new String:g_sClanFlags[16];
 new Handle:g_aSettings[e_Settings];
 new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
 new bool:g_aPlayerClanMember[MAXPLAYERS + 1] = { false, ... };
+new bool:g_aPlayerGagged[MAXPLAYERS + 1] = { false, ... };
 
 public Plugin:myinfo =
 {
@@ -119,7 +121,7 @@ public OnPluginStart()
 	Need to create all of our console variables.
 	*/
 	CreateConVar("sm_chatcolors_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	g_Cvar_hDeadChat = CreateConVar("sm_deadchat", "1", "0 = Dead can't see or type chat \n 1 = Dead can see all chat and type to other dead players \n 2 = Dead can see and type chat to all");
+	g_Cvar_hDeadChat = CreateConVar("ssc_deadchat", "1", "0 = Dead can't see or type chat \n 1 = Dead can see all chat and type to other dead players \n 2 = Dead can see and type chat to all");
 	g_Cvar_hDebug = CreateConVar("ssc_debug", "0", "Enable/Disable debugging information");
 	g_Cvar_hTriggerBackup = CreateConVar("scc_triggerbackup", "0", "Enable/Disable the trigger backup");
 	g_Cvar_hClanChatEnabled = CreateConVar("scc_clanchat_enabled", "1", "Enable/Disable clan chat");
@@ -138,6 +140,10 @@ public OnPluginStart()
 	*/
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
+	AddCommandListener(Command_SMgag, "sm_gag");
+	AddCommandListener(Command_SMungag, "sm_ungag");
+	AddCommandListener(Command_SMsilence, "sm_silence");
+	AddCommandListener(Command_SMunsilence, "sm_unsilence");
 	RegAdminCmd("sm_reloadchatcolors", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from config file");
 	RegAdminCmd("sm_printchatcolors", Command_PrintChatColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
 	
@@ -181,6 +187,7 @@ public OnClientDisconnect(client)
 {
 	g_aPlayerIndex[client] = -1;
 	g_aPlayerClanMember[client] = false;
+	g_aPlayerGagged[client] = false;
 }
 
 public OnMapStart()
@@ -235,13 +242,14 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 /**
 Commands
 */
+
 public Action:Command_Say(client, args)
 {
 	
 	/**
-	Make sure its not the server or a chat trigger
+	Make sure its not the server or a chat trigger or if the player is gagged
 	*/
-	if (client == 0 || IsChatTrigger())
+	if (client == 0 || IsChatTrigger() || g_aPlayerGagged[client])
 	{
 		return Plugin_Continue;
 	}
@@ -262,9 +270,9 @@ public Action:Command_SayTeam(client, args)
 {
 	
 	/**
-	Make sure we are enabled.
+	Make sure its not the server or a chat trigger or if the player is gagged
 	*/
-	if (client == 0 || IsChatTrigger())
+	if (client == 0 || IsChatTrigger() || g_aPlayerGagged[client])
 	{
 		return Plugin_Continue;
 	}
@@ -297,6 +305,150 @@ public Action:Command_PrintChatColors(client, args)
 	CPrintToChatEx(client, client, "{teamcolor}teamcolor");
 	CPrintToChat(client, "{olive}olive");
 	return Plugin_Handled;
+}
+
+public Action:Command_SMgag(client, const String:command[], argc)
+{
+	if (argc < 1)
+	{
+		return Plugin_Continue;
+	}
+	
+	decl String:arg[64];
+	GetCmdArg(1, arg, sizeof(arg));
+	
+	decl String:target_name[MAX_TARGET_LENGTH];
+	decl target_list[MAXPLAYERS], target_count, bool:tn_is_ml;
+	
+	if ((target_count = ProcessTargetString(
+			arg,
+			client, 
+			target_list, 
+			MAXPLAYERS, 
+			0,
+			target_name,
+			sizeof(target_name),
+			tn_is_ml)) <= 0)
+	{
+		return Plugin_Continue;
+	}
+
+	for (new i = 0; i < target_count; i++)
+	{
+		new target = target_list[i];
+		
+		g_aPlayerGagged[target] = true;
+	}
+	
+	return Plugin_Continue;
+}
+
+public Action:Command_SMungag(client, const String:command[], argc)
+{
+	if (argc < 1)
+	{
+		return Plugin_Continue;
+	}
+	
+	decl String:arg[64];
+	GetCmdArg(1, arg, sizeof(arg));
+	
+	decl String:target_name[MAX_TARGET_LENGTH];
+	decl target_list[MAXPLAYERS], target_count, bool:tn_is_ml;
+	
+	if ((target_count = ProcessTargetString(
+			arg,
+			client, 
+			target_list, 
+			MAXPLAYERS, 
+			0,
+			target_name,
+			sizeof(target_name),
+			tn_is_ml)) <= 0)
+	{
+		return Plugin_Continue;
+	}
+
+	for (new i = 0; i < target_count; i++)
+	{
+		new target = target_list[i];
+		
+		g_aPlayerGagged[target] = false;
+	}
+	
+	return Plugin_Continue;
+}
+
+public Action:Command_SMsilence(client, const String:command[], argc)
+{
+	if (argc < 1)
+	{
+		return Plugin_Continue;
+	}
+	
+	decl String:arg[64];
+	GetCmdArg(1, arg, sizeof(arg));
+	
+	decl String:target_name[MAX_TARGET_LENGTH];
+	decl target_list[MAXPLAYERS], target_count, bool:tn_is_ml;
+	
+	if ((target_count = ProcessTargetString(
+			arg,
+			client, 
+			target_list, 
+			MAXPLAYERS, 
+			0,
+			target_name,
+			sizeof(target_name),
+			tn_is_ml)) <= 0)
+	{
+		return Plugin_Continue;
+	}
+
+	for (new i = 0; i < target_count; i++)
+	{
+		new target = target_list[i];
+
+		g_aPlayerGagged[target] = true;
+	}
+	
+	return Plugin_Continue;
+}
+
+public Action:Command_SMunsilence(client, const String:command[], argc)
+{
+	if (argc < 1)
+	{
+		return Plugin_Continue;
+	}
+	
+	decl String:arg[64];
+	GetCmdArg(1, arg, sizeof(arg));
+	
+	decl String:target_name[MAX_TARGET_LENGTH];
+	decl target_list[MAXPLAYERS], target_count, bool:tn_is_ml;
+	
+	if ((target_count = ProcessTargetString(
+			arg,
+			client, 
+			target_list, 
+			MAXPLAYERS, 
+			0,
+			target_name,
+			sizeof(target_name),
+			tn_is_ml)) <= 0)
+	{
+		return Plugin_Continue;
+	}
+
+	for (new i = 0; i < target_count; i++)
+	{
+		new target = target_list[i];
+		
+		g_aPlayerGagged[target] = false;
+	}
+	
+	return Plugin_Continue;
 }
 
 
@@ -499,12 +651,18 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		{
 			
 			/**
-			They are, set the mode if enabled
+			They are, see if enabled
 			*/
-			if (g_bClanChatEnabled)
+			if (!g_bClanChatEnabled)
 			{
-				eChatMode = ChatType_Clan;
+				PrintToChat(client, "Clan chat is disabled!");
+				return Plugin_Stop;
 			}
+			
+			/**
+			Set the mode
+			*/
+			eChatMode = ChatType_Clan;
 			
 			/**
 			Strip the clan chat symbol
@@ -512,20 +670,34 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 			decl String:sBuffer[512];
 			strcopy(sBuffer, maxlength, message[1]);
 			strcopy(message, maxlength, sBuffer);
-		}
-		
-		/**
-		Check the mode and set it if not set
-		*/
-		if (teamchat && eChatMode != ChatType_Clan)
-		{
-			eChatMode = ChatType_Team;
+			
+			/**
+			Make sure it's not blank
+			*/
+			if (IsStringBlank(message))
+			{
+				return Plugin_Stop;
+			}
 		}
 		else
 		{
-			eChatMode = ChatType_All;
-		}
 		
+			/**
+			Set it if not clan chat
+			*/
+			if (GetClientTeam(client) == g_aCurrentTeams[Spectator])
+			{
+				eChatMode = ChatType_Spectator;
+			}
+			else if (teamchat)
+			{
+				eChatMode = ChatType_Team;
+			}
+			else
+			{
+				eChatMode = ChatType_All;
+			}
+		}
 		
 		/**
 		Format the message.
@@ -560,10 +732,8 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const String:message[], String:chatmsg[], maxlength)
 {
 	decl	String:sDead[10],
-			String:sTeam[15],
-			String:sClientName[64];
-	
-	GetClientName(client, sClientName, sizeof(sClientName));
+				String:sTeam[15];
+
 	
 	if (teamchat)
 	{
@@ -615,68 +785,72 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 	GetArrayString(g_aSettings[hTagText], index, sTagText, sizeof(sTagText));
 	GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));
 	
+	decl String:sClientName[64];
+	GetClientName(client, sClientName, sizeof(sClientName));
+	
+	/**
+	Remove any color tags from name
+	**/
+	CRemoveTags(sClientName, sizeof(sClientName));
+	
 	Format(chatmsg, maxlength, "{default}%s%s%s%s%s%s {default}:  %s%s", sDead, sTeam, sTagColor, sTagText, sNameColor, sClientName, sTextColor, message);
 }
 
 stock FormatClanMessage(client, const String:message[], String:chatmsg[], maxlength)
 {
-	Format(chatmsg, maxlength, "{green}(CLAN) %N {default}:  %s", client, message);
+	decl String:sClientName[64];
+	GetClientName(client, sClientName, sizeof(sClientName));
+	
+	/**
+	Remove any color tags from name
+	**/
+	CRemoveTags(sClientName, sizeof(sClientName));
+	
+	Format(chatmsg, maxlength, "{green}(CLAN) %s {default}:  %s", sClientName, message);
 }
 
 stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:mode, e_ChatType:type)
 {
-	if (type == ChatType_Clan)
+
+	new bool:bSenderAlive = IsPlayerAlive(client);
+	switch (mode)
 	{
-		for (new i = 1; i <= MaxClients; i++)
+		case DeadChat_Restricted:
 		{
-			if (IsValidClient(i) && g_aPlayerClanMember[i])
+			if (!bSenderAlive && GetClientTeam(client) != g_aCurrentTeams[Spectator])
 			{
-				CPrintToChat(i, "%s", message);
+				PrintToChat(client, "The dead don't talk!");
+			}
+			else
+			{
+				for (new i = 1; i <= MaxClients; i++)
+				{
+					if (IsValidClient(i) && IsPlayerAlive(i) 	&& CanChatToEachOther(client, i, type))
+					{
+						CPrintToChatEx(i, client, "%s", message);
+					}
+				}
 			}
 		}
-	}
-	else
-	{
-		new bool:bSenderAlive = IsPlayerAlive(client);
-		switch (mode)
+		case DeadChat_Normal:
 		{
-			case DeadChat_Restricted:
+			for (new i = 1; i <= MaxClients; i++)
 			{
-				if (!bSenderAlive)
+				if (IsValidClient(i) 
+					&& (bSenderAlive || (!bSenderAlive && !IsPlayerAlive(i)))
+					&& CanChatToEachOther(client, i, type))
 				{
-					PrintToChat(client, "The dead don't talk!");
-				}
-				else
-				{
-					for (new i = 1; i <= MaxClients; i++)
-					{
-						if (IsValidClient(i) && IsPlayerAlive(i) 	&& CanChatToEachOther(client, i, type))
-						{
-							CPrintToChatEx(i, client, "%s", message);
-						}
-					}
+					CPrintToChatEx(i, client, "%s", message);
 				}
 			}
-			case DeadChat_Normal:
+		}
+		case DeadChat_UnRestricted:
+		{
+			for (new i = 1; i <= MaxClients; i++)
 			{
-				for (new i = 1; i <= MaxClients; i++)
+				if (IsValidClient(i) && CanChatToEachOther(client, i, type))
 				{
-					if (IsValidClient(i) 
-						&& (bSenderAlive || (!bSenderAlive && !IsPlayerAlive(i)))
-						&& CanChatToEachOther(client, i, type))
-					{
-						CPrintToChatEx(i, client, "%s", message);
-					}
-				}
-			}
-			case DeadChat_UnRestricted:
-			{
-				for (new i = 1; i <= MaxClients; i++)
-				{
-					if (IsValidClient(i) && CanChatToEachOther(client, i, type))
-					{
-						CPrintToChatEx(i, client, "%s", message);
-					}
+					CPrintToChatEx(i, client, "%s", message);
 				}
 			}
 		}
@@ -698,6 +872,19 @@ stock bool:CanChatToEachOther(client, target, e_ChatType:type)
 				return true;
 			}
 		}
+		case ChatType_Clan:
+		{
+			if (g_aPlayerClanMember[client] && g_aPlayerClanMember[target])
+			{
+				return true;
+			}
+		}
+		case ChatType_Spectator:
+			if (GetClientTeam(client) == g_aCurrentTeams[Spectator] 
+			&& GetClientTeam(target) == g_aCurrentTeams[Spectator])
+			{
+				return true;
+			}
 	}
 	return false;
 }
