@@ -32,4 +32,8 @@
 	{
 		"en"	"*DEAD*"
 	}
+	"Filter Message"
+	{
+		"en"	"You said a {red}banned word{default}.  Your message has been filtered."
+	}
 }

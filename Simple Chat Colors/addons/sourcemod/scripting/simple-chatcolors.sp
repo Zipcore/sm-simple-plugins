@@ -40,14 +40,15 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.2.2"
+#define PLUGIN_VERSION "1.3.0"
 
-#define CHAT_SYMBOL_ADMIN '@'
-#define CHAT_SYMBOL_CLAN '#'
-#define CHAT_TRIGGER_PUBLIC '!'
-#define CHAT_TRIGGER_PRIVATE '/'
-#define CHAR_PERCENT "%"
-#define CHAR_NULL "\0"
+#define CHAT_SYMBOL_ADMIN 		'@'
+#define CHAT_SYMBOL_CLAN 			'#'
+#define CHAT_TRIGGER_PUBLIC 	'!'
+#define CHAT_TRIGGER_PRIVATE 	'/'
+#define CHAR_PERCENT					"%"
+#define CHAR_NULL 						"\0"
+#define CHAR_FILTER						"*"
 
 enum e_Settings
 {
@@ -80,10 +81,13 @@ new Handle:g_Cvar_hTriggerBackup = INVALID_HANDLE;
 new Handle:g_Cvar_hClanChatEnabled = INVALID_HANDLE;
 new Handle:g_Cvar_hClanFlag = INVALID_HANDLE;
 new Handle:g_Cvar_hDeadChat = INVALID_HANDLE;
+new Handle:g_Cvar_hChatFilterEnabled = INVALID_HANDLE;
+new Handle:g_hBadWords = INVALID_HANDLE;
 
 new bool:g_bDebug = false;
 new bool:g_bTriggerBackup = false;
 new bool:g_bClanChatEnabled = false;
+new bool:g_bChatFilterEnabled = false;
 new bool:g_bOverrideSection = false;
 
 new g_iArraySize;
@@ -106,7 +110,7 @@ public Plugin:myinfo =
 
 
 /**
-Below is call to include the base antiflood.sp plugin.  
+Below is call to include a modified version of the base antiflood.sp plugin.  
 All credit goes to SourceMod dev team
 */
 #include "simple-plugins/antiflood.sp"
@@ -129,11 +133,12 @@ public OnPluginStart()
 	Need to create all of our console variables.
 	*/
 	CreateConVar("sm_chatcolors_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	g_Cvar_hDeadChat = CreateConVar("ssc_deadchat", "1", "0 = Dead can't see or type chat \n 1 = Dead can see all chat and type to other dead players \n 2 = Dead can see and type chat to all");
-	g_Cvar_hDebug = CreateConVar("ssc_debug", "0", "Enable/Disable debugging information");
+	g_Cvar_hDeadChat = CreateConVar("scc_deadchat", "1", "0 = Dead can't see or type chat \n 1 = Dead can see all chat and type to other dead players \n 2 = Dead can see and type chat to all");
+	g_Cvar_hDebug = CreateConVar("scc_debug", "0", "Enable/Disable debugging information");
 	g_Cvar_hTriggerBackup = CreateConVar("scc_triggerbackup", "0", "Enable/Disable the trigger backup");
 	g_Cvar_hClanChatEnabled = CreateConVar("scc_clanchat_enabled", "1", "Enable/Disable clan chat");
 	g_Cvar_hClanFlag = CreateConVar("scc_clanflag", "a", "Specify the admin flag given to clan members");
+	g_Cvar_hChatFilterEnabled = CreateConVar("scc_chatfilter_enabled", "1", "Enable/Disable chat filtering");
 	
 	/**
 	Hook console variables
@@ -142,6 +147,7 @@ public OnPluginStart()
 	HookConVarChange(g_Cvar_hTriggerBackup, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hClanChatEnabled, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hDeadChat, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hChatFilterEnabled, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to use
@@ -174,10 +180,21 @@ public OnPluginStart()
 	ProcessConfigFile();
 	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
 	
+	/**
+	Create the trie to store the bad words
+	*/
+	g_hBadWords = CreateTrie();
+	
+	/**
+	Init the antiflood plugin
+	*/
 	InitAntiFlood();
+	
+	/**
+	Load the config file
+	*/
 	AutoExecConfig();
 }
-
 
 public OnAllPluginsLoaded()
 {
@@ -219,7 +236,6 @@ public OnAllPluginsLoaded()
 	}
 }
 
-
 public OnConfigsExecuted()
 {
 	GetConVarString(g_Cvar_hClanFlag, g_sClanFlags, sizeof(g_sClanFlags));
@@ -227,7 +243,9 @@ public OnConfigsExecuted()
 	g_bTriggerBackup = GetConVarBool(g_Cvar_hTriggerBackup);
 	g_bClanChatEnabled = GetConVarBool(g_Cvar_hClanChatEnabled);
 	g_eDeadChatMode = e_DeadChat:GetConVarInt(g_Cvar_hDeadChat);
-	ReloadConfigFile();	
+	g_bChatFilterEnabled = GetConVarBool(g_Cvar_hChatFilterEnabled);
+	LoadBadWords();
+	ReloadConfigFile();
 }
 
 public OnClientPostAdminCheck(client)
@@ -292,6 +310,17 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 	else if (convar == g_Cvar_hDeadChat)
 	{
 		g_eDeadChatMode = e_DeadChat:StringToInt(newValue);
+	}
+	else if (convar == g_Cvar_hChatFilterEnabled)
+	{
+		if (StringToInt(newValue) == 1)
+		{
+			g_bChatFilterEnabled = true;
+		}
+		else
+		{
+			g_bChatFilterEnabled = false;
+		}
 	}
 }
 
@@ -651,6 +680,35 @@ stock bool:IsStringBlank(const String:input[])
 stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 {
 	
+	new e_ChatType:eChatMode;
+	new bool:bSaidBadWord = false;
+	
+	/**
+	Keep the original message
+	*/
+	new String:sOriginalMessage[128];
+	strcopy(sOriginalMessage, sizeof(sOriginalMessage), message);
+	
+	/**
+	Check to see if the chat filter is enabled
+	*/
+	if (g_bChatFilterEnabled)
+	{
+		
+		/**
+		Check to see if they said a bad word
+		*/
+		if (SaidBadWord(client, message, maxlength))
+		{
+			
+			/**
+			Inform them that there message was filtered.
+			*/
+			CPrintToChat(client, "%t", "Filter Message");
+			bSaidBadWord = true;
+		}
+	}
+	
 	/**
 	Make sure the client has a color assigned
 	*/
@@ -701,21 +759,20 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		}
 		
 		/**
-		Log the message for hlstatsx and other things.
+		Log the original message for hlstatsx and other things.
 		*/
 		if (teamchat)
 		{
-			LogPlayerEvent(client, "say_team", message);
+			LogPlayerEvent(client, "say_team", sOriginalMessage);
 		}
 		else
 		{
-			LogPlayerEvent(client, "say", message);
+			LogPlayerEvent(client, "say", sOriginalMessage);
 		}
 		
 		/**
 		See if they are using clan chat
 		*/
-		new e_ChatType:eChatMode;
 		if (message[0] == CHAT_SYMBOL_CLAN)
 		{
 			
@@ -790,8 +847,42 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		We are done, bug out, and stop the original chat message.
 		*/
 		return Plugin_Stop;
+	} 
+	else if (bSaidBadWord)
+	{
+		
+		/**
+		They said a bad word but do not have a color assigned, still filter the message
+		*/
+		decl String:sChatMsg[512];
+		FormatChatMessage(client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerIndex[client], message, sChatMsg, sizeof(sChatMsg));
+		
+		/**
+		Set the Chatmode
+		*/
+		if (GetClientTeam(client) == g_aCurrentTeams[Spectator])
+		{
+			eChatMode = ChatType_Spectator;
+		}
+		else if (teamchat)
+		{
+			eChatMode = ChatType_Team;
+		}
+		else
+		{
+			eChatMode = ChatType_All;
+		}
+		
+		/**
+		Send the message
+		*/
+		SendChatMessage(client, teamchat, sChatMsg, g_eDeadChatMode, eChatMode);
+		
+		/**
+		We are done, bug out, and stop the original chat message.
+		*/
+		return Plugin_Stop;
 	}
-
 	/**
 	Doesn't have a color assigned, bug out.
 	*/
@@ -844,15 +935,28 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 		Format(sDead, sizeof(sDead), "");
 	}
 	
-	new String:sNameColor[15];
-	new String:sTextColor[15];
-	GetArrayString(g_aSettings[hNameColor], index, sNameColor, sizeof(sNameColor));
-	GetArrayString(g_aSettings[hTextColor], index, sTextColor, sizeof(sTextColor));
-	
 	new String:sTagText[24];
 	new String:sTagColor[15];
-	GetArrayString(g_aSettings[hTagText], index, sTagText, sizeof(sTagText));
-	GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));
+	new String:sNameColor[15];
+	new String:sTextColor[15];
+	
+	/**
+	Make sure we have a valid index or use default colors
+	**/
+	if (index != -1)
+	{
+		GetArrayString(g_aSettings[hTagText], index, sTagText, sizeof(sTagText));
+		GetArrayString(g_aSettings[hTagColor], index, sTagColor, sizeof(sTagColor));	
+		GetArrayString(g_aSettings[hNameColor], index, sNameColor, sizeof(sNameColor));
+		GetArrayString(g_aSettings[hTextColor], index, sTextColor, sizeof(sTextColor));
+	}
+	else
+	{
+		Format(sTagText, sizeof(sTagText), "%s", "");
+		Format(sTagColor, sizeof(sTagColor), "%s", "");
+		Format(sNameColor, sizeof(sNameColor), "%s", "{teamcolor}");
+		Format(sTextColor, sizeof(sTextColor), "%s", "{default}");
+	}
 	
 	decl String:sClientName[64];
 	GetClientName(client, sClientName, sizeof(sClientName));
@@ -990,6 +1094,115 @@ stock bool:CanChatToEachOther(client, target, e_ChatType:type)
 			}
 	}
 	return false;
+}
+
+stock bool:SaidBadWord(client, String:message[], maxlength)
+{
+	
+	new index = 0;
+	new bool:bBad;
+	new String:sWords[64][128];
+	new String:sWordBuffer[128];
+	
+	/**
+	Strip the quotes and explode the string into words (limit 64 words of 128 chars in length)
+	*/
+	StripQuotes(message);
+	ExplodeString(message, " ", sWords, sizeof(sWords), sizeof(sWords[]));
+	
+	/**
+	Loop through all the words
+	*/
+	do
+	{
+
+		TrimString(sWords[index]);
+		
+		/**
+		Remove the punctuation
+		*/
+		new bool:bHasPunc;
+		new String:sPunChars[32];
+		bHasPunc = RemovePunctuation(sWords[index], sPunChars, sizeof(sPunChars));
+		
+		if (g_bDebug)
+		{
+			PrintToChat(client, "Checking word: %s", sWords[index]);
+		}
+		
+		/**
+		Check to see if the word is in the banned word list
+		*/
+		if (GetTrieString(g_hBadWords, sWords[index], sWordBuffer, sizeof(sWordBuffer)))
+		{
+			
+			/**
+			It is, create the filter
+			*/
+			new String:sFilter[128];
+			for (new x = 0; x < strlen(sWords[index]); x++)
+			{
+				decl String:sBuffer[128];
+				strcopy(sBuffer, sizeof(sBuffer), sFilter);
+				Format(sFilter, sizeof(sFilter), "%s%s", CHAR_FILTER, sBuffer);
+			}
+			
+			strcopy(sWords[index], sizeof(sWords[]), sFilter);
+			bBad = true;
+		}
+		
+		/**
+		Re-add the punctuation
+		*/
+		if (bHasPunc)
+		{
+			decl String:sBuffer[128];
+			strcopy(sBuffer, sizeof(sBuffer), sWords[index]);
+			Format(sWords[index], sizeof(sWords[]), "%s%s", sBuffer, sPunChars);
+		}
+
+		index++;
+	} while !IsStringBlank(sWords[index]);
+	
+	/**
+	Rebuild the message and return the result
+	*/
+	ImplodeStrings(sWords, sizeof(sWords), " ", message, maxlength);
+	return bBad;
+}
+
+/**
+Load the bad words
+*/
+stock LoadBadWords()
+{
+	ClearTrie(g_hBadWords);
+	new String:sConfigFile[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), "configs/simple-chatfilter.cfg");
+	if (!FileExists(sConfigFile)) 
+	{
+		/**
+		Config file doesn't exists, stop the plugin
+		*/
+		LogError("[SCF] Simple Chat Colors is not running! Could not find file %s", sConfigFile);
+		SetFailState("Could not find file %s", sConfigFile);
+	}
+	else
+	{
+		new Handle:hFile = OpenFile(sConfigFile, "r");
+		new String:sBadWord[128];
+		do
+		{
+			ReadFileLine(hFile, sBadWord, sizeof(sBadWord));
+			TrimString(sBadWord);
+			if (sBadWord[0] == '\0' || sBadWord[0] == ';' || (sBadWord[0] == '/' && sBadWord[1] == '/'))
+			{
+				continue;
+			}
+			SetTrieString(g_hBadWords, sBadWord, sBadWord);
+		} while (!IsEndOfFile(hFile));
+		CloseHandle(hFile);
+	}
 }
 
 /**
