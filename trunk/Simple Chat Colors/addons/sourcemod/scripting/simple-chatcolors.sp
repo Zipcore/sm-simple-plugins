@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.2.1"
+#define PLUGIN_VERSION "1.2.2"
 
 #define CHAT_SYMBOL_ADMIN '@'
 #define CHAT_SYMBOL_CLAN '#'
@@ -882,6 +882,7 @@ stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:
 {
 
 	new bool:bSenderAlive = IsPlayerAlive(client);
+	new bool:bHasTeamColorTag = (StrContains(message, "{teamcolor}", false) != -1 ? true : false);
 	switch (mode)
 	{
 		case DeadChat_Restricted:
@@ -896,7 +897,18 @@ stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:
 				{
 					if (IsValidClient(i) && IsPlayerAlive(i) 	&& CanChatToEachOther(client, i, type))
 					{
-						CPrintToChatEx(i, client, "%s", message);
+						if (g_bDebug)
+						{
+							PrintToChat(client, "Sending Following Message to colors.inc file: \n %s", message);
+						}
+						if (bHasTeamColorTag)
+						{
+							CPrintToChatEx(i, client, "%s", message);
+						}
+						else
+						{
+							CPrintToChat(i, "%s", message);
+						}
 					}
 				}
 			}
@@ -909,7 +921,18 @@ stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:
 					&& (bSenderAlive || (!bSenderAlive && !IsPlayerAlive(i)))
 					&& CanChatToEachOther(client, i, type))
 				{
-					CPrintToChatEx(i, client, "%s", message);
+					if (g_bDebug)
+					{
+						PrintToChat(client, "Sending Following Message to colors.inc file: \n %s", message);
+					}
+					if (bHasTeamColorTag)
+					{
+						CPrintToChatEx(i, client, "%s", message);
+					}
+					else
+					{
+						CPrintToChat(i, "%s", message);
+					}
 				}
 			}
 		}
@@ -919,7 +942,18 @@ stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:
 			{
 				if (IsValidClient(i) && CanChatToEachOther(client, i, type))
 				{
-					CPrintToChatEx(i, client, "%s", message);
+					if (g_bDebug)
+					{
+						PrintToChat(client, "Sending Following Message to colors.inc file: \n %s", message);
+					}
+					if (bHasTeamColorTag)
+					{
+						CPrintToChatEx(i, client, "%s", message);
+					}
+					else
+					{
+						CPrintToChat(i, "%s", message);
+					}
 				}
 			}
 		}
