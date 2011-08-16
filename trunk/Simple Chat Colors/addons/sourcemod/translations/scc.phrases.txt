@@ -1,0 +1,35 @@
+"Phrases"
+{
+	"Clan chat is disabled!"
+	{
+		"en"	"Clan chat is disabled!"
+	}
+	"The dead don't talk!"
+	{
+		"en"	"The dead don't talk!"
+	}
+	"Survivor"
+	{
+		"en"	"(Survivor)"
+	}
+	"Infected"
+	{
+		"en"	"(Infected)"
+	}
+	"TEAM"
+	{
+		"en"	"(TEAM)"
+	}
+	"Spectator"
+	{
+		"en"	"(Spectator)"
+	}
+	"SPEC"
+	{
+		"en"	"*SPEC*"
+	}
+	"DEAD"
+	{
+		"en"	"*DEAD*"
+	}
+}
