@@ -1,10 +1,10 @@
 <plugin>
 	<version>1.3.0</version>
 	<changes>Updated version</changes>
-	<binary>/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/plugins/simple-chatcolors.smx</binary>
-	<source>/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/scripting/simple-chatcolors.sp</source>
-	<other dir="addons\sourcemod\scripting\simple-plugins">/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/scripting/simple-plugins/antiflood.sp</other>
-	<other dir="addons\sourcemod\translations">/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/translations/scc.phrases.txt</other>
-	<other dir="addons\sourcemod\configs">/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/configs/simple-chatcolors.cfg</other>
-	<other dir="addons\sourcemod\configs">/svn/branches/Simple%20Chat%20Colors/addons/sourcemod/configs/simple-chatfilter.cfg</other>
+	<binary>/svn/branches/SimpleChatColors/addons/sourcemod/plugins/simple-chatcolors.smx</binary>
+	<source>/svn/branches/SimpleChatColors/addons/sourcemod/scripting/simple-chatcolors.sp</source>
+	<other dir="addons/sourcemod/scripting/simple-plugins">/svn/branches/SimpleChatColors/addons/sourcemod/scripting/simple-plugins/antiflood.sp</other>
+	<other dir="addons/sourcemod/translations">/svn/branches/SimpleChatColors/addons/sourcemod/translations/scc.phrases.txt</other>
+	<other dir="addons/sourcemod/configs">/svn/branches/SimpleChatColors/addons/sourcemod/configs/simple-chatcolors.cfg</other>
+	<other dir="addons/sourcemod/configs">/svn/branches/SimpleChatColors/addons/sourcemod/configs/simple-chatfilter.cfg</other>
 </plugin>
