@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <loghelper>
 #include <simple-plugins>
 
-#define PLUGIN_VERSION "1.2.0"
+#define PLUGIN_VERSION "1.2.1"
 
 #define CHAT_SYMBOL_ADMIN '@'
 #define CHAT_SYMBOL_CLAN '#'
@@ -104,6 +104,14 @@ public Plugin:myinfo =
 	url = "http://www.simple-plugins.com"
 };
 
+
+/**
+Below is call to include the base antiflood.sp plugin.  
+All credit goes to SourceMod dev team
+*/
+#include "simple-plugins/antiflood.sp"
+
+
 /**
 Sourcemod callbacks
 */
@@ -156,13 +164,61 @@ public OnPluginStart()
 	}
 	
 	/**
+	Load translation file
+	*/
+	LoadTranslations ("scc.phrases");
+	
+	/**
 	Load the admins and colors from the config
 	*/
 	ProcessConfigFile();
 	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
 	
+	InitAntiFlood();
 	AutoExecConfig();
 }
+
+
+public OnAllPluginsLoaded()
+{
+	
+	/*
+	Deal with some known plugin conflicts
+	*/
+	new Handle:hAntiFlood = FindConVar("sm_flood_time");
+	if (hAntiFlood != INVALID_HANDLE)
+	{
+		new String:sNewFile[PLATFORM_MAX_PATH + 1], String:sOldFile[PLATFORM_MAX_PATH + 1];
+		BuildPath(Path_SM, sNewFile, sizeof(sNewFile), "plugins/disabled/antiflood.smx");
+		BuildPath(Path_SM, sOldFile, sizeof(sOldFile), "plugins/antiflood.smx");
+	
+		/**
+		Check if plugins/antiflood.smx exists, and if not, ignore
+		*/
+		if(!FileExists(sOldFile))
+		{
+			return;
+		}
+	
+		/** 
+		Check if plugins/disabled/antiflood.smx already exists, and if so, delete it
+		*/
+		if(FileExists(sNewFile))
+		{
+			DeleteFile(sNewFile);
+		}
+	
+		/**
+		Unload plugins/antiflood.smx and move it to plugins/disabled/antiflood.smx
+		*/
+		LogAction(0, -1, "Detected the plugin Antiflood");
+		LogAction(0, -1, "Antiflood plugin conflicts with Simple Chat Colors");
+		LogAction(0, -1, "Unloading plugin and disabling Antiflood plugin");
+		ServerCommand("sm plugins unload antiflood");
+		RenameFile(sNewFile, sOldFile);
+	}
+}
+
 
 public OnConfigsExecuted()
 {
@@ -278,6 +334,14 @@ public Action:Command_SayTeam(client, args)
 	}
 	
 	/**
+	Check the flood tokens
+	**/
+	if (g_FloodTokens[client] >= 3)
+	{
+		return Plugin_Handled;
+	}
+	
+	/**
 	Get the message
 	*/
 	decl	String:sMessage[256];
@@ -307,6 +371,11 @@ public Action:Command_PrintChatColors(client, args)
 	return Plugin_Handled;
 }
 
+
+/**
+Below are functions from the basechat.sp plugin.  
+All credit goes to SourceMod dev team
+*/
 public Action:Command_SMgag(client, const String:command[], argc)
 {
 	if (argc < 1)
@@ -655,7 +724,7 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 			*/
 			if (!g_bClanChatEnabled)
 			{
-				PrintToChat(client, "Clan chat is disabled!");
+				PrintToChat(client, "%t", "Clan chat is disabled!");
 				return Plugin_Stop;
 			}
 			
@@ -739,19 +808,19 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 	{
 		if ((g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_L4D2) && team == g_aCurrentTeams[Team1])
 		{
-			Format(sTeam, sizeof(sTeam), "(Survivor) ");
+			Format(sTeam, sizeof(sTeam), "%t ", "Survivor");
 		}
 		else if ((g_CurrentMod == GameType_L4D || g_CurrentMod == GameType_L4D2) && team == g_aCurrentTeams[Team2])
 		{
-			Format(sTeam, sizeof(sTeam), "(Infected) ");
+			Format(sTeam, sizeof(sTeam), "%t ", "Infected");
 		}
 		else if (team != g_aCurrentTeams[Spectator])
 		{
-			Format(sTeam, sizeof(sTeam), "(TEAM) ");
+			Format(sTeam, sizeof(sTeam), "%t ", "TEAM");
 		}
 		else
 		{
-			Format(sTeam, sizeof(sTeam), "(Spectator) ");
+			Format(sTeam, sizeof(sTeam), "%t ", "Spectator");
 		}
 	}
 	else
@@ -762,13 +831,13 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 		}
 		else
 		{
-			Format(sTeam, sizeof(sTeam), "*SPEC* ");
+			Format(sTeam, sizeof(sTeam), "%t ", "SPEC");
 		}
 	}
 	
 	if ((g_CurrentMod != GameType_L4D && g_CurrentMod != GameType_L4D2) && team != g_aCurrentTeams[Spectator] && !alive)
 	{
-		Format(sDead, sizeof(sDead), "*DEAD* ");
+		Format(sDead, sizeof(sDead), "%t ", "DEAD");
 	}
 	else
 	{
@@ -819,7 +888,7 @@ stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:
 		{
 			if (!bSenderAlive && GetClientTeam(client) != g_aCurrentTeams[Spectator])
 			{
-				PrintToChat(client, "The dead don't talk!");
+				PrintToChat(client, "%t", "The dead don't talk!");
 			}
 			else
 			{
