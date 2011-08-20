@@ -39,8 +39,11 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <colors>
 #include <loghelper>
 #include <simple-plugins>
+#undef REQUIRE_PLUGIN
+#include <autoupdate>
+#define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "1.3.0"
+#define PLUGIN_VERSION "1.3.0.beta"
 
 #define CHAT_SYMBOL_ADMIN 		'@'
 #define CHAT_SYMBOL_CLAN 			'#'
@@ -61,12 +64,19 @@ Handle:hTagColor,
 Handle:hOverrides
 };
 
+enum e_AutoResponses
+{
+Handle:hPhrase,
+Handle:hResponse
+};
+
 enum e_ChatType
 {
 	ChatType_All,
 	ChatType_Team,
 	ChatType_Clan,
-	ChatType_Spectator
+	ChatType_SpectatorAll,
+	ChatType_SpectatorTeam
 };
 
 enum e_DeadChat
@@ -82,22 +92,26 @@ new Handle:g_Cvar_hClanChatEnabled = INVALID_HANDLE;
 new Handle:g_Cvar_hClanFlag = INVALID_HANDLE;
 new Handle:g_Cvar_hDeadChat = INVALID_HANDLE;
 new Handle:g_Cvar_hChatFilterEnabled = INVALID_HANDLE;
+new Handle:g_Cvar_hAutoResponseEnabled = INVALID_HANDLE;
 new Handle:g_hBadWords = INVALID_HANDLE;
+new Handle:g_aSettings[e_Settings];
+new Handle:g_aResponses[e_AutoResponses];
 
 new bool:g_bDebug = false;
 new bool:g_bTriggerBackup = false;
+new bool:g_bOverrideSection = false;
 new bool:g_bClanChatEnabled = false;
 new bool:g_bChatFilterEnabled = false;
-new bool:g_bOverrideSection = false;
-
-new g_iArraySize;
-
-new e_DeadChat:g_eDeadChatMode;
-new String:g_sClanFlags[16];
-new Handle:g_aSettings[e_Settings];
-new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
+new bool:g_bAutoResponseEnabled = false;
 new bool:g_aPlayerClanMember[MAXPLAYERS + 1] = { false, ... };
 new bool:g_aPlayerGagged[MAXPLAYERS + 1] = { false, ... };
+
+new String:g_sClanFlags[16];
+
+new g_iArraySize;
+new e_DeadChat:g_eDeadChatMode;
+new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
+
 
 public Plugin:myinfo =
 {
@@ -139,6 +153,7 @@ public OnPluginStart()
 	g_Cvar_hClanChatEnabled = CreateConVar("scc_clanchat_enabled", "1", "Enable/Disable clan chat");
 	g_Cvar_hClanFlag = CreateConVar("scc_clanflag", "a", "Specify the admin flag given to clan members");
 	g_Cvar_hChatFilterEnabled = CreateConVar("scc_chatfilter_enabled", "1", "Enable/Disable chat filtering");
+	g_Cvar_hAutoResponseEnabled = CreateConVar("scc_autoresponse_enabled", "1", "Enable/Disable auto responses");
 	
 	/**
 	Hook console variables
@@ -148,6 +163,7 @@ public OnPluginStart()
 	HookConVarChange(g_Cvar_hClanChatEnabled, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hDeadChat, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hChatFilterEnabled, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hAutoResponseEnabled, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to use
@@ -158,7 +174,7 @@ public OnPluginStart()
 	AddCommandListener(Command_SMungag, "sm_ungag");
 	AddCommandListener(Command_SMsilence, "sm_silence");
 	AddCommandListener(Command_SMunsilence, "sm_unsilence");
-	RegAdminCmd("sm_reloadchatcolors", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from config file");
+	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from the config files");
 	RegAdminCmd("sm_printchatcolors", Command_PrintChatColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
 	
 	/**
@@ -166,7 +182,12 @@ public OnPluginStart()
 	*/
 	for (new e_Settings:i; i < e_Settings:sizeof(g_aSettings); i++)
 	{
-		g_aSettings[i] = CreateArray(128, 1);
+		g_aSettings[i] = CreateArray(256, 1);
+	}
+	
+	for (new e_AutoResponses:i; i < e_AutoResponses:sizeof(g_aResponses); i++)
+	{
+		g_aResponses[i] = CreateArray(512, 1);
 	}
 	
 	/**
@@ -175,15 +196,14 @@ public OnPluginStart()
 	LoadTranslations ("scc.phrases");
 	
 	/**
-	Load the admins and colors from the config
-	*/
-	ProcessConfigFile();
-	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
-	
-	/**
-	Create the trie to store the bad words
+	Create the trie
 	*/
 	g_hBadWords = CreateTrie();
+	
+	/**
+	Load the admins and colors from the config
+	*/
+	ReloadConfigFiles();
 	
 	/**
 	Init the antiflood plugin
@@ -234,6 +254,25 @@ public OnAllPluginsLoaded()
 		ServerCommand("sm plugins unload antiflood");
 		RenameFile(sNewFile, sOldFile);
 	}
+	
+	/*
+	Register the autoupdater if they have it
+	*/
+	if(LibraryExists("pluginautoupdate")) 
+	{ 
+		AutoUpdate_AddPlugin("sm-simple-plugins.googlecode.com", "/svn/branches/simplechatcolors.xml", PLUGIN_VERSION); 
+	}
+}
+
+public OnPluginEnd()
+{
+	/*
+	De-register the autoupdater if they have it
+	*/
+	if(LibraryExists("pluginautoupdate")) 
+	{ 
+		AutoUpdate_RemovePlugin(); 
+	}
 }
 
 public OnConfigsExecuted()
@@ -244,8 +283,8 @@ public OnConfigsExecuted()
 	g_bClanChatEnabled = GetConVarBool(g_Cvar_hClanChatEnabled);
 	g_eDeadChatMode = e_DeadChat:GetConVarInt(g_Cvar_hDeadChat);
 	g_bChatFilterEnabled = GetConVarBool(g_Cvar_hChatFilterEnabled);
-	LoadBadWords();
-	ReloadConfigFile();
+	g_bAutoResponseEnabled = GetConVarBool(g_Cvar_hAutoResponseEnabled);
+	ReloadConfigFiles();
 }
 
 public OnClientPostAdminCheck(client)
@@ -322,6 +361,17 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 			g_bChatFilterEnabled = false;
 		}
 	}
+	else if (convar == g_Cvar_hAutoResponseEnabled)
+	{
+		if (StringToInt(newValue) == 1)
+		{
+			g_bAutoResponseEnabled = true;
+		}
+		else
+		{
+			g_bAutoResponseEnabled = false;
+		}
+	}
 }
 
 /**
@@ -384,7 +434,7 @@ public Action:Command_SayTeam(client, args)
 
 public Action:Command_Reload(client, args)
 {
-	ReloadConfigFile();	
+	ReloadConfigFiles();	
 	return Plugin_Handled;
 }
 
@@ -558,8 +608,6 @@ stock CheckPlayer(client)
 	new String:sFlags[15];
 	new String:sClientSteamID[64];
 	new bool:bDebug_FoundBySteamID = false;
-	new iGroupFlags;
-	new iFlags;
 	new iIndex = -1;
 	
 	/**
@@ -582,12 +630,11 @@ stock CheckPlayer(client)
 		/**
 		Search for flag in groups
 		*/
-		iFlags = GetUserFlagBits(client);
 		for (new i = 0; i < g_iArraySize; i++)
 		{
 			GetArrayString(g_aSettings[hGroupFlag], i, sFlags, sizeof(sFlags));
-			iGroupFlags = ReadFlagString(sFlags);
-			if (iFlags & iGroupFlags)
+			new iGroupFlags = ReadFlagString(sFlags);
+			if (CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
 			{
 				g_aPlayerIndex[client] = i;
 				iIndex = i;
@@ -612,21 +659,10 @@ stock CheckPlayer(client)
 		}
 	}
 	
-	/**
-	Check for clan tag
-	*/
 	new ibFlags = ReadFlagString(g_sClanFlags);
-	if ((GetUserFlagBits(client) & ibFlags) == ibFlags)
+	if (CheckCommandAccess(client, "scc_clanflag", ibFlags, true))
 	{
 		g_aPlayerClanMember[client] = true;
-	}
-	else if (GetUserFlagBits(client) & ADMFLAG_ROOT)
-	{
-		g_aPlayerClanMember[client] = true;
-	}
-	else
-	{
-		g_aPlayerClanMember[client] = false;
 	}
 	
 	/**
@@ -690,6 +726,119 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	strcopy(sOriginalMessage, sizeof(sOriginalMessage), message);
 	
 	/**
+	Because we are dealing with a chat message, lets take out all the %'s
+	*/
+	ReplaceString(message, maxlength, CHAR_PERCENT, CHAR_NULL);
+	
+	/**
+	Get the chat message and strip it down.
+	*/
+	StripQuotes(message);
+	TrimString(message);
+	
+	/**
+	Make sure it's not blank
+	*/
+	if (IsStringBlank(message))
+	{
+		return Plugin_Stop;
+	}
+	
+	/**
+	Bug out if they are using the admin chat symbol (admin chat)
+	*/
+	if (message[0] == CHAT_SYMBOL_ADMIN)
+	{
+		return Plugin_Continue;
+	}
+	
+	/**
+	If we are using the trigger backup, then bug out on the triggers
+	*/
+	if (g_bTriggerBackup && (message[0] == CHAT_TRIGGER_PUBLIC || message[0] == CHAT_TRIGGER_PRIVATE))
+	{
+		return Plugin_Continue;
+	}
+	
+	/**
+	Make sure it's not a override string
+	*/
+	if (FindStringInArray(g_aSettings[hOverrides], message) != -1)
+	{
+		return Plugin_Continue;
+	}
+	
+	/**
+	See if they are using clan chat
+	*/
+	if (message[0] == CHAT_SYMBOL_CLAN && g_aPlayerClanMember[client])
+	{
+		
+		/**
+		They are, see if enabled
+		*/
+		if (!g_bClanChatEnabled)
+		{
+			PrintToChat(client, "%t", "Clan chat is disabled!");
+			return Plugin_Stop;
+		}
+		
+		/**
+		Set the mode
+		*/
+		eChatMode = ChatType_Clan;
+		
+		/**
+		Strip the clan chat symbol
+		*/
+		decl String:sBuffer[512];
+		strcopy(sBuffer, maxlength, message[1]);
+		strcopy(message, maxlength, sBuffer);
+		
+		/**
+		Make sure it's not blank
+		*/
+		if (IsStringBlank(message))
+		{
+			return Plugin_Stop;
+		}
+	}
+	
+	/**
+	Check to see if auto response is enabled and display any response
+	*/
+	if (g_bAutoResponseEnabled)
+	{
+		
+		new iArrayResponseSize = GetArraySize(g_aResponses[hPhrase]);
+		new ResponseIndex = -1;
+		
+		for (new i = 0; i < iArrayResponseSize; i++)
+		{
+			new String:sBuffer[512];
+			GetArrayString(g_aResponses[hPhrase], i, sBuffer, sizeof(sBuffer));
+			if (StrContains(message, sBuffer, false) != -1)
+			{
+				ResponseIndex = i;
+				break;
+			}
+		}
+		
+		if (ResponseIndex >= 0)
+		{
+			
+			/**
+			Delay the response 0.5 seconds to appear after chat
+			*/
+			new Handle:hPack;
+			CreateDataTimer(0.5, Timer_ChatResponse, hPack, TIMER_FLAG_NO_MAPCHANGE);
+			WritePackCell(hPack, ResponseIndex);
+			WritePackCell(hPack, teamchat);
+			WritePackCell(hPack, client);
+		}
+	}
+	
+	/**
 	Check to see if the chat filter is enabled
 	*/
 	if (g_bChatFilterEnabled)
@@ -710,121 +859,37 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	}
 	
 	/**
+	Set the Chatmode
+	*/
+	if (eChatMode != ChatType_Clan)
+	{
+		if (GetClientTeam(client) == g_aCurrentTeams[Spectator])
+		{
+			if (teamchat)
+			{
+				eChatMode = ChatType_SpectatorTeam;
+			}
+			else
+			{
+				eChatMode = ChatType_SpectatorAll;
+			}
+		}
+		else if (teamchat)
+		{
+			eChatMode = ChatType_Team;
+		}
+		else
+		{
+			eChatMode = ChatType_All;
+		}
+	}
+	
+	/**
 	Make sure the client has a color assigned
 	*/
 	if (g_aPlayerIndex[client] != -1)
 	{
-		
-		/**
-		The client is, so get the chat message and strip it down.
-		*/
-		StripQuotes(message);
-		TrimString(message);
-		
-		/**
-		Because we are dealing with a chat message, lets take out all the %'s
-		*/
-		ReplaceString(message, maxlength, CHAR_PERCENT, CHAR_NULL);
-		
-		/**
-		Make sure it's not blank
-		*/
-		if (IsStringBlank(message))
-		{
-			return Plugin_Stop;
-		}
-		
-		/**
-		Bug out if they are using the admin chat symbol (admin chat)
-		*/
-		if (message[0] == CHAT_SYMBOL_ADMIN)
-		{
-			return Plugin_Continue;
-		}
-		
-		/**
-		If we are using the trigger backup, then bug out on the triggers
-		*/
-		else if (g_bTriggerBackup && (message[0] == CHAT_TRIGGER_PUBLIC || message[0] == CHAT_TRIGGER_PRIVATE))
-		{
-			return Plugin_Continue;
-		}
-		
-		/**
-		Make sure it's not a override string
-		*/
-		else if (FindStringInArray(g_aSettings[hOverrides], message) != -1)
-		{
-			return Plugin_Continue;
-		}
-		
-		/**
-		Log the original message for hlstatsx and other things.
-		*/
-		if (teamchat)
-		{
-			LogPlayerEvent(client, "say_team", sOriginalMessage);
-		}
-		else
-		{
-			LogPlayerEvent(client, "say", sOriginalMessage);
-		}
-		
-		/**
-		See if they are using clan chat
-		*/
-		if (message[0] == CHAT_SYMBOL_CLAN)
-		{
-			
-			/**
-			They are, see if enabled
-			*/
-			if (!g_bClanChatEnabled)
-			{
-				PrintToChat(client, "%t", "Clan chat is disabled!");
-				return Plugin_Stop;
-			}
-			
-			/**
-			Set the mode
-			*/
-			eChatMode = ChatType_Clan;
-			
-			/**
-			Strip the clan chat symbol
-			*/
-			decl String:sBuffer[512];
-			strcopy(sBuffer, maxlength, message[1]);
-			strcopy(message, maxlength, sBuffer);
-			
-			/**
-			Make sure it's not blank
-			*/
-			if (IsStringBlank(message))
-			{
-				return Plugin_Stop;
-			}
-		}
-		else
-		{
-		
-			/**
-			Set it if not clan chat
-			*/
-			if (GetClientTeam(client) == g_aCurrentTeams[Spectator])
-			{
-				eChatMode = ChatType_Spectator;
-			}
-			else if (teamchat)
-			{
-				eChatMode = ChatType_Team;
-			}
-			else
-			{
-				eChatMode = ChatType_All;
-			}
-		}
-		
+
 		/**
 		Format the message.
 		*/
@@ -858,22 +923,6 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		FormatChatMessage(client, GetClientTeam(client), IsPlayerAlive(client), teamchat, g_aPlayerIndex[client], message, sChatMsg, sizeof(sChatMsg));
 		
 		/**
-		Set the Chatmode
-		*/
-		if (GetClientTeam(client) == g_aCurrentTeams[Spectator])
-		{
-			eChatMode = ChatType_Spectator;
-		}
-		else if (teamchat)
-		{
-			eChatMode = ChatType_Team;
-		}
-		else
-		{
-			eChatMode = ChatType_All;
-		}
-		
-		/**
 		Send the message
 		*/
 		SendChatMessage(client, teamchat, sChatMsg, g_eDeadChatMode, eChatMode);
@@ -883,8 +932,9 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		*/
 		return Plugin_Stop;
 	}
+	
 	/**
-	Doesn't have a color assigned, bug out.
+	All else failed, bug out.
 	*/
 	return Plugin_Continue;
 }
@@ -1086,12 +1136,18 @@ stock bool:CanChatToEachOther(client, target, e_ChatType:type)
 				return true;
 			}
 		}
-		case ChatType_Spectator:
+		case ChatType_SpectatorAll:
+		{
+			return true;
+		}
+		case ChatType_SpectatorTeam:
+		{
 			if (GetClientTeam(client) == g_aCurrentTeams[Spectator] 
 			&& GetClientTeam(target) == g_aCurrentTeams[Spectator])
 			{
 				return true;
 			}
+		}
 	}
 	return false;
 }
@@ -1100,7 +1156,7 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 {
 	
 	new index = 0;
-	new bool:bBad;
+	new bool:bBad = false;
 	new String:sWords[64][128];
 	new String:sWordBuffer[128];
 	
@@ -1139,15 +1195,7 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 			/**
 			It is, create the filter
 			*/
-			new String:sFilter[128];
-			for (new x = 0; x < strlen(sWords[index]); x++)
-			{
-				decl String:sBuffer[128];
-				strcopy(sBuffer, sizeof(sBuffer), sFilter);
-				Format(sFilter, sizeof(sFilter), "%s%s", CHAR_FILTER, sBuffer);
-			}
-			
-			strcopy(sWords[index], sizeof(sWords[]), sFilter);
+			FilterWord(sWords[index], sizeof(sWords[]));
 			bBad = true;
 		}
 		
@@ -1168,7 +1216,68 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 	Rebuild the message and return the result
 	*/
 	ImplodeStrings(sWords, sizeof(sWords), " ", message, maxlength);
+	TrimString(message);
 	return bBad;
+}
+
+stock FilterWord(String:word[], maxlength)
+{
+	new String:sFilter[128];
+	for (new x = 0; x < strlen(word); x++)
+	{
+		decl String:sBuffer[128];
+		strcopy(sBuffer, sizeof(sBuffer), sFilter);
+		Format(sFilter, sizeof(sFilter), "%s%s", CHAR_FILTER, sBuffer);
+	}
+	strcopy(word, maxlength, sFilter);
+}
+
+public Action:Timer_ChatResponse(Handle:timer, any:pack)
+{
+	ResetPack(pack);
+	new ResponseIndex = ReadPackCell(pack),
+			teamchat 			= ReadPackCell(pack),
+			client				= ReadPackCell(pack);
+	
+	new String:sResponse[512];
+			
+	GetArrayString(g_aResponses[hResponse], ResponseIndex, sResponse, sizeof(sResponse));
+	if (StrContains(sResponse, "{teamcolor}", false))
+	{
+		if (teamchat)
+		{
+			for (new i = 0; i < MaxClients; i++)
+			{
+				if (IsValidClient(i))
+				{
+					CPrintToChatEx(i, client, sResponse);
+				}
+			}
+		}
+		else
+		{
+			CPrintToChatAllEx(client, sResponse);
+		}
+	}
+	else
+	{
+		if (teamchat)
+		{
+			for (new i = 0; i < MaxClients; i++)
+			{
+				if (IsValidClient(i))
+				{
+					CPrintToChat(i, sResponse);
+				}
+			}
+		}
+		else
+		{
+			CPrintToChatAll(sResponse);
+		}
+	}
+	
+	return Plugin_Handled;
 }
 
 /**
@@ -1208,10 +1317,10 @@ stock LoadBadWords()
 /**
 Parse the config file
 */
-stock ProcessConfigFile()
+stock ProcessConfigFile(const String:file[])
 {
 	new String:sConfigFile[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), "configs/simple-chatcolors.cfg");
+	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), file);
 	if (!FileExists(sConfigFile)) 
 	{
 		/**
@@ -1226,11 +1335,11 @@ stock ProcessConfigFile()
 		Config file doesn't exists, stop the plugin
 		*/
 		LogError("[SCC] Simple Chat Colors is not running! Failed to parse %s", sConfigFile);
-		SetFailState("Could not find file %s", sConfigFile);
+		SetFailState("Parse error on file %s", sConfigFile);
 	}
 }
 
-stock ReloadConfigFile()
+stock ReloadConfigFiles()
 {
 	
 	/**
@@ -1241,11 +1350,20 @@ stock ReloadConfigFile()
 		ClearArray(g_aSettings[i]);
 	}
 	
+	for (new e_AutoResponses:i; i < e_AutoResponses:sizeof(g_aResponses); i++)
+	{
+		ClearArray(g_aResponses[i]);
+	}
+	
 	/**
-	Load the admins, groups, and colors from the config
+	Process the different config files
 	*/
-	ProcessConfigFile();
+	ProcessConfigFile("configs/simple-chatcolors.cfg");
+	ProcessConfigFile("configs/simple-chatresponses.cfg");
 	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
+	
+	LoadBadWords();
+	
 	
 	/**
 	Recheck all the online players for assigned colors
@@ -1261,22 +1379,34 @@ stock ReloadConfigFile()
 
 bool:ParseConfigFile(const String:file[]) 
 {
-	
-	/**
-	Clear the arrays
-	*/
-	for (new i = 0; i < sizeof(g_aSettings); i++)
-	{
-		ClearArray(g_aSettings[e_Settings:i]);
-	}
 
 	new Handle:hParser = SMC_CreateParser();
-	SMC_SetReaders(hParser, Config_NewSection, Config_KeyValue, Config_EndSection);
-	SMC_SetParseEnd(hParser, Config_End);
-
+	new String:error[128];
 	new line = 0;
 	new col = 0;
-	new String:error[128];
+	
+	if (StrEqual(file, "addons/sourcemod/configs/simple-chatresponses.cfg", false))
+	{
+		
+		/**
+		Define the response config functions
+		*/
+		SMC_SetReaders(hParser, Config_Responses_NewSection, Config_Responses_KeyValue, Config_Responses_EndSection);
+		SMC_SetParseEnd(hParser, Config_End);
+	}
+	else 
+	{
+
+		/**
+		Define the color config functions
+		*/
+		SMC_SetReaders(hParser, Config_Colors_NewSection, Config_Colors_KeyValue, Config_Colors_EndSection);
+		SMC_SetParseEnd(hParser, Config_End);
+	}
+	
+	/**
+	Parse the file and get the result
+	*/
 	new SMCError:result = SMC_ParseFile(hParser, file, line, col);
 	CloseHandle(hParser);
 
@@ -1285,10 +1415,40 @@ bool:ParseConfigFile(const String:file[])
 		SMC_GetErrorString(result, error, sizeof(error));
 		LogError("%s on line %d, col %d of %s", error, line, col, file);
 	}
+	
 	return (result == SMCError_Okay);
 }
 
-public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:quotes) 
+public SMCResult:Config_Responses_NewSection(Handle:parser, const String:section[], bool:quotes) 
+{
+	if (StrEqual(section, "auto_responses"))
+	{
+		return SMCParse_Continue;
+	}
+	if (g_bDebug)
+	{
+		PrintToChatAll("Storing Phrase: %s", section);
+	}
+	PushArrayString(g_aResponses[hPhrase], section);
+	return SMCParse_Continue;
+}
+
+public SMCResult:Config_Responses_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
+{
+	if (g_bDebug)
+	{
+		PrintToChatAll("Storing Response: %s", value);
+	}
+	PushArrayString(g_aResponses[hResponse], value);
+	return SMCParse_Continue;
+}
+
+public SMCResult:Config_Responses_EndSection(Handle:parser) 
+{
+	return SMCParse_Continue;
+}
+
+public SMCResult:Config_Colors_NewSection(Handle:parser, const String:section[], bool:quotes) 
 {
 	if (StrEqual(section, "admin_colors"))
 	{
@@ -1314,7 +1474,7 @@ public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:q
 	return SMCParse_Continue;
 }
 
-public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
+public SMCResult:Config_Colors_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
 {
 	if (g_bOverrideSection)
 	{
@@ -1354,7 +1514,7 @@ public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String
 	return SMCParse_Continue;
 }
 
-public SMCResult:Config_EndSection(Handle:parser) 
+public SMCResult:Config_Colors_EndSection(Handle:parser) 
 {
 	if (g_bOverrideSection)
 	{
