@@ -809,7 +809,6 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	{
 		
 		new iArrayResponseSize = GetArraySize(g_aResponses[hPhrase]);
-		new iArrayMatchSize = GetArraySize(g_aResponses[hMatch]);
 		new ResponseIndex = -1;
 		
 		for (new i = 0; i < iArrayResponseSize; i++)
@@ -1179,9 +1178,9 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 {
 	
 	new index = 0;
+	new iArrayBannedSize = GetArraySize(g_aBadWords);
 	new bool:bBad = false;
 	new String:sWords[64][128];
-	new String:sWordBuffer[128];
 	
 	/**
 	Strip the quotes and explode the string into words (limit 64 words of 128 chars in length)
@@ -1213,15 +1212,13 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 		/**
 		Check to see if the word is in the banned word list
 		*/
-		new String:sBannedWord[512];
-		new iArrayBannedSize = GetArraySize(g_aBadWords);
 		new BannedIndex = -1;
 		
 		for (new i = 0; i < iArrayBannedSize; i++)
 		{
 			new String:sBuffer[512];
 			GetArrayString(g_aBadWords, i, sBuffer, sizeof(sBuffer));
-			if (StrContains(message, sBuffer, false) != -1)
+			if (StrContains(sWords[index], sBuffer, false) != -1)
 			{
 				BannedIndex = i;
 				break;
