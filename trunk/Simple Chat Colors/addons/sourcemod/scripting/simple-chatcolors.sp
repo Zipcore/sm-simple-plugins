@@ -67,7 +67,8 @@ Handle:hOverrides
 enum e_AutoResponses
 {
 Handle:hPhrase,
-Handle:hResponse
+Handle:hResponse,
+Handle:hMatch
 };
 
 enum e_ChatType
@@ -93,7 +94,7 @@ new Handle:g_Cvar_hClanFlag = INVALID_HANDLE;
 new Handle:g_Cvar_hDeadChat = INVALID_HANDLE;
 new Handle:g_Cvar_hChatFilterEnabled = INVALID_HANDLE;
 new Handle:g_Cvar_hAutoResponseEnabled = INVALID_HANDLE;
-new Handle:g_hBadWords = INVALID_HANDLE;
+new Handle:g_aBadWords = INVALID_HANDLE;
 new Handle:g_aSettings[e_Settings];
 new Handle:g_aResponses[e_AutoResponses];
 
@@ -190,15 +191,12 @@ public OnPluginStart()
 		g_aResponses[i] = CreateArray(512, 1);
 	}
 	
+	g_aBadWords = CreateArray(128, 1);
+	
 	/**
 	Load translation file
 	*/
 	LoadTranslations ("scc.phrases");
-	
-	/**
-	Create the trie
-	*/
-	g_hBadWords = CreateTrie();
 	
 	/**
 	Load the admins and colors from the config
@@ -811,16 +809,41 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	{
 		
 		new iArrayResponseSize = GetArraySize(g_aResponses[hPhrase]);
+		new iArrayMatchSize = GetArraySize(g_aResponses[hMatch]);
 		new ResponseIndex = -1;
 		
 		for (new i = 0; i < iArrayResponseSize; i++)
 		{
-			new String:sBuffer[512];
-			GetArrayString(g_aResponses[hPhrase], i, sBuffer, sizeof(sBuffer));
-			if (StrContains(message, sBuffer, false) != -1)
+			new String:sMatchBuffer[512];
+			GetArrayString(g_aResponses[hMatch], i, sMatchBuffer, sizeof(sMatchBuffer));
+			if (StrEqual("exact", sMatchBuffer, false))
 			{
-				ResponseIndex = i;
-				break;
+				new String:sResponseBuffer[512];
+				GetArrayString(g_aResponses[hPhrase], i, sResponseBuffer, sizeof(sResponseBuffer));
+				if (StrEqual(message, sResponseBuffer, false))
+				{
+					ResponseIndex = i;
+					break;
+				}
+			}
+		}
+		
+		if (ResponseIndex == -1)
+		{
+			for (new x = 0; x < iArrayResponseSize; x++)
+			{
+				new String:sMatchBuffer[512];
+				GetArrayString(g_aResponses[hMatch], x, sMatchBuffer, sizeof(sMatchBuffer));
+				if (StrEqual("contains", sMatchBuffer, false))
+				{
+					new String:sResponseBuffer[512];
+					GetArrayString(g_aResponses[hPhrase], x, sResponseBuffer, sizeof(sResponseBuffer));
+					if (StrContains(message, sResponseBuffer, false) != -1)
+					{
+						ResponseIndex = x;
+						break;
+					}
+				}
 			}
 		}
 		
@@ -1176,10 +1199,11 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 		
 		/**
 		Remove the punctuation
-		*/
+		
 		new bool:bHasPunc;
 		new String:sPunChars[32];
 		bHasPunc = RemovePunctuation(sWords[index], sPunChars, sizeof(sPunChars));
+		*/
 		
 		if (g_bDebug)
 		{
@@ -1189,7 +1213,22 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 		/**
 		Check to see if the word is in the banned word list
 		*/
-		if (GetTrieString(g_hBadWords, sWords[index], sWordBuffer, sizeof(sWordBuffer)))
+		new String:sBannedWord[512];
+		new iArrayBannedSize = GetArraySize(g_aBadWords);
+		new BannedIndex = -1;
+		
+		for (new i = 0; i < iArrayBannedSize; i++)
+		{
+			new String:sBuffer[512];
+			GetArrayString(g_aBadWords, i, sBuffer, sizeof(sBuffer));
+			if (StrContains(message, sBuffer, false) != -1)
+			{
+				BannedIndex = i;
+				break;
+			}
+		}
+		
+		if (BannedIndex != -1)
 		{
 			
 			/**
@@ -1201,14 +1240,15 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 		
 		/**
 		Re-add the punctuation
-		*/
+		
 		if (bHasPunc)
 		{
 			decl String:sBuffer[128];
 			strcopy(sBuffer, sizeof(sBuffer), sWords[index]);
 			Format(sWords[index], sizeof(sWords[]), "%s%s", sBuffer, sPunChars);
 		}
-
+		*/
+		
 		index++;
 	} while !IsStringBlank(sWords[index]);
 	
@@ -1285,7 +1325,6 @@ Load the bad words
 */
 stock LoadBadWords()
 {
-	ClearTrie(g_hBadWords);
 	new String:sConfigFile[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), "configs/simple-chatfilter.cfg");
 	if (!FileExists(sConfigFile)) 
@@ -1308,7 +1347,7 @@ stock LoadBadWords()
 			{
 				continue;
 			}
-			SetTrieString(g_hBadWords, sBadWord, sBadWord);
+			PushArrayString(g_aBadWords, sBadWord);
 		} while (!IsEndOfFile(hFile));
 		CloseHandle(hFile);
 	}
@@ -1354,6 +1393,8 @@ stock ReloadConfigFiles()
 	{
 		ClearArray(g_aResponses[i]);
 	}
+	
+	ClearArray(g_aBadWords);
 	
 	/**
 	Process the different config files
@@ -1435,11 +1476,25 @@ public SMCResult:Config_Responses_NewSection(Handle:parser, const String:section
 
 public SMCResult:Config_Responses_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
 {
-	if (g_bDebug)
+	
+	if(StrEqual(key, "text", false))
 	{
-		PrintToChatAll("Storing Response: %s", value);
+		PushArrayString(g_aResponses[hResponse], value);
+		if (g_bDebug)
+		{
+			PrintToChatAll("Storing Response: %s", value);
+		}
 	}
-	PushArrayString(g_aResponses[hResponse], value);
+	
+	if(StrEqual(key, "match", false))
+	{
+		PushArrayString(g_aResponses[hMatch], value);
+		if (g_bDebug)
+		{
+			PrintToChatAll("Match Type: %s", value);
+		}
+	}
+	
 	return SMCParse_Continue;
 }
 
