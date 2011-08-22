@@ -176,7 +176,7 @@ public OnPluginStart()
 	AddCommandListener(Command_SMsilence, "sm_silence");
 	AddCommandListener(Command_SMunsilence, "sm_unsilence");
 	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_GENERIC,  "Reloads settings from the config files");
-	RegAdminCmd("sm_printchatcolors", Command_PrintChatColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
+	RegAdminCmd("sm_printcolors", Command_PrintColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
 	
 	/**
 	Create the arrays
@@ -436,7 +436,7 @@ public Action:Command_Reload(client, args)
 	return Plugin_Handled;
 }
 
-public Action:Command_PrintChatColors(client, args)
+public Action:Command_PrintColors(client, args)
 {
 	CPrintToChat(client, "{default}default");
 	CPrintToChat(client, "{green}green");
