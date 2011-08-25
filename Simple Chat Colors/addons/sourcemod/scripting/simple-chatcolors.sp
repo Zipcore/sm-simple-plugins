@@ -45,13 +45,13 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION "1.3.0.beta"
 
-#define CHAT_SYMBOL_ADMIN 		'@'
+#define CHAT_SYMBOL_ADMIN 			'@'
 #define CHAT_SYMBOL_CLAN 			'#'
 #define CHAT_TRIGGER_PUBLIC 	'!'
 #define CHAT_TRIGGER_PRIVATE 	'/'
-#define CHAR_PERCENT					"%"
-#define CHAR_NULL 						"\0"
-#define CHAR_FILTER						"*"
+#define CHAR_PERCENT						"%"
+#define CHAR_NULL 							"\0"
+#define CHAR_FILTER							"*"
 
 enum e_Settings
 {
@@ -931,8 +931,9 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		SendChatMessage(client, teamchat, sChatMsg, g_eDeadChatMode, eChatMode);
 		
 		/**
-		We are done, bug out, and stop the original chat message.
+		We are done, bug out, and stop the original chat message, and send chat event
 		*/
+		SendChatEvent(client, sOriginalMessage);
 		return Plugin_Stop;
 	} 
 	else if (bSaidBadWord)
@@ -950,8 +951,9 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 		SendChatMessage(client, teamchat, sChatMsg, g_eDeadChatMode, eChatMode);
 		
 		/**
-		We are done, bug out, and stop the original chat message.
+		We are done, bug out, and stop the original chat message, and send chat event
 		*/
+		SendChatEvent(client, sOriginalMessage);
 		return Plugin_Stop;
 	}
 	
@@ -1196,14 +1198,6 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 
 		TrimString(sWords[index]);
 		
-		/**
-		Remove the punctuation
-		
-		new bool:bHasPunc;
-		new String:sPunChars[32];
-		bHasPunc = RemovePunctuation(sWords[index], sPunChars, sizeof(sPunChars));
-		*/
-		
 		if (g_bDebug)
 		{
 			PrintToChat(client, "Checking word: %s", sWords[index]);
@@ -1234,17 +1228,6 @@ stock bool:SaidBadWord(client, String:message[], maxlength)
 			FilterWord(sWords[index], sizeof(sWords[]));
 			bBad = true;
 		}
-		
-		/**
-		Re-add the punctuation
-		
-		if (bHasPunc)
-		{
-			decl String:sBuffer[128];
-			strcopy(sBuffer, sizeof(sBuffer), sWords[index]);
-			Format(sWords[index], sizeof(sWords[]), "%s%s", sBuffer, sPunChars);
-		}
-		*/
 		
 		index++;
 	} while !IsStringBlank(sWords[index]);
@@ -1315,6 +1298,16 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 	}
 	
 	return Plugin_Handled;
+}
+
+stock SendChatEvent(client, const String:message[])
+{
+	new userid = GetClientUserId(client);
+	new Handle:event = CreateEvent("player_say");
+	SetEventInt(event, "userid", userid);
+	SetEventString(event, "text", message);
+	FireEvent(event);
+	CloseHandle(event);
 }
 
 /**
