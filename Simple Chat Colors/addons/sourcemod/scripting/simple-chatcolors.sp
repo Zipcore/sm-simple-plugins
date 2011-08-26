@@ -1307,7 +1307,6 @@ stock SendChatEvent(client, const String:message[])
 	SetEventInt(event, "userid", userid);
 	SetEventString(event, "text", message);
 	FireEvent(event);
-	CloseHandle(event);
 }
 
 /**
