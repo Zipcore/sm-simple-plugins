@@ -43,7 +43,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <autoupdate>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "1.3.0.beta"
+#define PLUGIN_VERSION "1.3.0"
 
 #define CHAT_SYMBOL_ADMIN 			'@'
 #define CHAT_SYMBOL_CLAN 			'#'
