@@ -93,6 +93,7 @@ new Handle:g_Cvar_hClanChatEnabled = INVALID_HANDLE;
 new Handle:g_Cvar_hClanFlag = INVALID_HANDLE;
 new Handle:g_Cvar_hDeadChat = INVALID_HANDLE;
 new Handle:g_Cvar_hChatFilterEnabled = INVALID_HANDLE;
+new Handle:g_Cvar_hChatColorTagsEnabled = INVALID_HANDLE;
 new Handle:g_Cvar_hAutoResponseEnabled = INVALID_HANDLE;
 new Handle:g_aBadWords = INVALID_HANDLE;
 new Handle:g_aSettings[e_Settings];
@@ -104,6 +105,7 @@ new bool:g_bOverrideSection = false;
 new bool:g_bClanChatEnabled = false;
 new bool:g_bChatFilterEnabled = false;
 new bool:g_bAutoResponseEnabled = false;
+new bool:g_bChatColorTagsEnabled = false;
 new bool:g_aPlayerClanMember[MAXPLAYERS + 1] = { false, ... };
 new bool:g_aPlayerGagged[MAXPLAYERS + 1] = { false, ... };
 
@@ -155,6 +157,7 @@ public OnPluginStart()
 	g_Cvar_hClanFlag = CreateConVar("scc_clanflag", "a", "Specify the admin flag given to clan members");
 	g_Cvar_hChatFilterEnabled = CreateConVar("scc_chatfilter_enabled", "1", "Enable/Disable chat filtering");
 	g_Cvar_hAutoResponseEnabled = CreateConVar("scc_autoresponse_enabled", "1", "Enable/Disable auto responses");
+	g_Cvar_hChatColorTagsEnabled = CreateConVar("scc_chatcolortags_enabled", "1", "Enable/Disable color tags in chat messages");
 	
 	/**
 	Hook console variables
@@ -165,6 +168,7 @@ public OnPluginStart()
 	HookConVarChange(g_Cvar_hDeadChat, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hChatFilterEnabled, ConVarSettingsChanged);
 	HookConVarChange(g_Cvar_hAutoResponseEnabled, ConVarSettingsChanged);
+	HookConVarChange(g_Cvar_hChatColorTagsEnabled, ConVarSettingsChanged);
 	
 	/**
 	Need to register the commands we are going to use
@@ -196,6 +200,7 @@ public OnPluginStart()
 	/**
 	Load translation file
 	*/
+	LoadTranslations ("common.phrases");
 	LoadTranslations ("scc.phrases");
 	
 	/**
@@ -282,6 +287,7 @@ public OnConfigsExecuted()
 	g_eDeadChatMode = e_DeadChat:GetConVarInt(g_Cvar_hDeadChat);
 	g_bChatFilterEnabled = GetConVarBool(g_Cvar_hChatFilterEnabled);
 	g_bAutoResponseEnabled = GetConVarBool(g_Cvar_hAutoResponseEnabled);
+	g_bChatColorTagsEnabled = GetConVarBool(g_Cvar_hChatColorTagsEnabled);
 	ReloadConfigFiles();
 }
 
@@ -368,6 +374,17 @@ public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const Strin
 		else
 		{
 			g_bAutoResponseEnabled = false;
+		}
+	}
+	else if (convar == g_Cvar_hChatColorTagsEnabled)
+	{
+		if (StringToInt(newValue) == 1)
+		{
+			g_bChatColorTagsEnabled = true;
+		}
+		else
+		{
+			g_bChatColorTagsEnabled = false;
 		}
 	}
 }
@@ -630,10 +647,22 @@ stock CheckPlayer(client)
 		*/
 		for (new i = 0; i < g_iArraySize; i++)
 		{
+			decl String:sGroupName[64];
+			GetArrayString(g_aSettings[hGroupName], i, sGroupName, sizeof(sGroupName));
 			GetArrayString(g_aSettings[hGroupFlag], i, sFlags, sizeof(sFlags));
 			new iGroupFlags = ReadFlagString(sFlags);
-			if (CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
+			if (g_bDebug)
 			{
+				PrintToChatAll("Checking %N in %s", client, sGroupName);
+				PrintToChatAll("Flag string is %s", sFlags);
+				PrintToChatAll("Flag bits are %i", iGroupFlags);
+			}
+			if (iGroupFlags != 0 && CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
+			{
+				if (g_bDebug)
+				{
+					PrintToChatAll("Passed access check");
+				}
 				g_aPlayerIndex[client] = i;
 				iIndex = i;
 				break;
@@ -658,7 +687,7 @@ stock CheckPlayer(client)
 	}
 	
 	new ibFlags = ReadFlagString(g_sClanFlags);
-	if (CheckCommandAccess(client, "scc_clanflag", ibFlags, true))
+	if (ibFlags != 0 && CheckCommandAccess(client, "scc_clanflag", ibFlags, true))
 	{
 		g_aPlayerClanMember[client] = true;
 	}
@@ -852,6 +881,16 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 			/**
 			Delay the response 0.5 seconds to appear after chat
 			*/
+			
+			if (g_bDebug)
+			{
+				new String:sPhraseBuffer[512];
+				new String:sResponseBuffer[512];
+				GetArrayString(g_aResponses[hPhrase], ResponseIndex, sPhraseBuffer, sizeof(sPhraseBuffer));
+				GetArrayString(g_aResponses[hResponse], ResponseIndex, sResponseBuffer, sizeof(sResponseBuffer));
+				PrintToChat(client, "Found a response on phrase: \n %s", sPhraseBuffer);
+				PrintToChat(client, "Response is: \n %s", sResponseBuffer);
+			}
 			new Handle:hPack;
 			CreateDataTimer(0.5, Timer_ChatResponse, hPack, TIMER_FLAG_NO_MAPCHANGE);
 			WritePackCell(hPack, ResponseIndex);
@@ -911,7 +950,16 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	*/
 	if (g_aPlayerIndex[client] != -1)
 	{
-
+		
+		/**
+		Check if color tags in chat is enabled and if not remove the tags
+		*/
+		if (!g_bChatColorTagsEnabled)
+		{
+			CRemoveTags(message, maxlength);
+		}
+		
+		
 		/**
 		Format the message.
 		*/
@@ -938,6 +986,11 @@ stock Action:ProcessMessage(client, bool:teamchat, String:message[], maxlength)
 	} 
 	else if (bSaidBadWord)
 	{
+		
+		/**
+		The shouldn't be able to use color tags, strip any tags found from the message
+		*/
+		CRemoveTags(message, maxlength);
 		
 		/**
 		They said a bad word but do not have a color assigned, still filter the message
@@ -1046,14 +1099,16 @@ stock FormatChatMessage(client, team, bool:alive, bool:teamchat, index, const St
 stock FormatClanMessage(client, const String:message[], String:chatmsg[], maxlength)
 {
 	decl String:sClientName[64];
+	decl String:sClanTag[64];
 	GetClientName(client, sClientName, sizeof(sClientName));
+	Format(sClanTag, sizeof(sClanTag), "%t", "Clan");
 	
 	/**
 	Remove any color tags from name
 	**/
 	CRemoveTags(sClientName, sizeof(sClientName));
 	
-	Format(chatmsg, maxlength, "{green}(CLAN) %s {default}:  %s", sClientName, message);
+	Format(chatmsg, maxlength, "{green}%s %s {default}:  %s", sClanTag, sClientName, message);
 }
 
 stock SendChatMessage(client, bool:teamchat, const String:message[], e_DeadChat:mode, e_ChatType:type)
