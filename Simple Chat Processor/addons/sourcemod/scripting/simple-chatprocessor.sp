@@ -192,21 +192,23 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	}
 	else
 	{
-		if (StrContains(cpTranslationName, "all", false) 
-				|| StrContains(cpTranslationName, "survivor", false)
-				|| StrContains(cpTranslationName, "infected", false))
+		if (StrContains(cpTranslationName, "all", false) != -1)
 		{
 			g_CurrentChatType = g_CurrentChatType | CHATFLAGS_ALL;
 		}
-		if (StrContains(cpTranslationName, "team", false))
+		if (StrContains(cpTranslationName, "team", false) != -1
+		|| 	StrContains(cpTranslationName, "survivor", false) != -1 
+		||	StrContains(cpTranslationName, "infected", false) != -1
+		||	StrContains(cpTranslationName, "Cstrike_Chat_CT", false) != -1 
+		||	StrContains(cpTranslationName, "Cstrike_Chat_T", false) != -1)
 		{
 			g_CurrentChatType = g_CurrentChatType | CHATFLAGS_TEAM;
 		}
-		if (StrContains(cpTranslationName, "spec", false))
+		if (StrContains(cpTranslationName, "spec", false) != -1)
 		{
 			g_CurrentChatType = g_CurrentChatType | CHATFLAGS_SPEC;
 		}
-		if (StrContains(cpTranslationName, "dead", false))
+		if (StrContains(cpTranslationName, "dead", false) != -1)
 		{
 			g_CurrentChatType = g_CurrentChatType | CHATFLAGS_DEAD;
 		}
