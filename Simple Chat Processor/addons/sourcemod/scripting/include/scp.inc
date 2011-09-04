@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #define _scp_included
 
 #define MAX_MESSAGE_LENGTH 256
-//MAX_NAME_LENGTH  <-- This already exists
+//MAX_NAME_LENGTH 32  <-- This already exists
 
 #define CHATFLAGS_INVALID		0
 #define CHATFLAGS_ALL				(1<<0)
@@ -49,8 +49,11 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 /**********************************************************************
  * When a player types a chat message
- * Use constants MAX_NAME_LENGTH and MAX_MESSAGE_LENGTH for formating
+ *
+ * NOTES:
+ * Use constants MAX_NAME_LENGTH and MAX_MESSAGE_LENGTH for formating the strings
  * Do not rely on the recipients handle to exist beyond the forward
+ * Do not start another usermessage (PrintToChat) within this forward
  *
  * @param 		author							The client index of the player who sent the chat message (Byref)
  * @param 		recipients					The handle to the client index adt array of the players who should recieve the chat message
@@ -85,6 +88,6 @@ public SharedPlugin:_pl_scp =
 #if !defined REQUIRE_PLUGIN
 public _pl_scp_SetNTVOptional()
 {
-	MarkNativeAsOptional("GetMessageType");
+	MarkNativeAsOptional("GetMessageFlags");
 }
 #endif
