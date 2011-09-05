@@ -141,7 +141,7 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 		new Handle:hPack;
 		new numClients = GetArraySize(recipients);
 		
-		CreateDataTimer(0.5, Timer_ChatResponse, hPack, TIMER_FLAG_NO_MAPCHANGE);
+		CreateDataTimer(0.2, Timer_ChatResponse, hPack, TIMER_FLAG_NO_MAPCHANGE);
 		WritePackCell(hPack, userid);
 		WritePackCell(hPack, ResponseIndex);
 		WritePackCell(hPack, numClients);
