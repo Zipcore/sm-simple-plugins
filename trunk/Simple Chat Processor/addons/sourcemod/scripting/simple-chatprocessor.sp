@@ -38,7 +38,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION				"0.1.0"
 #define SENDER_WORLD					0
-#define MAX_MESSAGE_LENGTH		256
+#define MAX_MESSAGE_LENGTH		192
 
 #define CHATFLAGS_INVALID		0
 #define CHATFLAGS_ALL				(1<<0)
