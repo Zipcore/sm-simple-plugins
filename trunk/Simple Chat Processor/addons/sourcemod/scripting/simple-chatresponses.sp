@@ -22,13 +22,13 @@ along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 *************************************************************************
 *************************************************************************
 File Information
-$Id: simple-chatcolors.sp 160 2011-08-27 07:02:56Z antithasys $
-$Author: antithasys $
-$Revision: 160 $
-$Date: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$LastChangedBy: antithasys $
-$LastChangedDate: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20Chat%20Colors/addons/sourcemod/scripting/simple-chatcolors.sp $
+$Id$
+$Author$
+$Revision$
+$Date$
+$LastChangedBy$
+$LastChangedDate$
+$URL$
 $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************

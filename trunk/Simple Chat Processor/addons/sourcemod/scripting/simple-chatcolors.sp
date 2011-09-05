@@ -22,13 +22,13 @@ along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 *************************************************************************
 *************************************************************************
 File Information
-$Id: simple-chatcolors.sp 160 2011-08-27 07:02:56Z antithasys $
-$Author: antithasys $
-$Revision: 160 $
-$Date: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$LastChangedBy: antithasys $
-$LastChangedDate: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20Chat%20Colors/addons/sourcemod/scripting/simple-chatcolors.sp $
+$Id$
+$Author$
+$Revision$
+$Date$
+$LastChangedBy$
+$LastChangedDate$
+$URL$
 $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
@@ -68,7 +68,7 @@ public OnPluginStart()
 {
 	CreateConVar("scc_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	
-	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config files");
+	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config file");
 	RegAdminCmd("sm_printcolors", Command_PrintColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
 	
 	/**
@@ -102,25 +102,27 @@ public OnLibraryRemoved(const String:name[])
 
 public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:message[])
 {
-	//the sequence of the following is important to get the color tags in front of the text
 	if (g_aPlayerIndex[author] != -1)
 	{
 		new index = CHATCOLOR_NOSUBJECT;
-		decl String:sBuffer[4][256];
+		decl String:sBuffer[4][32];
 		GetArrayString(g_aSettings[hNameColor], g_aPlayerIndex[author], sBuffer[0], sizeof(sBuffer[]));
 		GetArrayString(g_aSettings[hTagText], g_aPlayerIndex[author], sBuffer[1], sizeof(sBuffer[]));
 		GetArrayString(g_aSettings[hTagColor], g_aPlayerIndex[author], sBuffer[2], sizeof(sBuffer[]));
 		GetArrayString(g_aSettings[hTextColor], g_aPlayerIndex[author], sBuffer[3], sizeof(sBuffer[]));
 		
-		decl String:sFormatBuffer[256];
-		Format(sFormatBuffer, sizeof(sFormatBuffer), "%s%s%s%s", sBuffer[2], sBuffer[1], sBuffer[0], name);
-		if (StrContains(sFormatBuffer, "{T}") != -1)
+		decl String:sNameBuffer[MAX_NAME_LENGTH]
+		Color_StripFromChatText(name, sNameBuffer, MAX_NAME_LENGTH);
+		
+		Format(sNameBuffer, sizeof(sNameBuffer), "%s%s%s%s", sBuffer[2], sBuffer[1], sBuffer[0], name);
+		if (StrContains(sNameBuffer, "{T}") != -1)
 		{
 			Color_ChatSetSubject(author);
 		}
-		index = Color_ParseChatText(sFormatBuffer, name, MAX_NAME_LENGTH);
+		index = Color_ParseChatText(sNameBuffer, name, MAX_NAME_LENGTH);
 		Color_ChatClearSubject();
 		
+		decl String:sFormatBuffer[MAX_MESSAGE_LENGTH];
 		Format(sFormatBuffer, sizeof(sFormatBuffer), "%s%s", sBuffer[3], message);	
 		if (index == CHATCOLOR_NOSUBJECT)
 		{

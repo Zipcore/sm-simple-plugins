@@ -22,13 +22,13 @@ along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 *************************************************************************
 *************************************************************************
 File Information
-$Id: simple-chatcolors.sp 160 2011-08-27 07:02:56Z antithasys $
-$Author: antithasys $
-$Revision: 160 $
-$Date: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$LastChangedBy: antithasys $
-$LastChangedDate: 2011-08-27 02:02:56 -0500 (Sat, 27 Aug 2011) $
-$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20Chat%20Colors/addons/sourcemod/scripting/simple-chatcolors.sp $
+$Id$
+$Author$
+$Revision$
+$Date$
+$LastChangedBy$
+$LastChangedDate$
+$URL$
 $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************
@@ -139,7 +139,7 @@ public OnPluginStart()
 	}
 
 	/**
-	Hook the correct usermessage for the mod
+	Hook the usermessage or error out if the mod doesn't support saytext2
 	*/
 	new UserMsg:umSayText2 = GetUserMessageId("SayText2");
 	if (umSayText2 != INVALID_MESSAGE_ID)
@@ -148,19 +148,14 @@ public OnPluginStart()
 	}
 	else
 	{
-		LogError("[SCP] Could not hook usermessage saytext2");
-		SetFailState("Error hooking usermessages");	
+		LogError("[SCP] This mod appears not to support SayText2.  Plugin disabled.");
+		SetFailState("Error hooking usermessage saytext2");	
 	}
 	
 	/**
 	Create the global forward for other plugins
 	*/
 	g_fwdOnChatMessage = CreateGlobalForward("OnChatMessage", ET_Hook, Param_CellByRef, Param_Cell, Param_String, Param_String);
-	
-	/**
-	Create the convar config file if it doesn't exist
-	*/
-	AutoExecConfig(true);
 }
 
 public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients, bool:reliable, bool:init)
@@ -370,11 +365,11 @@ public Native_GetMessageFlags(Handle:plugin, numParams)
 
 stock bool:IsValidClient(client, bool:nobots = true) 
 {  
-    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client))) 
-    {  
-        return false;  
-    }  
-    return IsClientInGame(client);  
+	if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client))) 
+	{  
+			return false;  
+	}  
+	return IsClientInGame(client);  
 }
 
 stock bool:GetChatFormats(const String:file[])
