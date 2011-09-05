@@ -38,7 +38,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #endif
 #define _scp_included
 
-#define MAX_MESSAGE_LENGTH 256
+#define MAX_MESSAGE_LENGTH 192
 //MAX_NAME_LENGTH 32  <-- This already exists
 
 #define CHATFLAGS_INVALID		0
