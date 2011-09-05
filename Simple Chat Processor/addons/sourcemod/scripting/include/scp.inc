@@ -22,13 +22,13 @@ along with this plugin.  If not, see <http://www.gnu.org/licenses/>.
 *************************************************************************
 *************************************************************************
 File Information
-$Id: simple-plugins.inc 132 2010-01-25 03:30:42Z antithasys $
-$Author: antithasys $
-$Revision: 132 $
-$Date: 2010-01-24 21:30:42 -0600 (Sun, 24 Jan 2010) $
-$LastChangedBy: antithasys $
-$LastChangedDate: 2010-01-24 21:30:42 -0600 (Sun, 24 Jan 2010) $
-$URL: https://sm-simple-plugins.googlecode.com/svn/trunk/Simple%20Plugins%20Core/addons/sourcemod/scripting/include/simple-plugins.inc $
+$Id$
+$Author$
+$Revision$
+$Date$
+$LastChangedBy$
+$LastChangedDate$
+$URL$
 $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 *************************************************************************/
@@ -47,6 +47,8 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #define CHATFLAGS_SPEC				(1<<2)
 #define CHATFLAGS_DEAD				(1<<3)
 
+
+
 /**********************************************************************
  * When a player types a chat message
  *
@@ -63,6 +65,8 @@ $Copyright: (c) Simple Plugins 2008-2009$
  **********************************************************************/
 forward Action:OnChatMessage(&author, Handle:recipients, String:name[], String:message[]);
 
+
+
 /**********************************************************************
  * Gets the current flags for the chat message
  * Should only be called within OnChatMessage()
@@ -71,6 +75,8 @@ forward Action:OnChatMessage(&author, Handle:recipients, String:name[], String:m
  **********************************************************************/
  native GetMessageFlags();
 
+ 
+ 
 /**
 Shared plugin information
 **/
