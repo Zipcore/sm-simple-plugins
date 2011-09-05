@@ -165,6 +165,8 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 		return Plugin_Stop;
 	}
 	
+	Color_ChatSetSubject(client);
+	
 	new ResponseIndex = ReadPackCell(pack);
 	new numClients = ReadPackCell(pack);
 	new clients[numClients];
@@ -184,11 +186,11 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 	{
 		if (Client_IsValid(clients[i]))
 		{
-			Color_ChatSetSubject(clients[i]);
 			Client_PrintToChat(clients[i], true, sResponse);
-			Color_ChatClearSubject();
 		}
 	}
+	
+	Color_ChatClearSubject();
 	
 	return Plugin_Stop;
 }
