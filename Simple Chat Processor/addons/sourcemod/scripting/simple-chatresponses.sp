@@ -184,7 +184,9 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 	{
 		if (Client_IsValid(clients[i]))
 		{
+			Color_ChatSetSubject(i);
 			Client_PrintToChat(clients[i], true, sResponse);
+			Color_ChatClearSubject();
 		}
 	}
 	

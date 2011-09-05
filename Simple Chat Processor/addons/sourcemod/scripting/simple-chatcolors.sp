@@ -116,7 +116,7 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 		Format(sFormatBuffer, sizeof(sFormatBuffer), "%s%s%s%s", sBuffer[2], sBuffer[1], sBuffer[0], name);
 		if (StrContains(sFormatBuffer, "{T}") != -1)
 		{
-			Color_ChatSetSubject(author)
+			Color_ChatSetSubject(author);
 		}
 		index = Color_ParseChatText(sFormatBuffer, name, MAX_NAME_LENGTH);
 		Color_ChatClearSubject();
