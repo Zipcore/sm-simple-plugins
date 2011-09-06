@@ -324,14 +324,9 @@ public Action:ResendMessage(Handle:timer, any:pack)
 {
 	ResetPack(pack);
 	new client = ReadPackCell(pack);
-	if (client == 0)
-	{
-		CloseHandle(pack);
-		return Plugin_Stop;
-	}
-	
 	new numClients = ReadPackCell(pack);
 	new clients[numClients];
+
 	for (new i = 0; i < numClients; i++)
 	{
 		clients[i] = ReadPackCell(pack);
