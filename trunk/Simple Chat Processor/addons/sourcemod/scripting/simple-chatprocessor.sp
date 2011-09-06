@@ -286,7 +286,7 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	new Handle:cpPack = CreateDataPack();
 	new numRecipients = GetArraySize(cpRecipients);
 	
-	WritePackCell(cpPack, GetClientUserId(cpSender));
+	WritePackCell(cpPack, cpSender);
 
 	for (new i = 0; i < numRecipients; i++)
 	{
@@ -323,7 +323,7 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 public Action:ResendMessage(Handle:timer, any:pack)
 {
 	ResetPack(pack);
-	new client = GetClientOfUserId(ReadPackCell(pack));
+	new client = ReadPackCell(pack);
 	if (client == 0)
 	{
 		CloseHandle(pack);
