@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <scp>
 #include <smlib>
 
-#define PLUGIN_VERSION	"0.1.0"
+#define PLUGIN_VERSION	"0.1.$Rev$"
 #define CHAR_FILTER			"*"
 
 new Handle:g_hBannedWords = INVALID_HANDLE;
