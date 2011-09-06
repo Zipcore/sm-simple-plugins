@@ -36,7 +36,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <sourcemod>
 
-#define PLUGIN_VERSION				"0.1.0"
+#define PLUGIN_VERSION				"0.1.$Rev$"
 #define SENDER_WORLD					0
 #define MAX_MESSAGE_LENGTH		192
 
