@@ -38,7 +38,9 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION				"0.1.$Rev$"
 #define SENDER_WORLD					0
-#define MAX_MESSAGE_LENGTH		192
+#define MAXLENGTH_INPUT			128 	// Inclues \0 and is the size of the chat input box.
+#define MAXLENGTH_NAME				64		// This is backwords math to get compability.  Sourcemod has it set at 32, but there is room for more.
+#define MAXLENGTH_MESSAGE		256		// This is based upon the SDK and the length of the entire message, including tags, name, : etc.
 
 #define CHATFLAGS_INVALID		0
 #define CHATFLAGS_ALL				(1<<0)
@@ -212,7 +214,7 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	/**
 	Get the senders name
 	*/
-	decl String:cpSender_Name[MAX_MESSAGE_LENGTH];
+	decl String:cpSender_Name[MAXLENGTH_NAME];
 	if (BfGetNumBytesLeft(bf))
 	{
 		BfReadString(bf, cpSender_Name, sizeof(cpSender_Name));
@@ -221,7 +223,7 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	/**
 	Get the message
 	*/
-	decl String:cpMessage[MAX_MESSAGE_LENGTH];
+	decl String:cpMessage[MAXLENGTH_INPUT];
 	if (BfGetNumBytesLeft(bf))
 	{
 		BfReadString(bf, cpMessage, sizeof(cpMessage));
@@ -242,7 +244,7 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	We do this because we may have to add the team color code to the name,
 	where as the message doesn't get a color code by default.
 	*/
-	decl String:sOriginalName[MAX_NAME_LENGTH];
+	decl String:sOriginalName[MAXLENGTH_NAME];
 	strcopy(sOriginalName, sizeof(sOriginalName), cpSender_Name);
 	
 	/**
@@ -334,13 +336,13 @@ public Action:ResendMessage(Handle:timer, any:pack)
 	
 	new bool:bChat = bool:ReadPackCell(pack);
 	decl String:sChatType[32];
-	decl String:sSenderName[MAX_NAME_LENGTH];
-	decl String:sMessage[MAX_MESSAGE_LENGTH];
+	decl String:sSenderName[MAXLENGTH_NAME];
+	decl String:sMessage[MAXLENGTH_INPUT];
 	ReadPackString(pack, sChatType, sizeof(sChatType));
 	ReadPackString(pack, sSenderName, sizeof(sSenderName));
 	ReadPackString(pack, sMessage, sizeof(sMessage));
 	
-	decl String:sTranslation[MAX_NAME_LENGTH + MAX_MESSAGE_LENGTH + 32];
+	decl String:sTranslation[MAXLENGTH_MESSAGE];
 	Format(sTranslation, sizeof(sTranslation), "%t", sChatType, sSenderName, sMessage);
 	
 	new Handle:bf = StartMessage("SayText2", clients, numClients, USERMSG_RELIABLE|USERMSG_BLOCKHOOKS);

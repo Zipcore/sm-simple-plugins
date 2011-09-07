@@ -38,8 +38,9 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #endif
 #define _scp_included
 
-#define MAX_MESSAGE_LENGTH 192
-//MAX_NAME_LENGTH 32  <-- This already exists
+#define MAXLENGTH_INPUT			128 	// Inclues \0 and is the size of the chat input box.
+#define MAXLENGTH_NAME				64		// This is backwords math to get compability.  Sourcemod has it set at 32, but there is room for more.
+#define MAXLENGTH_MESSAGE		256		// This is based upon the SDK and the length of the entire message, including tags, name, : etc.
 
 #define CHATFLAGS_INVALID		0
 #define CHATFLAGS_ALL				(1<<0)
@@ -53,7 +54,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
  * When a player types a chat message
  *
  * NOTES:
- * Use constants MAX_NAME_LENGTH and MAX_MESSAGE_LENGTH for formating the strings
+ * Use MAXLENGTH_  constants above for formating the strings
  * Do not rely on the recipients handle to exist beyond the forward
  * Do not start another usermessage (PrintToChat) within this forward
  *

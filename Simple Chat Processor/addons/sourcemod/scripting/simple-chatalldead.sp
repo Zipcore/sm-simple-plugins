@@ -96,9 +96,9 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 			}
 			case DeadChat_Dead:
 			{
+				ClearArray(recipients);
 				if (GetMessageFlags() & CHATFLAGS_ALL == CHATFLAGS_ALL)
 				{
-					ClearArray(recipients);
 					for (new i = 1; i <= MaxClients; i++)
 					{
 						if (IsValidClient(i) && !IsPlayerAlive(i))
@@ -109,7 +109,6 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 				}
 				else
 				{
-					ClearArray(recipients);
 					new authorteam = GetClientTeam(author);
 					for (new i = 1; i <= MaxClients; i++)
 					{
@@ -122,9 +121,9 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 			}
 			case DeadChat_Team:
 			{
+				ClearArray(recipients);
 				if (GetMessageFlags() & CHATFLAGS_ALL == CHATFLAGS_ALL)
 				{
-					ClearArray(recipients);
 					new authorteam = GetClientTeam(author);
 					for (new i = 1; i <= MaxClients; i++)
 					{
@@ -136,7 +135,6 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 				}
 				else
 				{
-					ClearArray(recipients);
 					new authorteam = GetClientTeam(author);
 					for (new i = 1; i <= MaxClients; i++)
 					{
@@ -149,9 +147,9 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 			}
 			case DeadChat_All:
 			{
+				ClearArray(recipients);
 				if (GetMessageFlags() & CHATFLAGS_ALL == CHATFLAGS_ALL)
 				{
-					ClearArray(recipients);
 					for (new i = 1; i <= MaxClients; i++)
 					{
 						if (IsValidClient(i))
@@ -162,7 +160,6 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 				}
 				else
 				{
-					ClearArray(recipients);
 					new authorteam = GetClientTeam(author);
 					for (new i = 1; i <= MaxClients; i++)
 					{

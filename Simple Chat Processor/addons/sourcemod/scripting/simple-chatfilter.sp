@@ -74,7 +74,7 @@ public OnLibraryRemoved(const String:name[])
 
 public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:message[])
 {
-	if (SaidBadWord(message, MAX_MESSAGE_LENGTH))
+	if (SaidBadWord(message, MAXLENGTH_INPUT))
 	{
 		new userid = GetClientUserId(author);
 		CreateTimer(0.001, SendFilterMessage, userid, TIMER_FLAG_NO_MAPCHANGE);
