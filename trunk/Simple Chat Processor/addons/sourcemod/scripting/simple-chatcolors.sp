@@ -41,19 +41,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define PLUGIN_VERSION				"0.1.$Rev$"
 
-enum e_Settings
-{
-	Handle:hGroupName,
-	Handle:hGroupFlag,
-	Handle:hNameColor,
-	Handle:hTextColor,
-	Handle:hTagText,
-	Handle:hTagColor
-};
-
-new Handle:g_aSettings[e_Settings];
-new g_aPlayerIndex[MAXPLAYERS + 1] = { -1, ... };
-new g_iArraySize = -1;
+new Handle:g_aPlayers[MAXPLAYERS + 1] = { INVALID_HANDLE, ... };
 
 public Plugin:myinfo =
 {
@@ -70,16 +58,7 @@ public OnPluginStart()
 	
 	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config file");
 	RegAdminCmd("sm_printcolors", Command_PrintColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
-	
-	/**
-	Create the arrays
-	*/
-	for (new e_Settings:i; i < e_Settings:sizeof(g_aSettings); i++)
-	{
-		g_aSettings[i] = CreateArray(256, 1);
-	}
-	
-	ProcessConfigFile("configs/simple-chatcolors.cfg");
+
 }
 
 public OnClientPostAdminCheck(client)
@@ -89,7 +68,11 @@ public OnClientPostAdminCheck(client)
 
 public OnClientDisconnect(client)
 {
-	g_aPlayerIndex[client] = -1;
+	if (g_aPlayers[client] != INVALID_HANDLE)
+	{
+		CloseHandle(g_aPlayers[client]);
+	}
+	g_aPlayers[client] = INVALID_HANDLE;
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -102,37 +85,57 @@ public OnLibraryRemoved(const String:name[])
 
 public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:message[])
 {
-	if (g_aPlayerIndex[author] != -1)
+	if (g_aPlayers[author] != INVALID_HANDLE)
 	{
+		
 		new index = CHATCOLOR_NOSUBJECT;
-		decl String:sBuffer[4][32];
-		GetArrayString(g_aSettings[hNameColor], g_aPlayerIndex[author], sBuffer[0], sizeof(sBuffer[]));
-		GetArrayString(g_aSettings[hTagText], g_aPlayerIndex[author], sBuffer[1], sizeof(sBuffer[]));
-		GetArrayString(g_aSettings[hTagColor], g_aPlayerIndex[author], sBuffer[2], sizeof(sBuffer[]));
-		GetArrayString(g_aSettings[hTextColor], g_aPlayerIndex[author], sBuffer[3], sizeof(sBuffer[]));
+
+		decl String:sNameBuffer[MAXLENGTH_NAME], String:sTagBuffer[32];
+		Color_StripFromChatText(name, sNameBuffer, MAXLENGTH_NAME);
 		
-		decl String:sNameBuffer[MAX_NAME_LENGTH]
-		Color_StripFromChatText(name, sNameBuffer, MAX_NAME_LENGTH);
+		decl String:ColorCodes[3][12];
 		
-		Format(sNameBuffer, sizeof(sNameBuffer), "%s%s%s%s", sBuffer[2], sBuffer[1], sBuffer[0], name);
+		if (GetTrieString(g_aPlayers[author], "namecolor", ColorCodes[0], sizeof(ColorCodes[])))
+		{
+			Format(sNameBuffer, sizeof(sNameBuffer), "%s%s", ColorCodes[0], sNameBuffer);
+		}
+		else
+		{
+			Format(sNameBuffer, sizeof(sNameBuffer), "\x03%s", sNameBuffer);
+		}
+		
+		
+		if (GetTrieString(g_aPlayers[author], "tag", sTagBuffer, sizeof(sTagBuffer)))
+		{
+			Format(sNameBuffer, sizeof(sNameBuffer), "%s%s", sTagBuffer, sNameBuffer);
+			
+			if (GetTrieString(g_aPlayers[author], "tagcolor", ColorCodes[1], sizeof(ColorCodes[])))
+			{
+				Format(sNameBuffer, sizeof(sNameBuffer), "%s%s", ColorCodes[1], sNameBuffer);
+			}
+		}
+		
 		if (StrContains(sNameBuffer, "{T}") != -1)
 		{
 			Color_ChatSetSubject(author);
 		}
-		index = Color_ParseChatText(sNameBuffer, name, MAX_NAME_LENGTH);
+		index = Color_ParseChatText(sNameBuffer, name, MAXLENGTH_NAME);
 		Color_ChatClearSubject();
 		
-		decl String:sFormatBuffer[MAX_MESSAGE_LENGTH];
-		Format(sFormatBuffer, sizeof(sFormatBuffer), "%s%s", sBuffer[3], message);	
-		if (index == CHATCOLOR_NOSUBJECT)
+		if (GetTrieString(g_aPlayers[author], "textcolor", ColorCodes[2], sizeof(ColorCodes[])))
 		{
-			index = Color_ParseChatText(sFormatBuffer, message, MAX_MESSAGE_LENGTH);
-		}
-		else
-		{
-			Color_ChatSetSubject(index)
-			Color_ParseChatText(sFormatBuffer, message, MAX_MESSAGE_LENGTH);
-			Color_ChatClearSubject();
+				decl String:sMessageBuffer[MAXLENGTH_INPUT];
+				Format(sMessageBuffer, sizeof(sMessageBuffer), "%s%s", ColorCodes[2], message);	
+				if (index == CHATCOLOR_NOSUBJECT)
+				{
+					index = Color_ParseChatText(sMessageBuffer, message, MAXLENGTH_INPUT);
+				}
+				else
+				{
+					Color_ChatSetSubject(index)
+					Color_ParseChatText(sMessageBuffer, message, MAXLENGTH_INPUT);
+					Color_ChatClearSubject();
+				}
 		}
 		
 		if (index != CHATCOLOR_NOSUBJECT)
@@ -147,7 +150,10 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 
 public Action:Command_Reload(client, args)
 {
-	ProcessConfigFile("configs/simple-chatcolors.cfg");
+	LOOP_CLIENTS(buffer, CLIENTFILTER_NOBOTS | CLIENTFILTER_INGAMEAUTH)
+	{
+		CheckPlayer(buffer);
+	}
 	LogAction(client, 0, "[SCC] Config file has been reloaded");
 	ReplyToCommand(client, "[SCC] Config file has been reloaded");
 	return Plugin_Handled;
@@ -172,171 +178,101 @@ public Action:Command_PrintColors(client, args)
 
 stock CheckPlayer(client)
 {
-	new String:sFlags[15];
-	new String:sClientSteamID[64];
-	new iIndex = -1;
+	new String:sFile[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sFile, sizeof(sFile), "configs/simple-chatcolors.cfg");
 	
-	/**
-	Look for a steamid first
-	*/
-	GetClientAuthString(client, sClientSteamID, sizeof(sClientSteamID));
-	iIndex = FindStringInArray(g_aSettings[hGroupName], sClientSteamID);	
-	if (iIndex != -1)
+	if (g_aPlayers[client] != INVALID_HANDLE)
 	{
-		g_aPlayerIndex[client] = iIndex;
+		CloseHandle(g_aPlayers[client]);
 	}
 	
-	/**
-	Didn't find one, check for flags
-	*/
-	else
+	if (FileExists(sFile)) 
 	{
+		decl String:sClientSteamID[64];
+		GetClientAuthString(client, sClientSteamID, sizeof(sClientSteamID));
 		
-		/**
-		Search for flag in groups
-		*/
-		for (new i = 0; i <= g_iArraySize; i++)
-		{
-			decl String:sGroupName[64];
-			GetArrayString(g_aSettings[hGroupName], i, sGroupName, sizeof(sGroupName));
-			GetArrayString(g_aSettings[hGroupFlag], i, sFlags, sizeof(sFlags));
-			new iGroupFlags = ReadFlagString(sFlags);
-			if (iGroupFlags != 0 && CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
-			{
-				g_aPlayerIndex[client] = i;
-				iIndex = i;
-				break;
-			}
-		}
+		new Handle:hSettings = CreateKeyValues("Settings");
+		FileToKeyValues(hSettings, sFile);
+		KvGotoFirstSubKey(hSettings);
 		
-		/**
-		Check to see if flag was found
-		*/
-		if (iIndex == -1)
+		do 
 		{
 			
-			/**
-			No flag, look for an "everyone" group
-			*/
-			iIndex = FindStringInArray(g_aSettings[hGroupName], "everyone");
-			if (iIndex != -1)
+			decl String:sSectionName[64];
+			KvGetSectionName(hSettings, sSectionName, sizeof(sSectionName));
+			if (StrContains(sSectionName, "STEAM_0:") != -1)
 			{
-				g_aPlayerIndex[client] = iIndex;
+				//  check for the steamid
+				if (StrEqual(sSectionName, sClientSteamID))
+				{
+				
+					g_aPlayers[client] = LoadPlayerTrie(client, hSettings);
+					break;
+				}
 			}
-		}
+			else
+			{
+				//  the section name is not a steam id, do a flag check
+				decl String:sFlags[15];
+				KvGetString(hSettings, "flag", sFlags, sizeof(sFlags));
+				new iGroupFlags = ReadFlagString(sFlags);
+				if (iGroupFlags != 0 && CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
+				{
+					//  passed the flag check
+					g_aPlayers[client] = LoadPlayerTrie(client, hSettings);
+					break;
+				}
+			}
+		} while (KvGotoNextKey(hSettings));
+		CloseHandle(hSettings);
+	}
+	else
+	{
+		LogError("[SCC] Simple Chat Colors is not running! Could not find file %s", sFile);
+		SetFailState("Could not find file %s", sFile);
 	}
 }
 
-/**
-Parse the config file
-*/
-stock ProcessConfigFile(const String:file[])
+stock Handle:LoadPlayerTrie(const client, const Handle:kv)
 {
-	new String:sConfigFile[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, sConfigFile, sizeof(sConfigFile), file);
-	if (!FileExists(sConfigFile)) 
+	new Handle:trie = CreateTrie();
+	decl String:sSettings[4][32];
+	KvGetString(kv, "tag", sSettings[0], sizeof(sSettings[]));
+	KvGetString(kv, "tagcolor", sSettings[1], sizeof(sSettings[]));
+	KvGetString(kv, "namecolor", sSettings[2], sizeof(sSettings[]));
+	KvGetString(kv, "textcolor", sSettings[3], sizeof(sSettings[]));
+	
+	if (!IsStringBlank(sSettings[0]))
 	{
-		/**
-		Config file doesn't exists, stop the plugin
-		*/
-		LogError("[SCC] Simple Chat Colors is not running! Could not find file %s", sConfigFile);
-		SetFailState("Could not find file %s", sConfigFile);
-	}
-	else if (!ParseConfigFile(sConfigFile))
-	{
-		/**
-		Config file doesn't exists, stop the plugin
-		*/
-		LogError("[SCC] Simple Chat Colors is not running! Failed to parse %s", sConfigFile);
-		SetFailState("Parse error on file %s", sConfigFile);
+		SetTrieString(trie, "tag", sSettings[0]);
 	}
 	
-	/**
-	Recheck all the online players for assigned colors
-	*/
-	for (new index = 1; index <= MaxClients; index++)
+	if (!IsStringBlank(sSettings[1]))
 	{
-		if (IsClientConnected(index) && IsClientInGame(index))
+		SetTrieString(trie, "tagcolor", sSettings[1]);
+	}
+	
+	if (!IsStringBlank(sSettings[2]))
+	{
+		SetTrieString(trie, "namecolor", sSettings[2]);
+	}
+	
+	if (!IsStringBlank(sSettings[3]))
+	{
+		SetTrieString(trie, "textcolor", sSettings[3]);
+	}
+	return trie;
+}
+
+stock bool:IsStringBlank(const String:input[])
+{
+	new len = strlen(input);
+	for (new i=0; i<len; i++)
+	{
+		if (!IsCharSpace(input[i]))
 		{
-			CheckPlayer(index);
+			return false;
 		}
 	}
-}
-
-bool:ParseConfigFile(const String:file[]) 
-{
-
-	new Handle:hParser = SMC_CreateParser();
-	new String:error[128];
-	new line = 0;
-	new col = 0;
-	
-	/**
-	Define the color config functions
-	*/
-	SMC_SetReaders(hParser, Config_NewSection, Config_KeyValue, Config_EndSection);
-	SMC_SetParseEnd(hParser, Config_End);
-	
-	/**
-	Parse the file and get the result
-	*/
-	new SMCError:result = SMC_ParseFile(hParser, file, line, col);
-	CloseHandle(hParser);
-
-	if (result != SMCError_Okay) 
-	{
-		SMC_GetErrorString(result, error, sizeof(error));
-		LogError("%s on line %d, col %d of %s", error, line, col, file);
-	}
-	
-	return (result == SMCError_Okay);
-}
-
-public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:quotes) 
-{
-	if (StrEqual(section, "admin_colors"))
-	{
-		return SMCParse_Continue;
-	}
-	PushArrayString(g_aSettings[hGroupName], section);
-	return SMCParse_Continue;
-}
-
-public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
-{
-	if(StrEqual(key, "flag", false))
-	{
-		PushArrayString(g_aSettings[hGroupFlag], value);
-	}
-	else if(StrEqual(key, "tag", false))
-	{
-		PushArrayString(g_aSettings[hTagText], value);
-	}
-	else if(StrEqual(key, "tagcolor", false))
-	{
-		PushArrayString(g_aSettings[hTagColor], value);
-	}
-	else if(StrEqual(key, "namecolor", false))
-	{
-		PushArrayString(g_aSettings[hNameColor], value);
-	}
-	else if(StrEqual(key, "textcolor", false))
-	{
-		PushArrayString(g_aSettings[hTextColor], value);
-	}
-	return SMCParse_Continue;
-}
-
-public SMCResult:Config_EndSection(Handle:parser) 
-{
-	return SMCParse_Continue;
-}
-
-public Config_End(Handle:parser, bool:halted, bool:failed) 
-{
-	if (failed)
-	{
-		SetFailState("Plugin configuration error");
-	}
-	g_iArraySize = GetArraySize(g_aSettings[hGroupName]) - 1;
+	return true;
 }

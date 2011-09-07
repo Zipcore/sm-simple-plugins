@@ -96,9 +96,8 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 	new iArrayResponseSize = GetArraySize(g_aResponses[hPhrase]);
 	new ResponseIndex = INVALID_RESPONSE;
 	
-	decl String:sMessageBuffer[MAX_MESSAGE_LENGTH];
-	Color_StripFromChatText(message, sMessageBuffer, MAX_MESSAGE_LENGTH);
-	//strcopy(sMessageBuffer, MAX_MESSAGE_LENGTH, message);
+	decl String:sMessageBuffer[MAXLENGTH_INPUT];
+	Color_StripFromChatText(message, sMessageBuffer, MAXLENGTH_INPUT);
 	TrimString(sMessageBuffer);
 	
 	for (new i = 0; i < iArrayResponseSize; i++)
