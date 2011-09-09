@@ -55,10 +55,8 @@ public Plugin:myinfo =
 public OnPluginStart()
 {
 	CreateConVar("scc_version", PLUGIN_VERSION, "Simple Chat Colors", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	
 	RegAdminCmd("sm_reloadscc", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config file");
 	RegAdminCmd("sm_printcolors", Command_PrintColors, ADMFLAG_GENERIC,  "Prints out the color names in their color");
-
 }
 
 public OnClientPostAdminCheck(client)
@@ -87,14 +85,11 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 {
 	if (g_aPlayers[author] != INVALID_HANDLE)
 	{
-		
 		new index = CHATCOLOR_NOSUBJECT;
-
 		decl String:sNameBuffer[MAXLENGTH_NAME], String:sTagBuffer[32];
 		Color_StripFromChatText(name, sNameBuffer, MAXLENGTH_NAME);
-		
+	
 		decl String:ColorCodes[3][12];
-		
 		if (GetTrieString(g_aPlayers[author], "namecolor", ColorCodes[0], sizeof(ColorCodes[])))
 		{
 			Format(sNameBuffer, sizeof(sNameBuffer), "%s%s", ColorCodes[0], sNameBuffer);
@@ -103,7 +98,6 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 		{
 			Format(sNameBuffer, sizeof(sNameBuffer), "\x03%s", sNameBuffer);
 		}
-		
 		
 		if (GetTrieString(g_aPlayers[author], "tag", sTagBuffer, sizeof(sTagBuffer)))
 		{
@@ -188,37 +182,32 @@ stock CheckPlayer(client)
 	
 	if (FileExists(sFile)) 
 	{
-		decl String:sClientSteamID[64];
-		GetClientAuthString(client, sClientSteamID, sizeof(sClientSteamID));
-		
 		new Handle:hSettings = CreateKeyValues("Settings");
 		FileToKeyValues(hSettings, sFile);
 		KvGotoFirstSubKey(hSettings);
+
+		decl String:sClientSteamID[64];
+		GetClientAuthString(client, sClientSteamID, sizeof(sClientSteamID));
 		
 		do 
 		{
-			
 			decl String:sSectionName[64];
 			KvGetSectionName(hSettings, sSectionName, sizeof(sSectionName));
 			if (StrContains(sSectionName, "STEAM_0:") != -1)
 			{
-				//  check for the steamid
 				if (StrEqual(sSectionName, sClientSteamID))
 				{
-				
 					g_aPlayers[client] = LoadPlayerTrie(client, hSettings);
 					break;
 				}
 			}
 			else
 			{
-				//  the section name is not a steam id, do a flag check
 				decl String:sFlags[15];
 				KvGetString(hSettings, "flag", sFlags, sizeof(sFlags));
 				new iGroupFlags = ReadFlagString(sFlags);
 				if (iGroupFlags != 0 && CheckCommandAccess(client, "scc_colors", iGroupFlags, true))
 				{
-					//  passed the flag check
 					g_aPlayers[client] = LoadPlayerTrie(client, hSettings);
 					break;
 				}

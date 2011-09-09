@@ -56,11 +56,8 @@ public Plugin:myinfo =
 public OnPluginStart()
 {
 	CreateConVar("scf_version", PLUGIN_VERSION, "Simple Chat Filter", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	
-	RegAdminCmd("sm_reloadscf", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config files");
-	
+	RegAdminCmd("sm_reloadscf", Command_Reload, ADMFLAG_CONFIG,  "Reloads bad words from the config file");
 	g_hBannedWords = CreateArray(128, 1);
-	
 	ProcessConfigFile("configs/simple-chatfilter.cfg");
 }
 
@@ -80,7 +77,6 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 		CreateTimer(0.001, SendFilterMessage, userid, TIMER_FLAG_NO_MAPCHANGE);
 		return Plugin_Changed;
 	}
-	
 	return Plugin_Continue;
 }
 
@@ -126,7 +122,6 @@ stock ProcessConfigFile(const String:file[])
 		}
 		PushArrayString(g_hBannedWords, sBadWord);
 	} while (!IsEndOfFile(hFile));
-	
 	CloseHandle(hFile);
 }
 
@@ -143,7 +138,6 @@ stock bool:SaidBadWord(String:message[], maxlength)
 	do
 	{
 		TrimString(sWords[index]);
-
 		new BannedIndex = -1;
 		
 		for (new i = 0; i < iArrayBannedSize; i++)
@@ -162,10 +156,8 @@ stock bool:SaidBadWord(String:message[], maxlength)
 			FilterWord(sWords[index], sizeof(sWords[]));
 			bBad = true;
 		}
-		
 		index++;
 	} while !IsStringBlank(sWords[index]);
-
 	ImplodeStrings(sWords, sizeof(sWords), " ", message, maxlength);
 	TrimString(message);
 	return bBad;
