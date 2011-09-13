@@ -43,7 +43,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define ADDKEY(%1,%2,%3) SetTrieString(g_aResponseHandles[%1], %2, %3)
 
-#define RESPONSE_MAX				350
+#define RESPONSE_MAX				50
 #define RESPONSE_INVLAID 	-1
 #define CVAR_DISABLED 			"OFF"
 #define CVAR_ENABLED  			"ON"
