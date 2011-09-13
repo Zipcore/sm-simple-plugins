@@ -2,7 +2,7 @@
 *************************************************************************
 Simple Chat Responses
 Description:
-		Provides automatic respondes based on a players chat message
+		Provides automatic respones based on a players chat message
 *************************************************************************
 *************************************************************************
 This file is part of Simple Plugins project.
@@ -43,11 +43,14 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #define ADDKEY(%1,%2,%3) SetTrieString(g_aResponseHandles[%1], %2, %3)
 
-#define RESPONSE_MAX				50
+#define RESPONSE_MAX				350
 #define RESPONSE_INVLAID 	-1
 #define CVAR_DISABLED 			"OFF"
 #define CVAR_ENABLED  			"ON"
 
+new String:g_sDebugFile[PLATFORM_MAX_PATH];
+new bool:g_bDebug = false;
+new Handle:g_cvarDebug = INVALID_HANDLE;
 new Handle:g_aPhrases = INVALID_HANDLE;
 new Handle:g_aResponseHandles[RESPONSE_MAX] = { INVALID_HANDLE, ... };
 new aIndex = 0;
@@ -56,7 +59,7 @@ public Plugin:myinfo =
 {
 	name = "Simple Chat Responses",
 	author = "Simple Plugins",
-	description = "Provides automatic respondes based on a players chat message.",
+	description = "Provides automatic respones based on a players chat message.",
 	version = PLUGIN_VERSION,
 	url = "http://www.simple-plugins.com"
 };
@@ -64,9 +67,14 @@ public Plugin:myinfo =
 public OnPluginStart()
 {
 	CreateConVar("scr_version", PLUGIN_VERSION, "Simple Chat Responses", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	RegAdminCmd("sm_reloadscr", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config file");
-	g_aPhrases = CreateArray(MAXLENGTH_INPUT, 1);
+
+	g_cvarDebug = CreateConVar("scr_debug", "0", "Turn On/Off debug logging");
+	HookConVarChange(g_cvarDebug, ConVarSettingsChanged);
 	
+	RegAdminCmd("sm_reloadscr", Command_Reload, ADMFLAG_CONFIG,  "Reloads settings from the config file");
+	
+	g_aPhrases = CreateArray(MAXLENGTH_INPUT, 1);
+	BuildPath(Path_SM, g_sDebugFile, sizeof(g_sDebugFile), "logs/scr_debug.log");
 	ProcessConfigFile("configs/simple-chatresponses.cfg");
 }
 
@@ -78,9 +86,18 @@ public OnLibraryRemoved(const String:name[])
 	}
 }
 
+public OnConfigsExecuted()
+{
+	g_bDebug = GetConVarBool(g_cvarDebug);
+}
+
 public Action:Command_Reload(client, args)
 {
 	ProcessConfigFile("configs/simple-chatresponses.cfg");
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Confile file has been reloaded");
+	}
 	LogAction(client, 0, "[SCP] Config file has been reloaded");
 	ReplyToCommand(client, "[SCP] Config file has been reloaded");
 	return Plugin_Handled;
@@ -90,24 +107,53 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 {
 	new userid = GetClientUserId(author);
 	new ResponseIndex = RESPONSE_INVLAID;
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Recieved chat message for processing");
+		LogToFileEx(g_sDebugFile, "Message: %s", message);
+	}
 	
 	decl String:sMessageBuffer[MAXLENGTH_INPUT];
 	Color_StripFromChatText(message, sMessageBuffer, MAXLENGTH_INPUT);
 	TrimString(sMessageBuffer);
 	
-	new index = 1;
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Stripped color from message");
+		LogToFileEx(g_sDebugFile, "Message: %s", sMessageBuffer);
+		LogToFileEx(g_sDebugFile, "Checking phrases for a match");
+	}
+	
+	new index = 0;
 	while (g_aResponseHandles[index] != INVALID_HANDLE)
 	{
 		decl String:sMatchBuffer[32];
 		GetTrieString(g_aResponseHandles[index], "match", sMatchBuffer, sizeof(sMatchBuffer));
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Checking match type: %s", sMatchBuffer);
+		}
+		
 		if (StrEqual("exact", sMatchBuffer))
 		{
 			decl String:sPhraseBuffer[MAXLENGTH_INPUT];
 			GetArrayString(g_aPhrases, index, sPhraseBuffer, sizeof(sPhraseBuffer));
+			if (g_bDebug)
+			{
+				LogToFileEx(g_sDebugFile, "Checking match against phrase: %s", sPhraseBuffer);
+			}
 			if (StrEqual(sMessageBuffer, sPhraseBuffer, false))
 			{
+				if (g_bDebug)
+				{
+					LogToFileEx(g_sDebugFile, "Match found");
+				}
 				ResponseIndex= index;
 				break;
+			}
+			if (g_bDebug)
+			{
+				LogToFileEx(g_sDebugFile, "No match found");
 			}
 		}
 		index++;
@@ -115,19 +161,41 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 	
 	if (ResponseIndex == RESPONSE_INVLAID)
 	{
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "No exact matches found");
+			LogToFileEx(g_sDebugFile, "Checking for contains matches");
+		}
 		index = 0;
 		while (g_aResponseHandles[index] != INVALID_HANDLE)
 		{
 			decl String:sMatchBuffer[32];
 			GetTrieString(g_aResponseHandles[index], "match", sMatchBuffer, sizeof(sMatchBuffer));
+			if (g_bDebug)
+			{
+				LogToFileEx(g_sDebugFile, "Checking match type: %s", sMatchBuffer);
+			}		
+			
 			if (StrEqual("contains", sMatchBuffer))
 			{
 				decl String:sPhraseBuffer[MAXLENGTH_INPUT];
-				GetArrayString(g_aPhrases, index, sPhraseBuffer, sizeof(sPhraseBuffer));
-				if (StrContains(sMessageBuffer, sPhraseBuffer) != -1)
+				GetArrayString(g_aPhrases, index, sPhraseBuffer, sizeof(sPhraseBuffer));			
+				if (g_bDebug)
 				{
+					LogToFileEx(g_sDebugFile, "Checking match against phrase: %s", sPhraseBuffer);
+				}			
+				if (StrContains(sMessageBuffer, sPhraseBuffer) != -1)
+				{			
+					if (g_bDebug)
+					{
+						LogToFileEx(g_sDebugFile, "Match found");
+					}
 					ResponseIndex = index;
 					break;
+				}
+				if (g_bDebug)
+				{
+					LogToFileEx(g_sDebugFile, "No match found");
 				}
 			}
 			index++;
@@ -136,6 +204,10 @@ public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:me
 	
 	if (ResponseIndex != RESPONSE_INVLAID)
 	{
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Match found, creating response timer");
+		}		
 		new Handle:hPack;
 		new numClients = GetArraySize(recipients);
 		CreateDataTimer(0.2, Timer_ChatResponse, hPack, TIMER_FLAG_NO_MAPCHANGE);
@@ -159,54 +231,108 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 	{
 		return Plugin_Stop;
 	}
-	
 	new ResponseIndex = ReadPackCell(pack);
 	new numClients = ReadPackCell(pack);
 	new clients[numClients];
-	
 	for (new i = 0; i < numClients; i++)
 	{
 		clients[i] = ReadPackCell(pack);
 	}
 	
 	decl String:sResponse[MAXLENGTH_INPUT], String:sType[16];
-	GetTrieString(g_aResponseHandles[ResponseIndex], "type", sType, sizeof(sType));
+	if (!GetTrieString(g_aResponseHandles[ResponseIndex], "type", sType, sizeof(sType)))
+	{
+		strcopy(sType, sizeof(sType), "static");
+	}
 	
-	if (IsStringBlank(sType) || StrEqual(sType, "static"))
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Processing response timer");
+		LogToFileEx(g_sDebugFile, "Determining proper response with type: %s", sType);
+	}		
+	
+	if (StrEqual(sType, "static"))
 	{
 		GetTrieString(g_aResponseHandles[ResponseIndex], "text", sResponse, sizeof(sResponse));
+		if (g_bDebug)
+		{
+			if (IsStringBlank(sResponse))
+			{
+				LogToFileEx(g_sDebugFile, "No response found");
+			}
+			else
+			{
+				LogToFileEx(g_sDebugFile, "Found response: %s", sResponse);
+			}
+		}	
 	}
 	else if (StrEqual(sType, "random"))
 	{
 		decl String:sKey[16];
 		new tCount;
-		
 		GetTrieValue(g_aResponseHandles[ResponseIndex], "tcount", tCount);
 		new random = Math_GetRandomInt(1, tCount);
-		
 		Format(sKey, sizeof(sKey), "text%i", random);
-		
 		GetTrieString(g_aResponseHandles[ResponseIndex], sKey, sResponse, sizeof(sResponse));
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Count: %i  |  Random No: %i  |  Key: %s", tCount,  random, sKey);
+			if (IsStringBlank(sResponse))
+			{
+				LogToFileEx(g_sDebugFile, "No response found");
+			}
+			else
+			{
+				LogToFileEx(g_sDebugFile, "Found response: %s", sResponse);
+			}
+		}
 	}
 	else if (StrEqual(sType, "linear"))
 	{
 		decl String:sKey[16];
 		new tCount, tIndex;
-		
 		GetTrieValue(g_aResponseHandles[ResponseIndex], "tcount", tCount);
 		GetTrieValue(g_aResponseHandles[ResponseIndex], "tindex", tIndex);
 		Format(sKey, sizeof(sKey), "text%i", tIndex);
 		GetTrieString(g_aResponseHandles[ResponseIndex], sKey, sResponse, sizeof(sResponse));
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Count: %i  |  Index: %i  |  Key: %s", tCount,  tIndex, sKey);
+			if (IsStringBlank(sResponse))
+			{
+				LogToFileEx(g_sDebugFile, "No response found");
+			}
+			else
+			{
+				LogToFileEx(g_sDebugFile, "Found response: %s", sResponse);
+			}
+		}
 		
 		tIndex++;
 		if (tIndex > tCount)
 		{
 			tIndex = 1;
 		}
+		
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Setting next index to: %i", tIndex);
+		}		
 		SetTrieValue(g_aResponseHandles[ResponseIndex], "tindex", tIndex);
 	}
 	
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Sending response to tag function");
+	}
 	ReplaceTags(client, sResponse, sizeof(sResponse));
+	
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Message recieved from tag function");
+		LogToFileEx(g_sDebugFile, "New message: %s", sResponse);
+		LogToFileEx(g_sDebugFile, "Sending response to clients");
+	}
 	
 	Color_ChatSetSubject(client);
 	for (new i = 0; i < numClients; i++)
@@ -217,7 +343,6 @@ public Action:Timer_ChatResponse(Handle:timer, any:pack)
 		}
 	}
 	Color_ChatClearSubject();
-	
 	return Plugin_Stop;
 }
 
@@ -239,7 +364,6 @@ stock ProcessConfigFile(const String:file[])
 
 bool:ParseConfigFile(const String:file[]) 
 {
-	
 	for (new i = 0; i < RESPONSE_MAX; i++)
 	{
 		if (g_aResponseHandles[i] != INVALID_HANDLE)
@@ -248,24 +372,20 @@ bool:ParseConfigFile(const String:file[])
 			g_aResponseHandles[i] = INVALID_HANDLE;
 		}
 	}
-	
+	ClearArray(g_aPhrases);
 	new Handle:hParser = SMC_CreateParser();
 	new String:error[128];
 	new line = 0;
 	new col = 0;
-	
 	SMC_SetReaders(hParser, Config_NewSection, Config_KeyValue, Config_EndSection);
 	SMC_SetParseEnd(hParser, Config_End);
-	
 	new SMCError:result = SMC_ParseFile(hParser, file, line, col);
 	CloseHandle(hParser);
-
 	if (result != SMCError_Okay) 
 	{
 		SMC_GetErrorString(result, error, sizeof(error));
 		LogError("%s on line %d, col %d of %s", error, line, col, file);
 	}
-	
 	return (result == SMCError_Okay);
 }
 
@@ -275,19 +395,36 @@ public SMCResult:Config_NewSection(Handle:parser, const String:section[], bool:q
 	{
 		return SMCParse_Continue;
 	}
+
 	aIndex = PushArrayString(g_aPhrases, section);
 	g_aResponseHandles[aIndex] = CreateTrie();
+	
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Loading phrase: %s", section);
+		LogToFileEx(g_sDebugFile, "New index for handle array: %i", aIndex);
+	}
+	
 	return SMCParse_Continue;
 }
 
 public SMCResult:Config_KeyValue(Handle:parser, const String:key[], const String:value[], bool:key_quotes, bool:value_quotes)
 {
+	if (g_bDebug)
+	{
+		LogToFileEx(g_sDebugFile, "Loading key: %s", key);
+		LogToFileEx(g_sDebugFile, "Loading value: %s", value);
+	}
 	ADDKEY(aIndex, key, value);
 	if (StrContains(key, "text") != -1)
 	{
 		new tCount;
 		GetTrieValue(g_aResponseHandles[aIndex], "tcount", tCount);
 		SetTrieValue(g_aResponseHandles[aIndex], "tcount", ++tCount);
+		if (g_bDebug)
+		{
+			LogToFileEx(g_sDebugFile, "Count: %i", tCount);
+		}
 		SetTrieValue(g_aResponseHandles[aIndex], "tindex", 1);
 	}
 	return SMCParse_Continue;
@@ -314,6 +451,11 @@ stock bool:IsStringBlank(const String:input[])
 		}
 	}
 	return true;
+}
+
+public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
+{
+	OnConfigsExecuted();
 }
 
 /**
