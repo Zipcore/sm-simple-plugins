@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <scp>
 #include <smlib>
 
-#define PLUGIN_VERSION				"0.1.$Rev$"
+#define PLUGIN_VERSION				"2.0.0"
 
 new Handle:g_aPlayers[MAXPLAYERS + 1] = { INVALID_HANDLE, ... };
 
