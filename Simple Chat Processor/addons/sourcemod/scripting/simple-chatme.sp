@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <scp>
 #include <smlib>
 
-#define PLUGIN_VERSION				"0.1.$Rev: 178 $"
+#define PLUGIN_VERSION				"1.0.0"
 
 public Plugin:myinfo =
 {
