@@ -38,11 +38,15 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <sdktools>
 #include <scp>
 #include <smlib>
+#include <regex>
 
-#define PLUGIN_VERSION	"0.1.$Rev$"
+#define PLUGIN_VERSION	"1.0.0"
 #define CHAR_FILTER			"*"
 
+new Handle:g_CvarFilterMsg = INVALID_HANDLE;
 new Handle:g_hBannedWords = INVALID_HANDLE;
+
+new bool:g_bDisplayMsg = false;
 
 public Plugin:myinfo =
 {
@@ -56,9 +60,12 @@ public Plugin:myinfo =
 public OnPluginStart()
 {
 	CreateConVar("scf_version", PLUGIN_VERSION, "Simple Chat Filter", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	g_CvarFilterMsg = CreateConVar("scf_filtermsg", "1", "Turn ON/OFF the display of the filter message");
+	HookConVarChange(g_CvarFilterMsg, ConVarSettingsChanged);
 	RegAdminCmd("sm_reloadscf", Command_Reload, ADMFLAG_CONFIG,  "Reloads bad words from the config file");
-	g_hBannedWords = CreateArray(128, 1);
+	g_hBannedWords = CreateArray(128);
 	ProcessConfigFile("configs/simple-chatfilter.cfg");
+	AutoExecConfig();
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -69,12 +76,20 @@ public OnLibraryRemoved(const String:name[])
 	}
 }
 
+public OnConfigsExecuted()
+{
+	g_bDisplayMsg = GetConVarBool(g_CvarFilterMsg);
+}
+
 public Action:OnChatMessage(&author, Handle:recipients, String:name[], String:message[])
 {
 	if (SaidBadWord(message, MAXLENGTH_INPUT))
 	{
 		new userid = GetClientUserId(author);
-		CreateTimer(0.001, SendFilterMessage, userid, TIMER_FLAG_NO_MAPCHANGE);
+		if (g_bDisplayMsg)
+		{
+			CreateTimer(0.001, SendFilterMessage, userid, TIMER_FLAG_NO_MAPCHANGE);
+		}
 		return Plugin_Changed;
 	}
 	return Plugin_Continue;
@@ -109,18 +124,34 @@ stock ProcessConfigFile(const String:file[])
 		SetFailState("Could not find file %s", sConfigFile);
 	}
 	
-	new Handle:hFile = OpenFile(sConfigFile, "r");
-	new String:sBadWord[128];
+	new iArrayBannedSize = GetArraySize(g_hBannedWords);
+	for (new i = 0; i < iArrayBannedSize; i++)
+	{
+		CloseHandle(GetArrayCell(g_hBannedWords, i));
+	}
+	ClearArray(g_hBannedWords);
 	
+	new Handle:hFile = OpenFile(sConfigFile, "r");
+	new String:sRegEx[256];
+
 	do
 	{
-		ReadFileLine(hFile, sBadWord, sizeof(sBadWord));
-		TrimString(sBadWord);
-		if (sBadWord[0] == '\0' || sBadWord[0] == ';' || (sBadWord[0] == '/' && sBadWord[1] == '/'))
+		ReadFileLine(hFile, sRegEx, sizeof(sRegEx));
+		TrimString(sRegEx);
+		if (sRegEx[0] == '\0' || sRegEx[0] == ';' || (sRegEx[0] == '/' && sRegEx[1] == '/'))
 		{
 			continue;
 		}
-		PushArrayString(g_hBannedWords, sBadWord);
+		new String:sError[256], RegexError:iError;
+		new Handle:hRegEx = CompileRegex(sRegEx, PCRE_CASELESS, sError, sizeof(sError), iError);
+		if (iError != REGEX_ERROR_NONE)
+		{
+			LogError(sError);
+		}
+		else
+		{
+			PushArrayCell(g_hBannedWords, hRegEx);
+		}
 	} while (!IsEndOfFile(hFile));
 	CloseHandle(hFile);
 }
@@ -130,7 +161,7 @@ stock bool:SaidBadWord(String:message[], maxlength)
 	new index = 0;
 	new iArrayBannedSize = GetArraySize(g_hBannedWords);
 	new bool:bBad = false;
-	new String:sWords[64][128];
+	new String:sWords[64][MAXLENGTH_INPUT];
 
 	StripQuotes(message);
 	ExplodeString(message, " ", sWords, sizeof(sWords), sizeof(sWords[]));
@@ -138,23 +169,23 @@ stock bool:SaidBadWord(String:message[], maxlength)
 	do
 	{
 		TrimString(sWords[index]);
-		new BannedIndex = -1;
+		Color_StripFromChatText(sWords[index], sWords[index], sizeof(sWords[]));
 		
+		new String:sError[256], RegexError:iError;	
 		for (new i = 0; i < iArrayBannedSize; i++)
 		{
-			new String:sBuffer[512];
-			GetArrayString(g_hBannedWords, i, sBuffer, sizeof(sBuffer));
-			if (StrContains(sWords[index], sBuffer, false) != -1)
+			new Handle:hRegEx = GetArrayCell(g_hBannedWords, i);
+			new iFound = MatchRegex(hRegEx, sWords[index], iError);
+			if (iError != REGEX_ERROR_NONE)
 			{
-				BannedIndex = i;
+				LogError(sError);
+			}
+			else if (iFound > 0)
+			{
+				bBad = true;
+				FilterWord(sWords[index], sizeof(sWords[]));
 				break;
 			}
-		}
-		
-		if (BannedIndex != -1)
-		{
-			FilterWord(sWords[index], sizeof(sWords[]));
-			bBad = true;
 		}
 		index++;
 	} while !IsStringBlank(sWords[index]);
@@ -186,4 +217,9 @@ stock bool:IsStringBlank(const String:input[])
 		}
 	}
 	return true;
+}
+
+public ConVarSettingsChanged(Handle:convar, const String:oldValue[], const String:newValue[])
+{
+	g_bDisplayMsg = GetConVarBool(g_CvarFilterMsg);
 }
