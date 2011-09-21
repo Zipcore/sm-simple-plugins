@@ -36,7 +36,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <sourcemod>
 
-#define PLUGIN_VERSION				"1.0.0"
+#define PLUGIN_VERSION				"1.0.1"
 #define SENDER_WORLD					0
 #define MAXLENGTH_INPUT			128 	// Inclues \0 and is the size of the chat input box.
 #define MAXLENGTH_NAME				64		// This is backwords math to get compability.  Sourcemod has it set at 32, but there is room for more.
@@ -263,14 +263,17 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	if (fError != SP_ERROR_NONE)
 	{
 		ThrowNativeError(fError, "Forward failed");
+		CloseHandle(cpRecipients);
 		return Plugin_Continue;
 	}
 	else if (fResult == Plugin_Continue)
 	{
+		CloseHandle(cpRecipients);
 		return Plugin_Continue;
 	}
 	else if (fResult == Plugin_Stop)
 	{
+		CloseHandle(cpRecipients);
 		return Plugin_Handled;
 	}
 	
