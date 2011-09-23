@@ -39,7 +39,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <scp>
 #include <smlib>
 
-#define PLUGIN_VERSION				"2.0.0"
+#define PLUGIN_VERSION				"2.0.0.$Rev$"
 
 new Handle:g_aPlayers[MAXPLAYERS + 1] = { INVALID_HANDLE, ... };
 
@@ -160,13 +160,20 @@ public Action:Command_PrintColors(client, args)
 		ReplyToCommand(client, "Command can only be ran while in game");
 		return Plugin_Handled;
 	}
-	Client_PrintToChat(client, true, "{N}default");
-	Client_PrintToChat(client, true, "{G}green");
-	Client_PrintToChat(client, true, "{L}lightgreen");
-	Client_PrintToChat(client, true, "{R}red");
-	Client_PrintToChat(client, true, "{B}blue");
+	Client_PrintToChat(client, true, "{N}default/normal");
+	Client_PrintToChat(client, true, "{O}orange");
+	Client_PrintToChat(client, true, "{R}red (green if no player on red team)");
+	Client_PrintToChat(client, true, "{RB}red/blue");
+	Client_PrintToChat(client, true, "{B}blue (green if no player on blue team)");
+	Client_PrintToChat(client, true, "{BR}blue/red");
+	Color_ChatSetSubject(client);
 	Client_PrintToChat(client, true, "{T}teamcolor");
+	Color_ChatClearSubject();
+	Client_PrintToChat(client, true, "{L}lightgreen");
+	Client_PrintToChat(client, true, "{GRA}grey (green if no spectator)");
+	Client_PrintToChat(client, true, "{G}green");
 	Client_PrintToChat(client, true, "{OG}olive");
+	Client_PrintToChat(client, true, "{BLA}black");
 	return Plugin_Handled;
 }
 
