@@ -40,7 +40,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #include <smlib>
 #include <regex>
 
-#define PLUGIN_VERSION	"1.0.0"
+#define PLUGIN_VERSION	"1.0.1"
 #define CHAR_FILTER			"*"
 
 new Handle:g_CvarFilterMsg = INVALID_HANDLE;
@@ -108,7 +108,7 @@ public Action:SendFilterMessage(Handle:timer, any:userid)
 
 public Action:Command_Reload(client, args)
 {
-	ProcessConfigFile("configs/simple-chatfiler.cfg");
+	ProcessConfigFile("configs/simple-chatfilter.cfg");
 	LogAction(client, 0, "[SCF] Config file has been reloaded");
 	ReplyToCommand(client, "[SCF] Config file has been reloaded");
 	return Plugin_Handled;
