@@ -189,8 +189,13 @@ stock bool:SaidBadWord(String:message[], maxlength)
 		}
 		index++;
 	} while !IsStringBlank(sWords[index]);
-	ImplodeStrings(sWords, sizeof(sWords), " ", message, maxlength);
-	TrimString(message);
+	
+	if (bBad)
+	{
+		ImplodeStrings(sWords, sizeof(sWords), " ", message, maxlength);
+		TrimString(message);
+	}
+	
 	return bBad;
 }
 
