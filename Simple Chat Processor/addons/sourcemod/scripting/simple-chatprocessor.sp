@@ -330,14 +330,16 @@ public Action:ResendMessage(Handle:timer, any:pack)
 {
 	ResetPack(pack);
 	new client = ReadPackCell(pack);
-	new numClients = ReadPackCell(pack);
-	new clients[numClients];
+	new numClientsStart = ReadPackCell(pack);
+	new numClientsFinish;
+	new clients[numClientsStart];
 
-	for (new i = 0; i < numClients; i++)
+	for (new i = 0; i < numClientsStart; i++)
 	{
 		new buffer = ReadPackCell(pack);
 		if (IsValidClient(buffer))
 		{
+			numClientsFinish++;
 			clients[i] = buffer;
 		}
 	}
@@ -353,7 +355,7 @@ public Action:ResendMessage(Handle:timer, any:pack)
 	decl String:sTranslation[MAXLENGTH_MESSAGE];
 	Format(sTranslation, sizeof(sTranslation), "%t", sChatType, sSenderName, sMessage);
 	
-	new Handle:bf = StartMessage("SayText2", clients, numClients, USERMSG_RELIABLE|USERMSG_BLOCKHOOKS);
+	new Handle:bf = StartMessage("SayText2", clients, numClientsFinish, USERMSG_RELIABLE|USERMSG_BLOCKHOOKS);
 	BfWriteByte(bf, client);
 	BfWriteByte(bf, bChat);
 	BfWriteString(bf, sTranslation);
