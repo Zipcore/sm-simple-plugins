@@ -36,7 +36,7 @@ $Copyright: (c) Simple Plugins 2008-2009$
 
 #include <sourcemod>
 
-#define PLUGIN_VERSION				"1.0.1"
+#define PLUGIN_VERSION				"1.0.2"
 #define SENDER_WORLD					0
 #define MAXLENGTH_INPUT			128 	// Inclues \0 and is the size of the chat input box.
 #define MAXLENGTH_NAME				64		// This is backwords math to get compability.  Sourcemod has it set at 32, but there is room for more.
@@ -112,12 +112,27 @@ public OnPluginStart()
 {
 	CreateConVar("sc_core_version", PLUGIN_VERSION, "Simple Chat Processor", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	
-	/**
-	Get mod type and load the correct translation file
-	*/
 	g_CurrentMod = GetCurrentMod();
 	g_hChatFormats = CreateTrie();
 	LogMessage("[SCP] Recognized mod [%s].", g_sGameName[g_CurrentMod]);
+	
+	/**
+	Hook the usermessage or error out if the mod doesn't support saytext2
+	*/
+	new UserMsg:umSayText2 = GetUserMessageId("SayText2");
+	if (umSayText2 != INVALID_MESSAGE_ID)
+	{
+		HookUserMessage(umSayText2, OnSayText2, true);
+	}
+	else
+	{
+		LogError("[SCP] This mod appears not to support SayText2.  Plugin disabled.");
+		SetFailState("Error hooking usermessage saytext2");	
+	}
+	
+	/**
+	Get mod type and load the correct translation file
+	*/
 	decl String:sGameDir[32];
 	decl String:sTranslationFile[PLATFORM_MAX_PATH];
 	decl String:sTranslationLocation[PLATFORM_MAX_PATH];
@@ -140,20 +155,6 @@ public OnPluginStart()
 		SetFailState("Translation file is not present");
 	}
 
-	/**
-	Hook the usermessage or error out if the mod doesn't support saytext2
-	*/
-	new UserMsg:umSayText2 = GetUserMessageId("SayText2");
-	if (umSayText2 != INVALID_MESSAGE_ID)
-	{
-		HookUserMessage(umSayText2, OnSayText2, true);
-	}
-	else
-	{
-		LogError("[SCP] This mod appears not to support SayText2.  Plugin disabled.");
-		SetFailState("Error hooking usermessage saytext2");	
-	}
-	
 	/**
 	Create the global forward for other plugins
 	*/
@@ -334,7 +335,11 @@ public Action:ResendMessage(Handle:timer, any:pack)
 
 	for (new i = 0; i < numClients; i++)
 	{
-		clients[i] = ReadPackCell(pack);
+		new buffer = ReadPackCell(pack);
+		if (IsValidClient(buffer))
+		{
+			clients[i] = buffer;
+		}
 	}
 	
 	new bool:bChat = bool:ReadPackCell(pack);
