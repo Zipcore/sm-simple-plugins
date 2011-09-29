@@ -339,8 +339,7 @@ public Action:ResendMessage(Handle:timer, any:pack)
 		new buffer = ReadPackCell(pack);
 		if (IsValidClient(buffer))
 		{
-			numClientsFinish++;
-			clients[i] = buffer;
+			clients[numClientsFinish++] = buffer;
 		}
 	}
 	
