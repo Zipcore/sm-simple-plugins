@@ -33,20 +33,20 @@ $Copyright: (c) Simple Plugins 2008-2009$
 *************************************************************************
 */
 
-new g_CollisionOffset = -1;
 new g_aPlayer_NoBlock[MAXPLAYERS + 1];
+new g_aPlayer_SDKHook[MAXPLAYERS + 1];
 
-stock Client_EnableNoBlock(client, bool:hurtself = false)
+public Client_EnableNoBlock(client)
 {
-	if (g_CollisionOffset == -1)
+	if (!g_aPlayer_SDKHook[client])
 	{
-		g_CollisionOffset = FindSendPropInfo("CBaseEntity", "m_CollisionGroup");  
+		SDKHook(client, SDKHook_ShouldCollide, SDK_ShouldCollide);
+		g_aPlayer_SDKHook[client] = true;
 	}
-	SetEntData(client, g_CollisionOffset, 2, 4, true);
 	g_aPlayer_NoBlock[client] = true;
 }
 
-stock Client_EnableNoBlockAll()
+public Client_EnableNoBlockAll()
 {
 	for (new i = 1; i <= MaxClients; i++)
 	{
@@ -57,17 +57,17 @@ stock Client_EnableNoBlockAll()
 	}
 }
 
-stock Client_DisableNoBlock(client)
+public Client_DisableNoBlock(client)
 {
-	if (g_CollisionOffset == -1)
+	if (g_aPlayer_SDKHook[client])
 	{
-		g_CollisionOffset = FindSendPropInfo("CBaseEntity", "m_CollisionGroup");  
+		SDKUnhook(client, SDKHook_ShouldCollide, SDK_ShouldCollide);
+		g_aPlayer_SDKHook[client] = false;
 	}
-	SetEntData(client, g_CollisionOffset, 5, 4, true);
 	g_aPlayer_NoBlock[client] = false;
 }
 
-stock Client_DisableNoBlockAll()
+public Client_DisableNoBlockAll()
 {
 	for (new i = 1; i <= MaxClients; i++)
 	{
@@ -76,4 +76,19 @@ stock Client_DisableNoBlockAll()
 			Client_DisableNoBlock(i);
 		}
 	}
+}
+
+public bool:SDK_ShouldCollide(entity, collisiongroup, contentsmask, bool:originalResult)
+{
+	if (contentsmask & CONTENTS_TEAM2 == CONTENTS_TEAM2)
+	{
+		PrintToChat(entity, "Team 2 Flags");
+		return false;
+	}
+	if (contentsmask & CONTENTS_TEAM1 == CONTENTS_TEAM1)
+	{
+		PrintToChat(entity, "Team 1 Flags");
+		return false;
+	}
+	return originalResult;
 }
