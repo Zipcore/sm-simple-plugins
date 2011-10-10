@@ -93,6 +93,7 @@ public OnPluginStart()
 	{
 		HookEvent("teamplay_round_win", Event_RoundEnd, EventHookMode_Post);
 		HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
+		HookEvent("player_respawn", Event_PlayerRespawn, EventHookMode_Post);
 		HookEvent("player_hurt", Event_PlayerHurt, EventHookMode_Post);
 		HookEvent("player_changeclass", Event_PlayerChangeClass, EventHookMode_Post);
 	}
@@ -156,6 +157,14 @@ public OnConfigsExecuted()
 public OnClientDisconnect(client)
 {
 	Client_DisableFun(client);
+	//should move this to the enable fun function, but leave it here for testing
+	SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage);
+}
+
+public OnClientPostAdminCheck(client)
+{
+	//should move this to the enable fun function, but leave it here for testing
+	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
 public OnMapStart()
@@ -175,6 +184,15 @@ public Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
+public Event_PlayerRespawn(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	if (GetSettingValue("enabled") && g_FunTime[InFunTime]) 
+	{
+		Client_EnableFun(client);
+	}
+}
+
 public Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (GetSettingValue("enabled") && GetSettingValue("prophunt_hitremove"))
@@ -182,7 +200,7 @@ public Event_PlayerHurt(Handle:event, const String:name[], bool:dontBroadcast)
 		new client = GetClientOfUserId(GetEventInt(event, "userid"));
 		new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
 		
-		if (!IsValidClient(client) || client == attacker)
+		if (!IsValidClient(client, false) || client == attacker)
 		{
 			return;
 		}
@@ -204,7 +222,7 @@ public Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	
-	if (IsValidClient(client))
+	if (IsValidClient(client, false))
 	{
 		if (g_bIsPropModel[client])
 		{
@@ -212,7 +230,7 @@ public Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 		}
 		if (g_aPlayer_Respawn[client])
 		{
-			TF2_RespawnPlayer(client);
+			CreateTimer(0.5, Timer_RespawnPlayer, client, TIMER_FLAG_NO_MAPCHANGE);
 		}
 	}
 }
@@ -275,14 +293,30 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 public Action:Timer_EnableFunTime(Handle:timer)
 {
 	Client_EnableFunAll();
+	for (new i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i, false) && !IsPlayerAlive(i))
+		{
+			TF2_RespawnPlayer(i);
+		}
+	}
 }
 
 public Action:Timer_DisableFunTime(Handle:timer)
 {
+	Client_DisableFunAll();
 	g_FunTime[Won] = TFTeam_Unassigned;
 	g_FunTime[Lost] = TFTeam_Unassigned;
 	g_FunTime[InFunTime] = false;
-	Client_DisableFunAll();
+	DisableFF();
+}
+
+public Action:Timer_RespawnPlayer(Handle:timer, any:client)
+{
+	if (!IsPlayerAlive(client))
+	{
+		TF2_RespawnPlayer(client);
+	}
 }
 
 public Action:Command_TestFeature(client, args)
@@ -376,8 +410,8 @@ stock Client_EnableFun(client)
 		return;
 	}
 	
-	new bool:bLoser = TFTeam:GetClientTeam(client) == g_FunTime[Won] ? true : false;
-	if (team == bLoser)
+	new bool:bLoser = (TFTeam:GetClientTeam(client) == g_FunTime[Won]) ? false : true;
+	if (bLoser)
 	{
 		if (GetSettingValue("flip_enabled"))
 		{
@@ -468,7 +502,7 @@ stock Client_EnableFunAll()
 {
 	for (new i = 1; i <= MaxClients; i++) 
 	{
-		if (IsValidClient(i)) 
+		if (IsValidClient(i, false)) 
 		{
 			Client_EnableFun(i);
 		}
@@ -477,19 +511,21 @@ stock Client_EnableFunAll()
 
 stock Client_DisableFun(client)
 {
-	Client_DisableGodMode(client);
-	Client_DisablePowerPlay(client);
-	Client_DisableNoBlock(client);
 	Client_DisablePropHunt(client);
-	//Client_DisableEffects(client);
+	Client_DisablePowerPlay(client);
+	Client_DisableRespawn(client);
 	Client_DisableUnlimitedAmmo(client);
+	Client_DisableNoBlock(client);
+	Client_DisableGodMode(client);
+
+	//Client_DisableEffects(client);
 }
 
 stock Client_DisableFunAll()
 {
 	for (new i = 1; i <= MaxClients; i++) 
 	{
-		if (IsValidClient(i)) 
+		if (IsValidClient(i, false)) 
 		{
 			Client_DisableFun(i);
 		}

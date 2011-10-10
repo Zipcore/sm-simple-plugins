@@ -45,16 +45,12 @@ new Handle:g_hModelPaths = INVALID_HANDLE;
 
 new bool:g_bIsPropModel[MAXPLAYERS+1] = { false, ... };
 
-new g_oFOV = -1;
-new g_oDefFOV = -1;
 new g_iPropArraySize = -1;
 
 public Client_EnablePropHunt(client, Float:gravity)
 {
-	if (g_oFOV == -1)
+	if (g_iPropArraySize == -1)
 	{
-		g_oFOV = FindSendPropOffs("CBasePlayer", "m_iFOV");
-		g_oDefFOV = FindSendPropOffs("CBasePlayer", "m_iDefaultFOV");
 		g_iPropArraySize = GetArraySize(g_hModelNames) - 1;
 	}
 	
@@ -70,7 +66,6 @@ public Client_EnablePropHunt(client, Float:gravity)
 	
 	g_bIsPropModel[client] = true;
 	Colorize(client, INVIS);
-	SwitchView(client, true, false);
 	StripWeapons(client);
 	SetEntityGravity(client, gravity);
 
@@ -84,21 +79,15 @@ public Client_EnablePropHunt(client, Float:gravity)
 
 public Client_DisablePropHunt(client)
 {
-	if (g_oFOV == -1)
+	if (g_iPropArraySize == -1)
 	{
-		g_oFOV = FindSendPropOffs("CBasePlayer", "m_iFOV");
-		g_oDefFOV = FindSendPropOffs("CBasePlayer", "m_iDefaultFOV");
 		g_iPropArraySize = GetArraySize(g_hModelNames) - 1;
 	}
 	
-	if (IsValidEntity(client))
-	{
-		SetVariantString("");
-		AcceptEntityInput(client, "SetCustomModel");
-		Colorize(client, NORMAL);
-		SwitchView(client, false, true);
-		SetEntityGravity(client, 1.0);
-	}
+	SetVariantString("");
+	AcceptEntityInput(client, "SetCustomModel");
+	Colorize(client, NORMAL);
+	SetEntityGravity(client, 1.0);
 	
 	g_bIsPropModel[client] = false;
 }
@@ -113,24 +102,16 @@ stock PrecachePropHuntModels()
 	} 
 }
 
-stock SwitchView(target, bool:observer, bool:viewmodel)
-{	
-	SetEntPropEnt(target, Prop_Send, "m_hObserverTarget", observer ? target : -1);
-	SetEntProp(target, Prop_Send, "m_iObserverMode", observer ? 1 : 0);
-	SetEntData(target, g_oFOV, observer ? 100 : GetEntData(target, g_oDefFOV, 4), 4, true);		
-	SetEntProp(target, Prop_Send, "m_bDrawViewmodel", viewmodel ? 1 : 0);
-}
-
 stock Colorize(client, color[4])
 {	
 	new TFClassType:class = TF2_GetPlayerClass(client);
 	
 	//Colorize the wearables, such as hats
-	SetWearablesRGBA_Impl(client, "tf_wearable_item", "CTFWearableItem",color);
+	SetWearablesRGBA_Impl(client, "tf_wearable", "CTFWearableItem",color);
 
 	if(class == TFClass_DemoMan)
 	{
-		SetWearablesRGBA_Impl(client, "tf_wearable_item_demoshield", "CTFWearableItemDemoShield", color);
+		SetWearablesRGBA_Impl(client, "tf_wearable_demoshield", "CTFWearableDemoShield", color);
 		TF2_RemoveCondition(client, TFCond_DemoBuff);
 	}
 }
