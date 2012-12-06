@@ -35,8 +35,12 @@ $Copyright: (c) Simple Plugins 2008-2009$
 */
 
 #include <sourcemod>
+#include <scp>
+#include <forwardex>
+#undef REQUIRE_PLUGIN
+#include <updater>
 
-#define PLUGIN_VERSION				"1.0.2"
+#define PLUGIN_VERSION				"1.1.3B2"
 #define SENDER_WORLD					0
 #define MAXLENGTH_INPUT			128 	// Inclues \0 and is the size of the chat input box.
 #define MAXLENGTH_NAME				64		// This is backwords math to get compability.  Sourcemod has it set at 32, but there is room for more.
@@ -48,13 +52,21 @@ $Copyright: (c) Simple Plugins 2008-2009$
 #define CHATFLAGS_SPEC				(1<<2)
 #define CHATFLAGS_DEAD				(1<<3)
 
+#define COLOR_RED 0xFF4040
+#define COLOR_BLUE 0x99CCFF
+#define COLOR_GRAY 0xCCCCCC
+#define COLOR_GREEN 0x3EFF3E
+
 #define ADDSTRING(%1) SetTrieValue(g_hChatFormats, %1, 1)
+
+#define UPDATE_URL "http://dl.dropbox.com/u/83581539/scp/scp_updater.txt"
 
 enum eMods
 {
 	GameType_Unknown,
 	GameType_AOC,
 	GameType_CSS,
+	GameType_CSGO,
 	GameType_DOD,
 	GameType_FF,
 	GameType_HIDDEN,
@@ -69,52 +81,70 @@ enum eMods
 	GameType_ZPS
 };
 
-new eMods:g_CurrentMod;
-new String:g_sGameName[eMods][32] = {		"Unknown",
-																							"Age of Chivalry",
-																							"Counter Strike",
-																							"Day Of Defeat",
-																							"Fortress Forever",
-																							"Hidden: Source",
-																							"Half Life 2: Deathmatch",
-																							"Insurgency",
-																							"Left 4 Dead",
-																							"Left 4 Dead 2",
-																							"Neotokyo",
-																							"Stargate TLS",
-																							"Team Fortress 2",
-																							"Dark Messiah",
-																							"Zombie Panic: Source"
+new Handle:g_hDPArray = INVALID_HANDLE;
+
+new eMods:g_iCurrentMod;
+new String:g_strGameName[eMods][33] = 
+{		
+	"Unknown",
+	"Age of Chivalry",
+	"Counter-Strike: Source",
+	"Counter-Strike: Global Offensive",
+	"Day Of Defeat: Source",
+	"Fortress Forever",
+	"Hidden: Source",
+	"Half Life 2: Deathmatch",
+	"Insurgency",
+	"Left 4 Dead",
+	"Left 4 Dead 2",
+	"Neotokyo",
+	"Stargate TLS",
+	"Team Fortress 2",
+	"Dark Messiah",
+	"Zombie Panic: Source"
 };
 
-new Handle:g_hChatFormats = INVALID_HANDLE;
-new Handle:g_fwdOnChatMessage;
+new Handle:g_hChatFormats = INVALID_HANDLE,
+	Handle:g_hFwdOnChatMessage,
+	Forward:g_fChatMsgPre,
+	Forward:g_fClientMsgPre,
+	Forward:g_fClientMsgPost,
+	Handle:g_hChatMsgPrivFwdPost;
+
+new	bool:g_bAutoUpdate;
 
 new g_CurrentChatType = CHATFLAGS_INVALID;
 
 public Plugin:myinfo =
 {
-	name = "Simple Chat Processor",
-	author = "Simple Plugins",
+	name = "Simple Chat Processor (Redux)",
+	author = "Simple Plugins, Mini",
 	description = "Process chat and allows other plugins to manipulate chat.",
 	version = PLUGIN_VERSION,
-	url = "http://www.simple-plugins.com"
+	url = "http://forums.alliedmods.net"
 };
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
 	CreateNative("GetMessageFlags", Native_GetMessageFlags);
+	CreateNative("HookChatMessage", Native_HookChatMessage);
+	CreateNative("UnhookChatMessage", Native_UnookChatMessage);
 	RegPluginLibrary("scp");
 	return APLRes_Success;
 }
 
 public OnPluginStart()
 {
-	CreateConVar("sc_core_version", PLUGIN_VERSION, "Simple Chat Processor", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	
-	g_CurrentMod = GetCurrentMod();
+	new Handle:conVar = CreateConVar("sm_scp_autoupdate", "1", "Is auto-update enabled?");
+	g_bAutoUpdate = GetConVarBool(conVar);
+	HookConVarChange(conVar, OnAutoUpdateChange);
+
+	CloseHandle(conVar);
+
+
+	g_iCurrentMod = GetCurrentMod();
 	g_hChatFormats = CreateTrie();
-	LogMessage("[SCP] Recognized mod [%s].", g_sGameName[g_CurrentMod]);
+	LogMessage("[SCP] Recognized mod [%s].", g_strGameName[g_iCurrentMod]);
 	
 	/**
 	Hook the usermessage or error out if the mod doesn't support saytext2
@@ -124,10 +154,14 @@ public OnPluginStart()
 	{
 		HookUserMessage(umSayText2, OnSayText2, true);
 	}
+	else if (g_iCurrentMod == GameType_DOD && ((umSayText2 = GetUserMessageId("SayText")) != INVALID_MESSAGE_ID))
+	{
+		HookUserMessage(umSayText2, OnSayText2, true);
+	}
 	else
 	{
-		LogError("[SCP] This mod appears not to support SayText2.  Plugin disabled.");
-		SetFailState("Error hooking usermessage saytext2");	
+		LogError("[SCP] This mod appears not to support SayText2 or SayText.  Plugin disabled.");
+		SetFailState("Error hooking usermessage SayText2/SayText");	
 	}
 	
 	/**
@@ -158,7 +192,21 @@ public OnPluginStart()
 	/**
 	Create the global forward for other plugins
 	*/
-	g_fwdOnChatMessage = CreateGlobalForward("OnChatMessage", ET_Hook, Param_CellByRef, Param_Cell, Param_String, Param_String);
+	g_hFwdOnChatMessage = CreateGlobalForward("OnChatMessage", ET_Hook, Param_CellByRef, Param_Cell, Param_String, Param_String);
+
+	g_hChatMsgPrivFwdPost = CreateForward(ET_Ignore, Param_Cell, Param_Array, Param_String, Param_String);
+
+	g_hDPArray = CreateArray();
+	FwdEx_Init();
+
+	g_fChatMsgPre = FwdEx_CreateForward();
+	g_fClientMsgPre = FwdEx_CreateForward();
+	g_fClientMsgPost = FwdEx_CreateForward();
+}
+
+public OnAutoUpdateChange(Handle:conVar, const String:oldVal[], const String:newVal[])
+{
+	g_bAutoUpdate = bool:StringToInt(newVal);
 }
 
 public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients, bool:reliable, bool:init)
@@ -182,8 +230,9 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	This also determines the message type...
 	*/
 	decl String:cpTranslationName[32];
-	decl buffer;
+	new buffer;
 	BfReadString(bf, cpTranslationName, sizeof(cpTranslationName));
+	Color_StripFromChatText(cpTranslationName, cpTranslationName, sizeof(cpTranslationName));
 	if (!GetTrieValue(g_hChatFormats, cpTranslationName, buffer))
 	{
 		return Plugin_Continue;
@@ -219,8 +268,13 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	if (BfGetNumBytesLeft(bf))
 	{
 		BfReadString(bf, cpSender_Name, sizeof(cpSender_Name));
+		Color_StripFromChatText(cpSender_Name, cpSender_Name, sizeof(cpSender_Name));
 	}
-	
+	else
+	{
+		return Plugin_Continue;
+	}
+
 	/**
 	Get the message
 	*/
@@ -228,17 +282,43 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	if (BfGetNumBytesLeft(bf))
 	{
 		BfReadString(bf, cpMessage, sizeof(cpMessage));
+		Color_StripFromChatText(cpMessage, cpMessage, sizeof(cpMessage));
 	}
-	
-	/**
-	Store the clients in an array so the call can manipulate it.
-	*/
-	new Handle:cpRecipients = CreateArray(1, 1);
-	for (new i = 0; i < numClients; i++)
+	else
 	{
-		PushArrayCell(cpRecipients, clients[i]);
+		return Plugin_Continue;
+	}
+
+	new bool:post = GetForwardFunctionCount(g_hChatMsgPrivFwdPost) ? true : false;
+
+	if (!GetForwardFunctionCount(g_hFwdOnChatMessage) && !FwdEx_GetFwdCount(g_fChatMsgPre))
+	{
+		if (post)
+		{
+			new Handle:cpPack = CreateDataPack();
+
+			WritePackCell(cpPack, true);
+			WritePackCell(cpPack, cpSender);
+			WritePackCell(cpPack, bChat);
+			WritePackString(cpPack, cpTranslationName);
+			WritePackString(cpPack, cpSender_Name);
+			WritePackString(cpPack, cpMessage);
+
+			WritePackCell(cpPack, numClients);
+
+			for (new i = 0; i < numClients; i++)
+			{
+				WritePackCell(cpPack, clients[i]);
+			}
+
+			ResetPack(cpPack);
+			PushArrayCell(g_hDPArray, cpPack);
+		}
+		return Plugin_Continue;
 	}
 	
+	new bool:bRecipitents[MAXPLAYERS + 1] = { false };
+
 	/**
 	Because the message could be changed but not the name
 	we need to compare the original name to the returned name.
@@ -249,35 +329,198 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	strcopy(sOriginalName, sizeof(sOriginalName), cpSender_Name);
 	
 	/**
-	Start the forward for other plugins
-	*/
+	 * Start the forward for other plugins (Old Version)
+	 */
+
+	new Handle:cpRecipients = CreateArray();
+	for (new i = 0; i < numClients; i++)
+	{
+		PushArrayCell(cpRecipients, clients[i]);
+	}
+
 	new Action:fResult;
-	Call_StartForward(g_fwdOnChatMessage);
+	Call_StartForward(g_hFwdOnChatMessage);
 	Call_PushCellRef(cpSender);
 	Call_PushCell(cpRecipients);
 	Call_PushStringEx(cpSender_Name, sizeof(cpSender_Name), SM_PARAM_STRING_UTF8|SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
 	Call_PushStringEx(cpMessage, sizeof(cpMessage), SM_PARAM_STRING_UTF8|SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
 	new fError = Call_Finish(fResult);
 	
-	g_CurrentChatType = CHATFLAGS_INVALID;
-	
 	if (fError != SP_ERROR_NONE)
 	{
 		ThrowNativeError(fError, "Forward failed");
 		CloseHandle(cpRecipients);
+		if (post)
+		{
+			new Handle:cpPack = CreateDataPack();
+
+			WritePackCell(cpPack, true);
+			WritePackCell(cpPack, cpSender);
+			WritePackCell(cpPack, bChat);
+			WritePackString(cpPack, cpTranslationName);
+			WritePackString(cpPack, cpSender_Name);
+			WritePackString(cpPack, cpMessage);
+
+			WritePackCell(cpPack, numClients);
+
+			for (new i = 0; i < numClients; i++)
+			{
+				WritePackCell(cpPack, clients[i]);
+			}
+
+			ResetPack(cpPack);
+			PushArrayCell(g_hDPArray, cpPack);
+		}
 		return Plugin_Continue;
 	}
 	else if (fResult == Plugin_Continue)
 	{
 		CloseHandle(cpRecipients);
+		if (post)
+		{
+			new Handle:cpPack = CreateDataPack();
+
+			WritePackCell(cpPack, true);
+			WritePackCell(cpPack, cpSender);
+			WritePackCell(cpPack, bChat);
+			WritePackString(cpPack, cpTranslationName);
+			WritePackString(cpPack, cpSender_Name);
+			WritePackString(cpPack, cpMessage);
+
+			WritePackCell(cpPack, numClients);
+
+			for (new i = 0; i < numClients; i++)
+			{
+				WritePackCell(cpPack, clients[i]);
+			}
+
+			ResetPack(cpPack);
+			PushArrayCell(g_hDPArray, cpPack);
+		}
 		return Plugin_Continue;
 	}
 	else if (fResult == Plugin_Stop)
 	{
 		CloseHandle(cpRecipients);
+		if (post)
+		{
+			new Handle:cpPack = CreateDataPack();
+
+			WritePackCell(cpPack, true);
+			WritePackCell(cpPack, cpSender);
+			WritePackCell(cpPack, bChat);
+			WritePackString(cpPack, cpTranslationName);
+			WritePackString(cpPack, cpSender_Name);
+			WritePackString(cpPack, cpMessage);
+
+			WritePackCell(cpPack, numClients);
+
+			for (new i = 0; i < numClients; i++)
+			{
+				WritePackCell(cpPack, clients[i]);
+			}
+
+			ResetPack(cpPack);
+			PushArrayCell(g_hDPArray, cpPack);
+		}
 		return Plugin_Handled;
 	}
+
+	DynArrayToBoolArray(cpRecipients, bRecipitents);
+
+	CloseHandle(cpRecipients);
 	
+	decl bool:savedRecipitents[MAXPLAYERS + 1] = { false };
+	Array_Copy(bRecipitents, savedRecipitents, sizeof(savedRecipitents));
+	new cSender = cpSender;
+	decl String:msg[MAXLENGTH_INPUT], String:cName[MAXLENGTH_NAME];
+	strcopy(msg, sizeof(msg), cpMessage);
+	strcopy(cName, sizeof(cName), cpSender_Name);
+
+	new list = FwdEx_GetFwdCount(g_fChatMsgPre);
+	for (new i = 0; i < list; i++)
+	{
+		Call_StartPrivateForward(g_fChatMsgPre, ForwardId:i);
+		Call_PushCellRef(cpSender);
+		Call_PushArrayEx(bRecipitents, sizeof(bRecipitents), SM_PARAM_COPYBACK);
+		Call_PushStringEx(cpSender_Name, sizeof(cpSender_Name), SM_PARAM_STRING_UTF8|SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
+		Call_PushStringEx(cpMessage, sizeof(cpMessage), SM_PARAM_STRING_UTF8|SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
+		fError = Call_Finish(fResult);
+
+		if (fError != SP_ERROR_NONE)
+		{
+			ThrowNativeError(fError, "Forward failed");
+			CloseHandle(cpRecipients);
+			g_CurrentChatType = CHATFLAGS_INVALID;
+			if (post)
+			{
+				new Handle:cpPack = CreateDataPack();
+
+				WritePackCell(cpPack, true);
+				WritePackCell(cpPack, cpSender);
+				WritePackCell(cpPack, bChat);
+				WritePackString(cpPack, cpTranslationName);
+				WritePackString(cpPack, cpSender_Name);
+				WritePackString(cpPack, cpMessage);
+
+				WritePackCell(cpPack, numClients);
+
+				for (new x = 0; x < numClients; x++)
+				{
+					WritePackCell(cpPack, clients[x]);
+				}
+
+				ResetPack(cpPack);
+				PushArrayCell(g_hDPArray, cpPack);
+			}
+			return Plugin_Continue;
+		}
+		else if (fResult == Plugin_Continue)
+		{
+			g_CurrentChatType = CHATFLAGS_INVALID;
+			cpSender = cSender;
+			strcopy(cpMessage, sizeof(cpMessage), msg);
+			strcopy(cpSender_Name, sizeof(cpSender_Name), cName);
+			Array_Copy(savedRecipitents, bRecipitents, sizeof(bRecipitents));
+			continue;
+		}
+		else if (fResult != Plugin_Changed)
+		{
+			g_CurrentChatType = CHATFLAGS_INVALID;
+			if (post)
+			{
+				new Handle:cpPack = CreateDataPack();
+
+				WritePackCell(cpPack, true);
+				WritePackCell(cpPack, cpSender);
+				WritePackCell(cpPack, bChat);
+				WritePackString(cpPack, cpTranslationName);
+				WritePackString(cpPack, cpSender_Name);
+				WritePackString(cpPack, cpMessage);
+
+				WritePackCell(cpPack, numClients);
+
+				for (new x = 0; x < numClients; x++)
+				{
+					WritePackCell(cpPack, clients[x]);
+				}
+
+				ResetPack(cpPack);
+				PushArrayCell(g_hDPArray, cpPack);
+			}
+			return Plugin_Handled;
+		}
+		cSender = cpSender;
+		strcopy(msg, sizeof(msg), cpMessage);
+		strcopy(cName, sizeof(cName), cpSender_Name);
+	}
+	
+	list = FwdEx_GetFwdCount(g_fClientMsgPre);
+	for (new i = 0; i < list; i++)
+	{
+		
+	}
+
 	/**
 	This is the check for a name change.  If it has not changed we add the team color code
 	*/
@@ -290,35 +533,27 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	Create a timer to print the message on the next gameframe
 	*/
 	new Handle:cpPack = CreateDataPack();
-	new numRecipients = GetArraySize(cpRecipients);
-	
-	WritePackCell(cpPack, cpSender);
 
-	for (new i = 0; i < numRecipients; i++)
-	{
-		new x = GetArrayCell(cpRecipients, i);
-		if (!IsValidClient(x))
-		{
-			numRecipients--;
-			RemoveFromArray(cpRecipients, i);
-		}
-	}
-	
-	WritePackCell(cpPack, numRecipients);
-	
-	for (new i = 0; i < numRecipients; i++)
-	{
-		new x = GetArrayCell(cpRecipients, i);
-		WritePackCell(cpPack, x);
-	}
-		
+	WritePackCell(cpPack, false);
+	WritePackCell(cpPack, cpSender);
 	WritePackCell(cpPack, bChat);
 	WritePackString(cpPack, cpTranslationName);
 	WritePackString(cpPack, cpSender_Name);
-	WritePackString(cpPack, cpMessage);	
-	CreateTimer(0.001, ResendMessage, cpPack, TIMER_FLAG_NO_MAPCHANGE);
-	
-	CloseHandle(cpRecipients);
+	WritePackString(cpPack, cpMessage);
+
+	new changedClients[MAXPLAYERS + 1], changedNumClients;
+
+	FromClientArrayFromBools(bRecipitents, changedClients, changedNumClients);
+
+	WritePackCell(cpPack, changedNumClients);
+
+	for (new i = 0; i < changedNumClients; i++)
+	{
+		WritePackCell(cpPack, changedClients[i]);
+	}
+
+	ResetPack(cpPack);
+	PushArrayCell(g_hDPArray, cpPack);
 	
 	/**
 	Stop the original message
@@ -326,42 +561,247 @@ public Action:OnSayText2(UserMsg:msg_id, Handle:bf, const clients[], numClients,
 	return Plugin_Handled;
 }
 
-public Action:ResendMessage(Handle:timer, any:pack)
+public OnGameFrame()
 {
-	ResetPack(pack);
-	new client = ReadPackCell(pack);
-	new numClientsStart = ReadPackCell(pack);
-	new numClientsFinish;
-	new clients[numClientsStart];
-
-	for (new i = 0; i < numClientsStart; i++)
+	for (new i = 0; i < GetArraySize(g_hDPArray); i++)
 	{
-		new buffer = ReadPackCell(pack);
-		if (IsValidClient(buffer))
+		new Handle:pack = GetArrayCell(g_hDPArray, i);
+		new bool:fwdOnly = bool:ReadPackCell(pack);
+		new client = ReadPackCell(pack);
+		new bool:bChat = bool:ReadPackCell(pack);
+		decl String:sChatType[32];
+		decl String:sSenderName[MAXLENGTH_NAME];
+		decl String:sMessage[MAXLENGTH_INPUT];
+		ReadPackString(pack, sChatType, sizeof(sChatType));
+		ReadPackString(pack, sSenderName, sizeof(sSenderName));
+		ReadPackString(pack, sMessage, sizeof(sMessage));
+
+		decl String:sTranslation[MAXLENGTH_MESSAGE], String:sPrintTranslation[MAXLENGTH_MESSAGE + 32];
+		Format(sTranslation, sizeof(sTranslation), "%t", sChatType, sSenderName, sMessage);
+
+		if (!fwdOnly)
 		{
-			clients[numClientsFinish++] = buffer;
+			String_Convert(client, sTranslation, sPrintTranslation);
+		}
+
+		new numClientsStart = ReadPackCell(pack);
+		new numClientsFinish;
+		new clients[numClientsStart];
+
+		for (new x = 0; x < numClientsStart; x++)
+		{
+			new buffer = ReadPackCell(pack);
+			if (IsValidClient(buffer))
+			{
+				clients[numClientsFinish++] = buffer;
+				if (!fwdOnly)
+				{
+					new Handle:bf = StartMessageOne("SayText2", buffer, USERMSG_RELIABLE);
+
+					BfWriteByte(bf, client);
+					BfWriteByte(bf, bChat);
+					BfWriteString(bf, sTranslation);
+					EndMessage();
+				}
+				new count = FwdEx_GetFwdCount(g_fClientMsgPost);
+				for (new y = 0; y < count; y++)
+				{
+					Call_StartPrivateForward(g_fClientMsgPost, ForwardId:y);
+					Call_PushCell(client);
+					Call_PushCell(buffer);
+					Call_PushString(sSenderName);
+					Call_PushString(sMessage);
+					Call_Finish();
+				}
+			}
+		}
+
+		new bool:bRecipitents[MAXPLAYERS + 1];
+		FormBoolArrayFromClients(clients, numClientsFinish, bRecipitents);
+
+		Call_StartForward(g_hChatMsgPrivFwdPost);
+		Call_PushCell(client);
+		Call_PushArray(bRecipitents, (MAXPLAYERS + 1));
+		Call_PushString(sSenderName);
+		Call_PushString(sMessage);
+		Call_Finish();
+
+		RemoveFromArray(g_hDPArray, i);
+
+		CloseHandle(pack);
+
+		g_CurrentChatType = CHATFLAGS_INVALID;
+	}
+}
+
+stock String_Convert(&author, const String:input[], String:output[])
+{
+	for (new i = 0; i < strlen(input); i++)
+	{
+		if (input[i] == '\0')
+		{
+			output[i] = '\0';
+			break;
+		}
+		if (input[i] == 0x03)
+		{
+			output[i] = GetAuthColor(author);
+		}
+		else
+			output[i] = input[i];
+	}
+}
+
+stock GetAuthColor(client)
+{
+	switch (GetClientTeam(client))
+	{
+		case 2:
+		{
+			return COLOR_RED;
+		}
+		case 3:
+		{
+			return COLOR_BLUE;
+		}
+		default: 
+		{
+			return COLOR_GRAY;
+		}
+	}
+	return COLOR_GREEN;
+}
+
+stock DynArrayToBoolArray(const Handle:adt_array, bool:bRecipitents[MAXPLAYERS + 1])
+{
+	new size = GetArraySize(adt_array);
+
+	for (new i = 0; i <= MAXPLAYERS; i++)
+	{
+		bRecipitents[i] = false;
+	}
+
+	for (new i = 0; i < size; i++)
+	{
+		new client = GetArrayCell(adt_array, i);
+		if (IsValidClient(client))
+			bRecipitents[client] = true;
+	}
+}
+
+/**
+ * Credit Goes to SMlib
+ */
+
+stock Color_StripFromChatText(const String:input[], String:output[], size)
+{
+	new x = 0;
+	for (new i=0; input[i] != '\0'; i++) 
+	{
+	
+		if (x + 1 == size) 
+		{
+			break;
+		}
+
+		new char = input[i];
+		
+		if (char > 0x08) 
+		{
+			output[x++] = char;
 		}
 	}
 	
-	new bool:bChat = bool:ReadPackCell(pack);
-	decl String:sChatType[32];
-	decl String:sSenderName[MAXLENGTH_NAME];
-	decl String:sMessage[MAXLENGTH_INPUT];
-	ReadPackString(pack, sChatType, sizeof(sChatType));
-	ReadPackString(pack, sSenderName, sizeof(sSenderName));
-	ReadPackString(pack, sMessage, sizeof(sMessage));
-	
-	decl String:sTranslation[MAXLENGTH_MESSAGE];
-	Format(sTranslation, sizeof(sTranslation), "%t", sChatType, sSenderName, sMessage);
-	
-	new Handle:bf = StartMessage("SayText2", clients, numClientsFinish, USERMSG_RELIABLE|USERMSG_BLOCKHOOKS);
-	BfWriteByte(bf, client);
-	BfWriteByte(bf, bChat);
-	BfWriteString(bf, sTranslation);
-	EndMessage();
-	
-	CloseHandle(pack);
-	return Plugin_Stop;
+	output[x] = '\0';
+}
+
+/**
+ * Credit Goes to SMlib
+ */
+
+stock Array_Copy(const any:array[], any:newArray[], size)
+{
+	for (new i=0; i < size; i++) {
+		newArray[i] = array[i];
+	}
+}
+
+
+stock Array_Remove(any:array[], &arraySize, const index)
+{
+	for (new i = index + 1; i < arraySize; i--)
+	{
+		array[i - 1] = array[i];
+	}
+	arraySize--;
+}
+
+stock FormBoolArrayFromClients(const clients[], const numClients, bool:cpRecipients[MAXPLAYERS + 1])
+{
+	for (new i = 0; i <= MAXPLAYERS; i++)
+	{
+		cpRecipients[i] = (IsValidClient(i) ? true : false);
+	}
+}
+
+stock FromClientArrayFromBools(const bool:cpRecipients[MAXPLAYERS + 1], clients[], &numClients)
+{
+	numClients = 0;
+	for (new i = 0; i <= MAXPLAYERS; i++)
+	{
+		if (IsValidClient(i) && cpRecipients[i])
+		{
+			clients[numClients++] = i;
+		}
+	}
+}
+
+public Native_HookChatMessage(Handle:plugin, numParams)
+{
+	new ChatMessageHookType:type = ChatMessageHookType:GetNativeCell(1);
+	switch (type)
+	{
+		case ChatMessageHookType_PreChat:
+		{
+			FwdEx_AddToForward(g_fChatMsgPre, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PostChat:
+		{
+			AddToForward(g_hChatMsgPrivFwdPost, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PreClientChat:
+		{
+			FwdEx_AddToForward(g_fClientMsgPre, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PostClientChat:
+		{
+			FwdEx_AddToForward(g_fClientMsgPost, plugin, Function:GetNativeCell(2));
+		}
+	}
+}
+
+public Native_UnookChatMessage(Handle:plugin, numParams)
+{
+	new ChatMessageHookType:type = ChatMessageHookType:GetNativeCell(1);
+	switch (type)
+	{
+		case ChatMessageHookType_PreChat:
+		{
+			FwdEx_RemoveFromForward(g_fChatMsgPre, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PostChat:
+		{
+			RemoveFromForward(g_hChatMsgPrivFwdPost, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PreClientChat:
+		{
+			FwdEx_RemoveFromForward(g_fClientMsgPre, plugin, Function:GetNativeCell(2));
+		}
+		case ChatMessageHookType_PostClientChat:
+		{
+			FwdEx_RemoveFromForward(g_fClientMsgPost, plugin, Function:GetNativeCell(2));
+		}
+	}
 }
 
 public Native_GetMessageFlags(Handle:plugin, numParams)
@@ -373,7 +813,7 @@ stock bool:IsValidClient(client, bool:nobots = true)
 {  
 	if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client))) 
 	{  
-			return false;  
+		return false;  
 	}  
 	return IsClientInGame(client);  
 }
@@ -437,6 +877,10 @@ stock eMods:GetCurrentMod()
 	{
 		return GameType_CSS;
 	}
+	if (StrEqual(sGameType, "csgo", false))
+	{
+		return GameType_CSGO;
+	}
 	if (StrEqual(sGameType, "dod", false))
 	{
 		return GameType_DOD;
@@ -487,4 +931,74 @@ stock eMods:GetCurrentMod()
 	}
 	LogMessage("Unknown Game Folder: %s", sGameType);
 	return GameType_Unknown;
+}
+
+public OnPluginEnd()
+{
+	CloseHandle(g_hChatFormats);
+	CloseHandle(g_hDPArray);
+	FwdEx_End();
+
+
+}
+
+/**
+ *
+ * Updater Stuff
+ * By Dr. McKay
+ * Edited by Mini
+ *
+ */
+public OnAllPluginsLoaded() 
+{
+	new Handle:convar;
+	if (LibraryExists("updater")) 
+	{
+		Updater_AddPlugin(UPDATE_URL);
+		decl String:newVersion[10];
+		FormatEx(newVersion, sizeof(newVersion), "%sA", PLUGIN_VERSION);
+		convar = CreateConVar("scp_version", newVersion, "Plugin Version", FCVAR_DONTRECORD|FCVAR_NOTIFY|FCVAR_CHEAT);
+	}
+	else 
+	{
+		convar = CreateConVar("scp_version", PLUGIN_VERSION, "Plugin Version", FCVAR_DONTRECORD|FCVAR_NOTIFY|FCVAR_CHEAT);	
+	}
+	HookConVarChange(convar, Callback_VersionConVarChanged);
+
+	CloseHandle(convar);
+}
+
+public Callback_VersionConVarChanged(Handle:convar, const String:oldValue[], const String:newValue[]) 
+{
+	ResetConVar(convar);
+}
+
+public OnLibraryAdded(const String:name[])
+{
+	if (!strcmp(name, "updater"))
+	{
+		Updater_AddPlugin(UPDATE_URL);
+	}
+}
+
+public OnLibraryRemoved(const String:name[])
+{
+	if (!strcmp(name, "updater"))
+	{
+		Updater_RemovePlugin();
+	}
+}
+
+public Action:Updater_OnPluginDownloading()
+{
+	if (!g_bAutoUpdate)
+	{
+		return Plugin_Handled;
+	}
+	return Plugin_Continue;
+}
+
+public Updater_OnPluginUpdated() 
+{
+	ReloadPlugin();
 }
